@@ -1,0 +1,183 @@
+/**
+ * Sidebar Mechanics - Collapse width, transitions, text hiding
+ * All theming/colors are handled by Tailwind utilities in resources/css/app.css
+ */
+
+/* CSS Variables for sidebar width */
+:root {
+    --sidebar-width: 215px; /* Default: expanded */
+    --sidebar-collapsed-width: 64px; /* Collapsed (mini, konsisten 56-64px) */
+    --sidebar-transition: width 300ms ease-in-out;
+}
+
+/* Prevent FOUC/flicker: hide dropdowns until Alpine is ready */
+[x-cloak] { 
+    display: none !important; 
+}
+
+/* But sidebar should be visible immediately on desktop */
+@media (min-width: 1024px) {
+    .sidebar[x-cloak] {
+        display: flex !important;
+    }
+}
+
+/* Global overflow prevention */
+html, body {
+    overflow-x: hidden;
+    max-width: 100%;
+}
+
+/* Sidebar base styles with CSS-driven width */
+.sidebar {
+    width: var(--sidebar-width);
+    transition: var(--sidebar-transition);
+    will-change: width;
+}
+
+/* When collapsed class is on html, sidebar is narrow */
+.sidebar-collapsed .sidebar {
+    width: var(--sidebar-collapsed-width);
+}
+
+/* Text visibility using opacity instead of x-show (no DOM detach) */
+.sidebar-text {
+    opacity: 1;
+    transition: opacity 150ms ease-in-out;
+    white-space: nowrap;
+    overflow: hidden;
+}
+
+.sidebar-collapsed .sidebar-text {
+    opacity: 0 !important;
+    width: 0 !important;
+    max-width: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    visibility: hidden;
+    flex: 0 0 auto;
+    pointer-events: none;
+}
+
+/* Icon: ukuran tetap, tidak mengecil, tidak bergeser */
+.sidebar-icon {
+    transition: margin 150ms ease-in-out;
+    flex-shrink: 0;
+}
+
+.sidebar-collapsed .sidebar-icon {
+    width: 1.5rem !important;
+    height: 1.5rem !important;
+    flex-shrink: 0 !important;
+    margin: 0 !important;
+}
+
+/* Hide dropdown submenus when collapsed to prevent icon cutoff/overlap */
+.sidebar-collapsed .sidebar-submenu {
+    display: none !important;
+}
+
+/* Hide group titles when collapsed */
+.sidebar-collapsed .sidebar-title {
+    display: none;
+}
+
+/* Hide brand logo when collapsed */
+.sidebar-collapsed .sidebar-brand-logo {
+    display: none;
+}
+
+/* Collapsed header like Simmutu mini mode */
+.sidebar-collapsed .sidebar-header {
+    padding: 1rem 0 !important;
+    justify-content: center !important;
+}
+
+.sidebar-collapsed .sidebar-header > div {
+    justify-content: center !important;
+    gap: 0 !important;
+    width: 100%;
+}
+
+/* Nav gutter: override px-6 dari Blade agar icon tidak terpotong.
+   Item di dalamnya memakai padding horizontal 0 + justify center. */
+.sidebar-collapsed .sidebar-scroll {
+    padding-left: 0.5rem !important;
+    padding-right: 0.5rem !important;
+    overflow-x: hidden !important;
+}
+
+/* Collapsed: center icons (Simmutu mini padding) */
+.sidebar-collapsed .sidebar-link,
+.sidebar-collapsed .sidebar-btn {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 0 !important;
+    width: 100% !important;
+    min-height: 2.75rem;
+    padding: 0.7rem 0 !important;
+    overflow: hidden !important;
+}
+
+/* Inner wrapper di dalam sidebar-btn (flex items-center gap-3 dari Blade):
+   harus ikut di-center dan gap-nya dihilangkan agar icon tepat di tengah. */
+.sidebar-collapsed .sidebar-btn > div {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    width: 100% !important;
+}
+
+/* Cegah overflow horizontal saat collapsed */
+.sidebar-collapsed .sidebar {
+    overflow-x: hidden !important;
+}
+
+/* Custom Scrollbar for Sidebar */
+.sidebar-scroll::-webkit-scrollbar {
+    width: 6px;
+}
+
+.sidebar-scroll::-webkit-scrollbar-track {
+    background: rgba(0, 0, 0, 0.03);
+    border-radius: 10px;
+}
+
+.sidebar-scroll::-webkit-scrollbar-thumb {
+    background: rgba(0, 0, 0, 0.15);
+    border-radius: 10px;
+}
+
+.sidebar-scroll::-webkit-scrollbar-thumb:hover {
+    background: rgba(0, 0, 0, 0.25);
+}
+
+/* For Firefox */
+.sidebar-scroll {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(0, 0, 0, 0.15) rgba(0, 0, 0, 0.03);
+}
+
+/* Mobile sidebar - use transform for slide */
+@media (max-width: 1023px) {
+    .sidebar {
+        transform: translateX(-100%);
+        transition: transform 300ms ease-in-out;
+        width: 215px !important; /* Always full width on mobile */
+    }
+    
+    .sidebar.mobile-open {
+        transform: translateX(0);
+    }
+}
+
+/* Desktop: sidebar is always visible, just changes width */
+@media (min-width: 1024px) {
+    .sidebar {
+        transform: translateX(0) !important;
+    }
+}

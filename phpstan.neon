@@ -1,0 +1,34 @@
+includes:
+    - vendor/larastan/larastan/extension.neon
+    # - phpstan-baseline.neon
+
+parameters:
+    level: 5
+    # Level 0-10, starterpack mulai 5 (balanced).
+    # Naikkan bertahap ke 6, 8, lalu max (10) setelah codebase stabil.
+    # Lihat: https://phpstan.org/user-guide/rule-levels
+
+    paths:
+        - app
+        - config
+        - database
+        - routes
+
+    excludePaths:
+        - vendor
+        - storage
+        - bootstrap/cache
+        - node_modules
+        - storage/framework/views
+
+    reportUnmatchedIgnoredErrors: false
+
+    # Tombol strictness tambahan (uncomment jika ingin lebih ketat):
+    # checkMissingIterableValueType: false
+    # checkGenericClassInNonGenericObjectType: false
+    # treatPhpDocTypesAsCertain: false
+
+    # Contoh ignore spesifik (prefer baseline untuk legacy):
+    # ignoreErrors:
+    #     - identifier: larastan.relationExistence
+    #       path: app/Http/Controllers/LegacyController.php
