@@ -8,6 +8,9 @@
         <x-slot name="title">Import Excel Tarif</x-slot>
         <x-slot name="subtitle">Pilih jenis tarif, upload Excel (11 kolom), scan, periksa preview, lalu import</x-slot>
         <x-slot name="actions">
+            <a href="{{ route('tarif-import.batches') }}" class="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-semibold text-gray-600 border border-gray-300 rounded-md bg-white hover:bg-gray-50 transition-colors">
+                <i class="bi bi-clock-history"></i> Riwayat Import
+            </a>
             <a href="{{ route('tarif-import.template') }}" class="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-semibold text-gray-600 border border-gray-300 rounded-md bg-white hover:bg-gray-50 transition-colors">
                 <i class="bi bi-file-earmark-spreadsheet"></i> Template
             </a>
@@ -44,67 +47,24 @@
         </form>
     </x-card>
 
-    @if(isset($pending))
-        <x-card>
-            <x-slot name="title">Memindai {{ $pending['filename'] }}</x-slot>
-            <x-slot name="subtitle">{{ $pending['jenis_tarif_name'] }} &bull; file besar diproses bertahap agar tidak timeout</x-slot>
-            <div class="flex flex-col gap-2">
-                <div class="w-full bg-gray-200 rounded-full h-3 overflow-hidden">
-                    <div id="scan-bar" class="bg-sp-primary h-3 rounded-full transition-all duration-300" style="width: 0%"></div>
-                </div>
-                <p id="scan-text" class="text-sm text-gray-600">Menyiapkan...</p>
-                <p id="scan-error" class="hidden text-sm font-medium text-red-700 bg-red-50 border border-red-200 rounded-md px-3 py-2"></p>
-            </div>
-        </x-card>
-        <script>
-        (function () {
-            const token = @json($pending['token']);
-            const total = Math.max(@json($pending['total']), 1);
-            const bar = document.getElementById('scan-bar');
-            const text = document.getElementById('scan-text');
-            const errBox = document.getElementById('scan-error');
-            const csrf = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
-            async function poll() {
-                let res;
-                try {
-                    res = await fetch(@json(route('tarif-import.scan-chunk')), {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-CSRF-TOKEN': csrf },
-                        body: JSON.stringify({ token: token }),
-                    });
-                } catch (e) {
-                    return fail('Jaringan terputus. Muat ulang halaman untuk melanjutkan (progres tersimpan).');
-                }
-                if (!res.ok) {
-                    let msg = 'Scan gagal (HTTP ' + res.status + ').';
-                    try { const j = await res.json(); if (j.message) msg = j.message; } catch (e) {}
-                    return fail(msg);
-                }
-                const data = await res.json();
-                const pct = Math.min(100, Math.round((data.processed / total) * 100));
-                bar.style.width = pct + '%';
-                text.textContent = 'Memproses ' + data.processed.toLocaleString('id-ID') + ' dari ~' + total.toLocaleString('id-ID') + ' baris (' + pct + '%)...';
-                if (data.done) {
-                    text.textContent = 'Selesai. Menampilkan hasil...';
-                    window.location = @json(route('tarif-import.result')) + '?token=' + encodeURIComponent(token);
-                } else {
-                    poll();
-                }
-            }
-            function fail(msg) {
-                errBox.textContent = msg;
-                errBox.classList.remove('hidden');
-                text.textContent = 'Terhenti.';
-            }
-            poll();
-        })();
-        </script>
-    @endif
 
     @if(isset($result))
         @if(isset($result['fatal']))
             <x-card>
                 <x-slot name="title">Hasil Scan: {{ $result['filename'] }}</x-slot>
+                <x-slot name="actions">
+                    @if(isset($batch) && $batch->status === \App\Models\ImportBatch::STATUS_SCAN_FAILED)
+                        <form action="{{ route('tarif-import.batches.retry-scan', $batch) }}" method="POST">
+                            @csrf
+                            <button type="submit" class="inline-flex items-center gap-1.5 px-4 py-1.5 text-sm font-semibold text-white rounded-md bg-blue-600 hover:bg-blue-700 transition-colors">
+                                <i class="bi bi-arrow-repeat"></i> Retry Scan
+                            </button>
+                        </form>
+                    @endif
+                    <a href="{{ route('tarif-import.index') }}" class="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-semibold text-gray-600 border border-gray-300 rounded-md bg-white hover:bg-gray-50 transition-colors">
+                        Upload Ulang
+                    </a>
+                </x-slot>
                 <div class="px-4 py-3 text-sm font-medium text-red-700 bg-red-50 border border-red-200 rounded-md">
                     {{ $result['fatal'] }}
                 </div>
@@ -117,15 +77,19 @@
                 <x-slot name="title">Hasil Scan</x-slot>
                 <x-slot name="subtitle">{{ $result['filename'] }} &bull; {{ $result['jenis_tarif_name'] }}</x-slot>
                 <x-slot name="actions">
-                    @if(($result['valid_rows'] ?? 0) + ($result['warning_rows'] ?? 0) > 0)
+                    @if(($result['valid_rows'] ?? 0) + ($result['warning_rows'] ?? 0) > 0 && isset($result['batch_id']))
                         <form action="{{ route('tarif-import.commit') }}" method="POST" onsubmit="return confirm('Import {{ ($result['valid_rows'] ?? 0) + ($result['warning_rows'] ?? 0) }} baris valid ke database? Baris error/duplikat dilewati.');">
                             @csrf
-                            <input type="hidden" name="token" value="{{ $result['token'] }}">
+                            <input type="hidden" name="batch_id" value="{{ $result['batch_id'] }}">
                             <button type="submit" class="inline-flex items-center gap-1.5 px-4 py-1.5 text-sm font-semibold text-white rounded-md bg-green-600 hover:bg-green-700 transition-colors">
                                 <i class="bi bi-upload"></i> Import Data
                             </button>
                         </form>
-                    @else
+                    @elseif(!isset($result['fatal']) && isset($batch) && $batch->status === \App\Models\ImportBatch::STATUS_SCAN_COMPLETED)
+                        <span class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-gray-500 border border-gray-200 rounded-md bg-gray-50" title="Tombol muncul bila ada baris VALID/WARNING">
+                            <i class="bi bi-info-circle"></i> Tidak ada baris siap import (semua error/duplikat)
+                        </span>
+                    @elseif(!isset($result['fatal']))
                         <span class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-gray-500 border border-gray-200 rounded-md bg-gray-50" title="Tombol muncul bila ada baris VALID/WARNING">
                             <i class="bi bi-info-circle"></i> Tidak ada baris siap import (semua {{ ($result['duplicate_rows'] ?? 0) > 0 && ($result['error_rows'] ?? 0) === 0 ? 'duplikat' : 'error/duplikat' }})
                         </span>

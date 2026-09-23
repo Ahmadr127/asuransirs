@@ -12,12 +12,15 @@ class CommitRequest extends FormRequest
     }
 
     /**
+     * Import hanya dari batch yang sudah scan_completed. HTTP tidak
+     * membaca Excel sama sekali.
+     *
      * @return array<string, mixed>
      */
     public function rules(): array
     {
         return [
-            'token' => 'required|string|max:64',
+            'batch_id' => 'required|integer|exists:import_batches,id',
         ];
     }
 
@@ -27,7 +30,8 @@ class CommitRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'token.required' => 'Sesi scan tidak valid. Ulangi proses scan.',
+            'batch_id.required' => 'Batch import tidak valid. Ulangi proses scan.',
+            'batch_id.exists' => 'Batch import tidak ditemukan.',
         ];
     }
 }

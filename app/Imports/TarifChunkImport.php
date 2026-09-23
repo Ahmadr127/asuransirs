@@ -32,6 +32,14 @@ class TarifChunkImport implements ToCollection, WithChunkReading
 
     public int $processedRows = 0;
 
+    /**
+     * Hook opsional per chunk (dipakai queue job untuk update progress
+     * batch tanpa mengubah mekanisme chunking). Dipanggil dengan $this.
+     *
+     * @var callable|null
+     */
+    public $onChunk = null;
+
     public function __construct(
         protected TarifImportService $service,
         protected int $jenisTarifId,
@@ -45,5 +53,9 @@ class TarifChunkImport implements ToCollection, WithChunkReading
     public function collection(Collection $rows): void
     {
         $this->service->importChunk($rows, $this->jenisTarifId, $this->headerMap, $this->seenKeys, $this->existingKeys, $this);
+
+        if (is_callable($this->onChunk)) {
+            ($this->onChunk)($this);
+        }
     }
 }

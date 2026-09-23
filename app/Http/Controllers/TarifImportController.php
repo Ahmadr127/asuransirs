@@ -7,10 +7,12 @@ use App\Http\Requests\TarifImport\CommitRequest;
 use App\Http\Requests\TarifImport\ScanRequest;
 use App\Http\Services\TarifExportService;
 use App\Http\Services\TarifImportService;
+use App\Jobs\ProcessTarifImport;
+use App\Jobs\ScanTarifImport;
+use App\Models\ImportBatch;
 use App\Models\JenisTarif;
 use App\Services\TarifImport\TarifImportColumnMapper;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Storage;
 use Maatwebsite\Excel\Facades\Excel;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
@@ -36,10 +38,9 @@ class TarifImportController extends Controller
     }
 
     /**
-     * STEP scan: simpan file, validasi header saja (<2 detik), lalu:
-     * - file kecil (<= SCAN_SLICE): scan penuh langsung, render hasil.
-     * - file besar: kembalikan halaman progres; browser memproses per slice
-     *   via scanChunk() sehingga tidak ada satu pun request yang timeout.
+     * STEP scan: HANYA validasi request, simpan file, buat batch,
+     * dispatch ScanTarifImport. TIDAK membaca Excel di HTTP —
+     * response langsung kembali agar browser tidak menunggu.
      */
     public function scan(ScanRequest $request)
     {
@@ -47,181 +48,240 @@ class TarifImportController extends Controller
         $file = $request->file('file');
 
         $storedPath = $file->store('tarif-imports');
-        $filename = $file->getClientOriginalName();
 
-        try {
-            $init = $this->importService->initScan(Storage::path($storedPath), $jenisTarifId, $filename);
-        } catch (\Throwable $e) {
-            Storage::delete($storedPath);
-
-            return back()->with('error', 'Gagal membaca file: '.$e->getMessage())->withInput();
-        }
-
-        if (isset($init['fatal'])) {
-            Storage::delete($storedPath);
-            $jenisTarifs = JenisTarif::where('status', 'active')->orderBy('name')->get();
-            $result = $init;
-
-            return view('tarifs.import', compact('result', 'jenisTarifs'));
-        }
-
-        $token = bin2hex(random_bytes(16));
-        $state = $this->importService->freshScanState($filename, null, [], ['map' => $init['header_map'], 'missing' => [], 'unknown' => [], 'valid' => true]);
-        $state['summary']['jenis_tarif_id'] = $init['jenis_tarif_id'];
-        $state['summary']['jenis_tarif_name'] = $init['jenis_tarif_name'];
-        $state['summary']['header'] = $init['header'];
-        Cache::put($this->cacheKey($token), [
+        $batch = ImportBatch::create([
+            'user_id' => auth()->id(),
+            'filename' => $file->getClientOriginalName(),
             'path' => $storedPath,
             'jenis_tarif_id' => $jenisTarifId,
-            'filename' => $filename,
-            'header_map' => $init['header_map'],
-            'header' => $init['header'],
-            'total' => $init['total_rows'],
-            'state' => $state,
-        ], now()->addMinutes(120));
+            'status' => ImportBatch::STATUS_PENDING_SCAN,
+        ]);
 
-        // File kecil: selesaikan sekaligus tanpa polling.
-        if ($init['total_rows'] <= TarifImportService::SCAN_SLICE) {
-            try {
-                $result = $this->importService->scan(Storage::path($storedPath), $jenisTarifId);
-            } catch (\Throwable $e) {
-                Storage::delete($storedPath);
-                Cache::forget($this->cacheKey($token));
+        ScanTarifImport::dispatch($batch->id);
 
-                return back()->with('error', 'Gagal membaca file: '.$e->getMessage())->withInput();
-            }
-            $result['token'] = $token;
-            $jenisTarifs = JenisTarif::where('status', 'active')->orderBy('name')->get();
-
-            return view('tarifs.import', compact('result', 'jenisTarifs'));
-        }
-
-        $jenisTarifs = JenisTarif::where('status', 'active')->orderBy('name')->get();
-        $pending = ['token' => $token, 'filename' => $filename, 'total' => $init['total_rows'], 'jenis_tarif_name' => $init['jenis_tarif_name']];
-
-        return view('tarifs.import', compact('pending', 'jenisTarifs'));
+        return redirect()->route('tarif-import.batches.show', $batch)
+            ->with('info', 'Scan sedang diproses...');
     }
 
     /**
-     * Satu slice scan bertahap (dipanggil berulang via AJAX oleh halaman
-     * progres). Setiap request hanya memproses SCAN_SLICE baris.
+     * Halaman batch: progress scan (polling) atau preview hasil scan
+     * + tombol Import. Import hanya dari status scan_completed.
      */
-    public function scanChunk(Request $request)
+    public function show(ImportBatch $batch)
     {
-        @set_time_limit(120);
+        $batch->load('jenisTarif');
 
-        $token = (string) $request->validate(['token' => 'required|string|max:64'])['token'];
-        $job = Cache::get($this->cacheKey($token));
+        if ($batch->status === ImportBatch::STATUS_SCAN_FAILED) {
+            $jenisTarifs = JenisTarif::where('status', 'active')->orderBy('name')->get();
+            $result = [
+                'filename' => $batch->filename,
+                'fatal' => $batch->scan_error_message ?? 'Scan gagal.',
+                'batch_id' => $batch->id,
+            ];
 
-        if (! is_array($job) || ! Storage::exists($job['path'] ?? '')) {
-            return response()->json(['message' => 'Sesi scan kedaluwarsa atau file tidak ditemukan. Ulangi scan.'], 419);
+            return view('tarifs.import', compact('result', 'jenisTarifs', 'batch'));
         }
 
-        $state = $job['state'];
-        $processed = (int) ($state['summary']['processed'] ?? 0);
-        // Baris Excel 1-indexed: row 1 header, data mulai row 2.
-        $startRow = $processed + 2;
-        $endRow = min($startRow + TarifImportService::SCAN_SLICE - 1, $job['total'] + 1);
+        if ($batch->status === ImportBatch::STATUS_SCAN_COMPLETED) {
+            $jenisTarifs = JenisTarif::where('status', 'active')->orderBy('name')->get();
+            $summary = $batch->scan_summary ?? [];
+            $candidates = $batch->scan_candidates ?? [];
+            $result = array_merge($summary, [
+                'filename' => $batch->filename,
+                'jenis_tarif_id' => $batch->jenis_tarif_id,
+                'jenis_tarif_name' => $batch->jenisTarif ? $batch->jenisTarif->code.' — '.$batch->jenisTarif->name : null,
+                'new_providers' => $candidates['providers'] ?? [],
+                'new_services' => $candidates['services'] ?? [],
+                'new_classes' => $candidates['classes'] ?? [],
+                'preview' => $batch->scan_preview ?? [],
+                'errors' => $batch->scan_errors ?? [],
+                'truncated_preview' => ($summary['total_rows'] ?? 0) > TarifImportService::PREVIEW_LIMIT,
+                'truncated_errors' => count($batch->scan_errors ?? []) >= TarifImportService::ERROR_LIMIT,
+                'batch_id' => $batch->id,
+            ]);
 
-        $rawRows = $startRow > $endRow ? [] : $this->importService->readSlice(Storage::path($job['path']), $startRow, $endRow);
-
-        if ($rawRows === []) {
-            $state['empty_streak'] = ($state['empty_streak'] ?? 0) + 1;
-        } else {
-            $state['empty_streak'] = 0;
-            $this->importService->processSlice(
-                $rawRows,
-                $job['header_map'],
-                $processed + 2,
-                $this->importService->existingKeysFor((int) $job['jenis_tarif_id']),
-                $state
-            );
+            return view('tarifs.import', compact('result', 'jenisTarifs', 'batch'));
         }
 
-        $processed = (int) $state['summary']['processed'];
-        $done = $processed >= (int) $job['total'] || ($state['empty_streak'] ?? 0) >= 3 || $startRow > $endRow;
-
-        if ($done) {
-            $state['summary']['total_rows'] = $processed;
+        if ($batch->isImportActive() || $batch->status === ImportBatch::STATUS_COMPLETED || $batch->status === ImportBatch::STATUS_FAILED) {
+            return redirect()->route('tarif-import.batches')
+                ->with('info', 'Batch ini sudah masuk tahap import. Pantau di Riwayat Import.');
         }
 
-        $job['state'] = $state;
-        Cache::put($this->cacheKey($token), $job, now()->addMinutes(120));
+        return view('tarifs.import-batches.show', compact('batch'));
+    }
 
+    /**
+     * Hasil scan tersimpan (JSON) untuk preview setelah scan_completed.
+     */
+    public function preview(ImportBatch $batch)
+    {
         return response()->json([
-            'done' => $done,
-            'processed' => $processed,
-            'total' => $job['total'],
+            'id' => $batch->id,
+            'filename' => $batch->filename,
+            'status' => $batch->status,
+            'scan_ready' => $batch->status === ImportBatch::STATUS_SCAN_COMPLETED,
+            'summary' => $batch->scan_summary,
+            'candidates' => $batch->scan_candidates,
+            'preview' => $batch->scan_preview,
+            'errors' => $batch->scan_errors,
         ]);
     }
 
     /**
-     * Halaman hasil scan bertahap (dibuka JS setelah polling selesai).
-     * Bentuk $result SAMA dengan scan() sehingga blade tidak berubah.
-     */
-    public function result(Request $request)
-    {
-        $token = (string) $request->validate(['token' => 'required|string|max:64'])['token'];
-        $job = Cache::get($this->cacheKey($token));
-
-        if (! is_array($job) || ! isset($job['state'])) {
-            return redirect()->route('tarif-import.index')
-                ->with('error', 'Sesi scan kedaluwarsa. Ulangi scan.');
-        }
-
-        $result = $this->importService->finalizeScanState($job['state'], $token);
-        $result['filename'] = $job['filename'];
-        $jenisTarifs = JenisTarif::where('status', 'active')->orderBy('name')->get();
-
-        return view('tarifs.import', compact('result', 'jenisTarifs'));
-    }
-
-    /**
-     * STEP commit: baca ulang file tersimpan, insert batch valid via chunk.
-     * File + sesi dipertahankan bila gagal agar user bisa retry tanpa
-     * upload ulang; hanya dihapus setelah commit sukses.
+     * STEP commit: TANPA membaca Excel di HTTP. Import hanya dari batch
+     * berstatus scan_completed, memakai file path + jenis_tarif_id yang
+     * tersimpan. Dispatch queue, HTTP langsung selesai.
      */
     public function commit(CommitRequest $request)
     {
-        // Commit membaca ulang file + batch insert per 1000 row; beri ruang
-        // waktu lebih. Scan bertahap sudah menjamin file valid sebelumnya.
-        @set_time_limit(300);
+        $batch = ImportBatch::findOrFail($request->validated()['batch_id']);
 
-        $token = $request->validated()['token'];
-        $payload = Cache::get($this->cacheKey($token));
-
-        if (! is_array($payload) || ! Storage::exists($payload['path'] ?? '')) {
-            return redirect()->route('tarif-import.index')
-                ->with('error', 'Sesi scan kedaluwarsa atau file tidak ditemukan. Ulangi scan.');
+        if ($batch->status !== ImportBatch::STATUS_SCAN_COMPLETED) {
+            return back()->with('error', 'Import hanya dapat dilakukan setelah scan selesai (status saat ini: '.ImportBatch::statusLabel($batch->status).').');
         }
 
-        try {
-            $stats = $this->importService->commit(
-                Storage::path($payload['path']),
-                (int) $payload['jenis_tarif_id']
-            );
-        } catch (\Throwable $e) {
-            // Pertahankan file + sesi agar bisa retry; catat penyebab asli.
-            \Illuminate\Support\Facades\Log::error('Tarif import commit gagal', [
-                'token' => $token,
-                'jenis_tarif_id' => $payload['jenis_tarif_id'] ?? null,
-                'path' => $payload['path'] ?? null,
-                'error' => $e->getMessage(),
-            ]);
-            Cache::put($this->cacheKey($token), $payload, now()->addMinutes(120));
-
-            return redirect()->route('tarif-import.index')
-                ->with('error', 'Import gagal: '.$e->getMessage());
+        if (! Storage::exists($batch->path)) {
+            return back()->with('error', 'File import sudah tidak tersedia. Silakan upload ulang.');
         }
 
-        Storage::delete($payload['path']);
-        Cache::forget($this->cacheKey($token));
+        $batch->update([
+            'status' => ImportBatch::STATUS_PENDING_IMPORT,
+            'error_message' => null,
+        ]);
+        ProcessTarifImport::dispatch($batch->id);
 
-        return redirect()->route('tarifs.index')
-            ->with('success', sprintf(
-                'Import selesai: %d masuk, %d duplikat dilewati, %d error dilewati (dari %d baris).',
-                $stats['inserted'], $stats['skipped_duplicate'], $stats['skipped_error'], $stats['total_rows']
-            ));
+        return redirect()->route('tarif-import.batches')
+            ->with('info', 'Import sedang diproses...');
+    }
+
+    /**
+     * Riwayat import (status queue). Polling via batchStatus().
+     */
+    public function batches()
+    {
+        $batches = ImportBatch::with('jenisTarif')->orderByDesc('id')->paginate(15);
+
+        return view('tarifs.import-batches.index', compact('batches'));
+    }
+
+    /**
+     * JSON status untuk polling (1–2 detik) selama fase aktif scan/import.
+     */
+    public function batchStatus(Request $request)
+    {
+        $batches = ImportBatch::with('jenisTarif')->orderByDesc('id')->limit(30)->get();
+
+        return response()->json([
+            'batches' => $batches->map(fn (ImportBatch $b) => [
+                'id' => $b->id,
+                'filename' => $b->filename,
+                'jenis' => $b->jenisTarif->name ?? '-',
+                'status' => $b->status,
+                'status_label' => ImportBatch::statusLabel($b->status),
+                'scan_total_rows' => (int) $b->scan_total_rows,
+                'scan_processed_rows' => (int) $b->scan_processed_rows,
+                'scan_percent' => $b->scanPercent(),
+                'scan_ready' => $b->status === ImportBatch::STATUS_SCAN_COMPLETED,
+                'total_rows' => (int) $b->total_rows,
+                'processed_rows' => (int) $b->processed_rows,
+                'percent' => $b->progressPercent(),
+                'inserted' => (int) $b->inserted,
+                'skipped_duplicate' => (int) $b->skipped_duplicate,
+                'skipped_error' => (int) $b->skipped_error,
+                'providers_created' => (int) $b->providers_created,
+                'services_created' => (int) $b->services_created,
+                'classes_created' => (int) $b->classes_created,
+                'error_message' => $b->error_message,
+                'scan_error_message' => $b->scan_error_message,
+                'is_terminal' => $b->isTerminal(),
+                'is_scan_active' => $b->isScanActive(),
+                'is_import_active' => $b->isImportActive(),
+                'updated_at' => $b->updated_at?->toDateTimeString(),
+            ])->values(),
+        ]);
+    }
+
+    /**
+     * Retry scan gagal: pastikan file ada, reset progress + error lama,
+     * dispatch ScanTarifImport kembali. Selalu via queue.
+     */
+    public function retryScan(ImportBatch $batch)
+    {
+        if ($batch->isScanActive() || $batch->isImportActive()) {
+            return back()->with('error', 'Batch masih dalam antrean/proses. Tunggu hingga selesai atau gagal.');
+        }
+
+        if (in_array($batch->status, [ImportBatch::STATUS_COMPLETED, ImportBatch::STATUS_FAILED], true)) {
+            return back()->with('error', 'Batch ini sudah masuk tahap import. Gunakan Retry import bila gagal.');
+        }
+
+        if (! Storage::exists($batch->path)) {
+            return back()->with('error', 'File import sudah tidak tersedia. Silakan upload ulang.');
+        }
+
+        $batch->update([
+            'status' => ImportBatch::STATUS_PENDING_SCAN,
+            'scan_total_rows' => 0,
+            'scan_processed_rows' => 0,
+            'scan_summary' => null,
+            'scan_candidates' => null,
+            'scan_preview' => null,
+            'scan_errors' => null,
+            'scan_error_message' => null,
+        ]);
+        ScanTarifImport::dispatch($batch->id);
+
+        return back()->with('info', 'Scan dijadwalkan ulang. File akan dipindai kembali melalui Queue.');
+    }
+
+    /**
+     * Retry import gagal: pakai file + jenis tarif yang sama, selalu
+     * melalui queue. Idempoten via business key existing.
+     */
+    public function retryBatch(ImportBatch $batch)
+    {
+        if ($batch->status !== ImportBatch::STATUS_FAILED) {
+            return back()->with('error', 'Retry import hanya untuk status FAILED.');
+        }
+
+        if (! Storage::exists($batch->path)) {
+            return back()->with('error', 'File import sudah tidak tersedia. Silakan upload ulang.');
+        }
+
+        $batch->update([
+            'status' => ImportBatch::STATUS_PENDING_IMPORT,
+            'processed_rows' => 0,
+            'inserted' => 0,
+            'skipped_duplicate' => 0,
+            'skipped_error' => 0,
+            'providers_created' => 0,
+            'services_created' => 0,
+            'classes_created' => 0,
+            'error_message' => null,
+        ]);
+        ProcessTarifImport::dispatch($batch->id);
+
+        return back()->with('success', 'Import dijadwalkan ulang. File akan diproses kembali melalui Queue.');
+    }
+
+    /**
+     * Hapus batch + file terkait. Diblokir selama processing_scan /
+     * processing_import karena tidak ada cancel worker yang aman.
+     */
+    public function destroyBatch(ImportBatch $batch)
+    {
+        if ($batch->status === ImportBatch::STATUS_PROCESSING_SCAN || $batch->status === ImportBatch::STATUS_PROCESSING_IMPORT) {
+            return back()->with('error', 'Batch sedang diproses dan tidak dapat dihapus. Tunggu hingga selesai atau gagal.');
+        }
+
+        if (Storage::exists($batch->path)) {
+            Storage::delete($batch->path);
+        }
+        $batch->delete();
+
+        return redirect()->route('tarif-import.batches')
+            ->with('success', 'Import berhasil dihapus.');
     }
 
     /**
@@ -257,10 +317,5 @@ class TarifImportController extends Controller
             new TarifExport($filters),
             $this->exportService->filename($filters, 'xlsx')
         );
-    }
-
-    protected function cacheKey(string $token): string
-    {
-        return 'tarif_import_'.$token;
     }
 }

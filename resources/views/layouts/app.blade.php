@@ -239,6 +239,9 @@
             @if(session('success'))
                 window.Toast && Toast.success(@json(session('success')));
             @endif
+            @if(session('info'))
+                window.Toast && Toast.info(@json(session('info')), { duration: 6000 });
+            @endif
             @if(session('error'))
                 window.Toast && Toast.error(@json(session('error')));
             @endif
