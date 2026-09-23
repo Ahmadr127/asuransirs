@@ -44,6 +44,8 @@ document.addEventListener('alpine:init', () => {
         perPageOptions: config.perPageOptions || [5, 10, 25, 50, 100],
         empty: config.empty || 'Tidak ada data.',
         searchPlaceholder: config.searchPlaceholder || 'Cari...',
+        showNumber: config.showNumber ?? true,
+        numberLabel: config.numberLabel || 'No',
         page: 1,
         filters: {},
 

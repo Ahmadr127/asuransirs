@@ -127,9 +127,10 @@
             </form>
         </div>
 
-        <x-table :columns="['Service Code', 'Service Description', 'Provider', 'Kode Kelas', 'Kelas', 'Surgery Type', 'Tarif', 'Periode Berlaku', 'Status', 'Aksi']" :pagination="$tarifs" empty="Tidak ada data tarif." class="border-0 rounded-none shadow-none">
+        <x-table :columns="['Service Code', 'Service Description', 'Provider', 'Kode Kelas', 'Kelas', 'Surgery Type', 'Tarif', 'Periode Berlaku', 'Status', 'Aksi']" :pagination="$tarifs" :showNumber="true" empty="Tidak ada data tarif." class="border-0 rounded-none shadow-none">
             @foreach($tarifs as $tarif)
             <tr class="hover:bg-gray-50 transition-colors">
+                <td class="px-4 py-3 whitespace-nowrap text-center text-gray-500">{{ ($tarifs->firstItem() ?? 1) + $loop->index }}</td>
                 <td class="px-4 py-3 whitespace-nowrap">
                     <span class="inline-flex px-2 py-1 text-xs font-semibold font-mono rounded bg-gray-100 text-gray-800">{{ $tarif->service->code ?? '-' }}</span>
                 </td>

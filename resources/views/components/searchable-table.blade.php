@@ -5,6 +5,8 @@
     'perPageOptions' => [5, 10, 25, 50, 100],
     'empty' => 'Tidak ada data.',
     'searchPlaceholder' => 'Cari...',
+    'showNumber' => true,
+    'numberLabel' => 'No',
 ])
 
 <div
@@ -15,6 +17,8 @@
         'perPageOptions' => $perPageOptions,
         'empty' => $empty,
         'searchPlaceholder' => $searchPlaceholder,
+        'showNumber' => $showNumber,
+        'numberLabel' => $numberLabel,
     ]) }})"
     {{ $attributes->merge(['class' => 'bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden']) }}
 >
@@ -23,6 +27,10 @@
             <thead>
                 {{-- Baris pertama: judul kolom + pencarian per kolom --}}
                 <tr class="bg-gray-100">
+                    <th x-show="showNumber" class="px-4 py-2.5 text-left align-top whitespace-nowrap w-12">
+                        <span class="block font-semibold text-gray-700" x-text="numberLabel"></span>
+                        <div class="mt-1 h-[26px]"></div>
+                    </th>
                     <template x-for="col in columns" :key="col.key">
                         <th class="px-4 py-2.5 text-left align-top whitespace-nowrap">
                             <span class="block font-semibold text-gray-700" x-text="col.label"></span>
@@ -43,6 +51,7 @@
             <tbody class="bg-white divide-y divide-gray-100">
                 <template x-for="(row, rowIndex) in pagedRows" :key="rowIndex">
                     <tr class="hover:bg-gray-50 transition-colors">
+                        <td x-show="showNumber" class="px-4 py-3 whitespace-nowrap text-center text-gray-500" x-text="start + rowIndex"></td>
                         <template x-for="col in columns" :key="col.key">
                             <td class="px-4 py-3 whitespace-nowrap" x-text="row[col.key]"></td>
                         </template>
@@ -50,7 +59,7 @@
                 </template>
 
                 <tr x-show="filteredRows.length === 0">
-                    <td :colspan="columns.length" class="px-4 py-8 text-center text-gray-500" x-text="empty"></td>
+                    <td :colspan="showNumber ? columns.length + 1 : columns.length" class="px-4 py-8 text-center text-gray-500" x-text="empty"></td>
                 </tr>
             </tbody>
         </table>

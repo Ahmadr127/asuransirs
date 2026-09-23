@@ -4,10 +4,15 @@
     'empty' => 'Tidak ada data.',
     'perPage' => null,
     'perPageOptions' => [5, 10, 25, 50, 100],
+    'showNumber' => false,
+    'numberLabel' => 'No',
 ])
 
 @php
     $perPage = $perPage ?? (int) request('per_page', 10);
+    // Otomatis prepend kolom nomor jika showNumber true dan belum ada
+    $hasNumberCol = collect($columns)->contains(fn($col) => (is_string($col) ? trim($col) : ($col['label'] ?? '')) === $numberLabel || (is_string($col) ? strtolower(trim($col)) : strtolower($col['label'] ?? '')) === 'no');
+    $displayColumns = $showNumber && !$hasNumberCol ? array_merge([$numberLabel], $columns) : $columns;
 @endphp
 
 <div {{ $attributes->merge(['class' => 'bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden']) }}>
@@ -15,8 +20,8 @@
         <table class="w-full text-sm min-w-max">
             <thead>
                 <tr class="bg-gray-100">
-                    @foreach($columns as $column)
-                        <th class="px-4 py-2.5 text-left font-semibold text-gray-700 whitespace-nowrap">
+                    @foreach($displayColumns as $column)
+                        <th class="px-4 py-2.5 text-left font-semibold text-gray-700 whitespace-nowrap {{ (is_string($column) ? $column : ($column['label'] ?? '')) === $numberLabel ? 'w-12 text-center' : '' }}">
                             {{ is_array($column) ? ($column['label'] ?? '') : $column }}
                         </th>
                     @endforeach
@@ -27,7 +32,7 @@
                     {{ $slot }}
                 @else
                     <tr>
-                        <td colspan="{{ count($columns) ?: 1 }}" class="px-4 py-8 text-center text-gray-500">{{ $empty }}</td>
+                        <td colspan="{{ count($displayColumns) ?: 1 }}" class="px-4 py-8 text-center text-gray-500">{{ $empty }}</td>
                     </tr>
                 @endif
             </tbody>
