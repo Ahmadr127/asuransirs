@@ -9,6 +9,11 @@ use App\Http\Controllers\PermissionController;
 use App\Http\Controllers\OrganizationTypeController;
 use App\Http\Controllers\OrganizationUnitController;
 use App\Http\Controllers\ActivityLogController;
+use App\Http\Controllers\ProviderController;
+use App\Http\Controllers\ServiceController;
+use App\Http\Controllers\ServiceClassController;
+use App\Http\Controllers\JenisTarifController;
+use App\Http\Controllers\TarifController;
 
 /*
 |--------------------------------------------------------------------------
@@ -79,6 +84,20 @@ Route::middleware('auth')->group(function () {
             ->name('organization-units.remove-member');
         Route::patch('organization-units/{organization_unit}/head', [OrganizationUnitController::class, 'updateHead'])
             ->name('organization-units.update-head');
+    });
+
+    // Tarif Master Data routes (Jenis Tarif, Provider, Service, Kelas)
+    Route::middleware('permission:manage_tarif_masters')->group(function () {
+        Route::resource('jenis-tarifs', JenisTarifController::class);
+        Route::resource('providers', ProviderController::class);
+        Route::resource('services', ServiceController::class);
+        Route::resource('classes', ServiceClassController::class)->parameters(['classes' => 'serviceClass']);
+    });
+
+    // Tarif Management routes
+    Route::middleware('permission:manage_tarifs')->group(function () {
+        Route::get('tarifs/export', [TarifController::class, 'export'])->name('tarifs.export');
+        Route::resource('tarifs', TarifController::class);
     });
 
 });

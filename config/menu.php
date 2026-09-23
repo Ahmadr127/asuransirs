@@ -89,6 +89,53 @@ return [
         ],
     ],
     [
+        'title' => 'Management Tarif',
+        'menus' => [
+            [
+                'label' => 'Master & Tarif',
+                'icon' => 'bi-cash-coin',
+                'permissions' => ['manage_tarif_masters', 'manage_tarifs'],
+                'children' => [
+                    [
+                        'label' => 'Jenis Tarif',
+                        'icon' => 'bi-tags-fill',
+                        'route' => 'jenis-tarifs.index',
+                        'route_pattern' => 'jenis-tarifs.*',
+                        'permission' => 'manage_tarif_masters',
+                    ],
+                    [
+                        'label' => 'Provider',
+                        'icon' => 'bi-building-fill',
+                        'route' => 'providers.index',
+                        'route_pattern' => 'providers.*',
+                        'permission' => 'manage_tarif_masters',
+                    ],
+                    [
+                        'label' => 'Service',
+                        'icon' => 'bi-gear-fill',
+                        'route' => 'services.index',
+                        'route_pattern' => 'services.*',
+                        'permission' => 'manage_tarif_masters',
+                    ],
+                    [
+                        'label' => 'Kelas',
+                        'icon' => 'bi-layers-fill',
+                        'route' => 'classes.index',
+                        'route_pattern' => 'classes.*',
+                        'permission' => 'manage_tarif_masters',
+                    ],
+                    [
+                        'label' => 'Tarif',
+                        'icon' => 'bi-cash-coin',
+                        'route' => 'tarifs.index',
+                        'route_pattern' => 'tarifs.*',
+                        'permission' => 'manage_tarifs',
+                    ],
+                ],
+            ],
+        ],
+    ],
+    [
         'title' => 'Laporan',
         'menus' => [
             [

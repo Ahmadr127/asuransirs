@@ -1,0 +1,52 @@
+@extends('layouts.app')
+
+@section('title', 'Detail Jenis Tarif')
+
+@section('content')
+<div class="space-y-6">
+    <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg">
+        <div class="p-6 bg-white border-b border-gray-200">
+            <div class="flex justify-between items-start">
+                <div>
+                    <div class="flex items-center gap-3 mb-2">
+                        <span class="inline-flex px-2 py-1 text-xs font-mono bg-gray-200 text-gray-700 rounded">{{ $jenis_tarif->code }}</span>
+                        @if($jenis_tarif->status === 'active')
+                            <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800">Aktif</span>
+                        @else
+                            <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-red-100 text-red-800">Non-Aktif</span>
+                        @endif
+                    </div>
+                    <h2 class="text-2xl font-bold text-gray-900">{{ $jenis_tarif->name }}</h2>
+                    <p class="text-sm text-gray-500 mt-1">Dibuat {{ $jenis_tarif->created_at->format('d/m/Y H:i') }}</p>
+                </div>
+                <div class="flex gap-2">
+                    <a href="{{ route('jenis-tarifs.edit', $jenis_tarif) }}" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded">
+                        Edit
+                    </a>
+                    <a href="{{ route('jenis-tarifs.index') }}" class="bg-gray-500 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded">
+                        Kembali
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <x-card padding="false">
+        <x-slot name="title">Tarif Jenis Ini ({{ $jenis_tarif->tarifs->count() }})</x-slot>
+        <x-table :columns="['Service', 'Provider', 'Kelas', 'Tarif', 'Periode', 'Status']" empty="Belum ada tarif untuk jenis ini." class="border-0 rounded-none shadow-none">
+            @foreach($jenis_tarif->tarifs as $tarif)
+            <tr class="hover:bg-gray-50 transition-colors">
+                <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-900">{{ $tarif->service->code ?? '-' }} — {{ $tarif->service->name ?? '-' }}</td>
+                <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-900">{{ $tarif->provider->code ?? '-' }}</td>
+                <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-900">{{ $tarif->serviceClass->code ?? '-' }}</td>
+                <td class="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900">Rp {{ number_format($tarif->tariff, 2, ',', '.') }}</td>
+                <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500">{{ $tarif->valid_date_from->format('d/m/Y') }} – {{ $tarif->end_date_to->format('d/m/Y') }}</td>
+                <td class="px-4 py-3 whitespace-nowrap">
+                    <span class="inline-flex px-2 py-0.5 text-xs font-semibold rounded-full {{ \App\Models\Tarif::badgeClass($tarif->status) }}">{{ $tarif->status }}</span>
+                </td>
+            </tr>
+            @endforeach
+        </x-table>
+    </x-card>
+</div>
+@endsection
