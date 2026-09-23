@@ -364,22 +364,37 @@ class TarifImportService
      */
     public function importChunk(Collection $rows, int $jenisTarifId, ?array &$headerMap, array &$seenKeys, array &$existingKeys, object $stats): void
     {
+        $chunkStart = microtime(true);
+        $chunkMem = round(memory_get_usage(true)/1024/1024,1);
+        \Illuminate\Support\Facades\Log::info('IMPORTCHUNK READ START', ['rows'=>$rows->count(), 'mem'=>$chunkMem, 'ts'=>now()->toDateTimeString()]);
+        $tRead = microtime(true);
         $raw = $rows->map(fn ($r) => array_values($r instanceof Collection ? $r->toArray() : (array) $r))->all();
         // Buang baris kosong.
         $raw = array_values(array_filter($raw, fn ($r) => collect($r)->filter(fn ($c) => trim((string) $c) !== '')->isNotEmpty()));
+        \Illuminate\Support\Facades\Log::info('IMPORTCHUNK READ COMPLETE', ['raw'=>count($raw), 'elapsed'=>round(microtime(true)-$tRead,2), 'mem'=>round(memory_get_usage(true)/1024/1024,1)]);
         if ($raw === []) {
+            \Illuminate\Support\Facades\Log::info('IMPORTCHUNK EMPTY, skip');
             return;
         }
 
         if ($headerMap === null) {
+            $tHead = microtime(true);
+            \Illuminate\Support\Facades\Log::info('IMPORTCHUNK HEADER VALIDATE START');
             $header = TarifImportColumnMapper::validateHeaders($raw[0]);
             if (! $header['valid']) {
                 throw new \RuntimeException('Header tidak valid. Kolom wajib hilang: '.implode(', ', $header['missing']));
             }
             $headerMap = $header['map'];
             array_shift($raw);
+            \Illuminate\Support\Facades\Log::info('IMPORTCHUNK PRELOAD START');
+            $tPre = microtime(true);
             $this->resolver->preload();
+            \Illuminate\Support\Facades\Log::info('IMPORTCHUNK PRELOAD COMPLETE', ['elapsed'=>round(microtime(true)-$tPre,2)]);
+            \Illuminate\Support\Facades\Log::info('IMPORTCHUNK LOAD EXISTING KEYS START');
+            $tKeys = microtime(true);
             $existingKeys = $this->loadExistingKeys($jenisTarifId);
+            \Illuminate\Support\Facades\Log::info('IMPORTCHUNK LOAD EXISTING KEYS COMPLETE', ['keys'=>count($existingKeys), 'elapsed'=>round(microtime(true)-$tKeys,2), 'mem'=>round(memory_get_usage(true)/1024/1024,1)]);
+            \Illuminate\Support\Facades\Log::info('IMPORTCHUNK HEADER COMPLETE', ['elapsed'=>round(microtime(true)-$tHead,2)]);
         }
 
         if ($raw === []) {
@@ -387,6 +402,8 @@ class TarifImportService
         }
 
         $stats->processedRows += count($raw);
+        $tNorm = microtime(true);
+        \Illuminate\Support\Facades\Log::info('IMPORTCHUNK NORMALIZE START', ['count'=>count($raw)]);
 
         // Fase 1 (tanpa DB write): normalisasi + kumpulkan kandidat master
         // UNIK per business key. 13.000 row PROVID sama => 1 kandidat.
@@ -421,18 +438,29 @@ class TarifImportService
             $valid[] = $data;
         }
         $stats->skippedError += $errorCount;
+        \Illuminate\Support\Facades\Log::info('IMPORTCHUNK NORMALIZE COMPLETE', ['valid'=>count($valid),'errors'=>$errorCount,'elapsed'=>round(microtime(true)-$tNorm,2),'mem'=>round(memory_get_usage(true)/1024/1024,1)]);
 
         if ($valid === []) {
+            \Illuminate\Support\Facades\Log::info('IMPORTCHUNK NO VALID, skip DB', ['elapsed_total'=>round(microtime(true)-$chunkStart,2)]);
             return;
         }
 
         // Fase 2 (transaksional): persist kandidat master satu kali (batch)
         // lalu insert tarif. Jenis tarif TIDAK dibuat otomatis — dipakai
         // dari $jenisTarifId pilihan user untuk semua tarif.
-        DB::transaction(function () use ($providerCandidates, $serviceCandidates, $classCandidates, $valid, $jenisTarifId, &$seenKeys, $existingKeys, $stats) {
+        \Illuminate\Support\Facades\Log::info('IMPORTCHUNK DB ENSURE START', ['providers'=>count($providerCandidates),'services'=>count($serviceCandidates),'classes'=>count($classCandidates)]);
+        $tEnsure = microtime(true);
+        DB::transaction(function () use ($providerCandidates, $serviceCandidates, $classCandidates, $valid, $jenisTarifId, &$seenKeys, $existingKeys, $stats, $chunkStart, $tEnsure) {
+            $tEns = microtime(true);
             $this->resolver->ensureManyProviders($providerCandidates);
+            \Illuminate\Support\Facades\Log::info('IMPORTCHUNK ENSURE PROVIDERS COMPLETE', ['elapsed'=>round(microtime(true)-$tEns,2)]);
+            $tEns2 = microtime(true);
             $this->resolver->ensureManyServices($serviceCandidates);
+            \Illuminate\Support\Facades\Log::info('IMPORTCHUNK ENSURE SERVICES COMPLETE', ['elapsed'=>round(microtime(true)-$tEns2,2)]);
+            $tEns3 = microtime(true);
             $this->resolver->ensureManyClasses($classCandidates);
+            \Illuminate\Support\Facades\Log::info('IMPORTCHUNK ENSURE CLASSES COMPLETE', ['elapsed'=>round(microtime(true)-$tEns3,2)]);
+            \Illuminate\Support\Facades\Log::info('IMPORTCHUNK DB ENSURE COMPLETE', ['elapsed'=>round(microtime(true)-$tEnsure,2)]);
 
             $batch = [];
             $dupFile = 0;
@@ -480,9 +508,13 @@ class TarifImportService
             $stats->skippedDuplicate += $dupFile + $dupDb;
 
             if ($batch === []) {
+                \Illuminate\Support\Facades\Log::info('IMPORTCHUNK BATCH EMPTY after dedup');
                 return;
             }
+            \Illuminate\Support\Facades\Log::info('IMPORTCHUNK FRESH KEYS CHECK START', ['batch'=>count($batch)]);
+            $tFresh = microtime(true);
             $freshKeys = $this->loadExistingKeysFor($jenisTarifId, $batch);
+            \Illuminate\Support\Facades\Log::info('IMPORTCHUNK FRESH KEYS CHECK COMPLETE', ['elapsed'=>round(microtime(true)-$tFresh,2), 'found'=>count($freshKeys)]);
             $insertable = [];
             foreach ($batch as $row) {
                 if (isset($freshKeys[self::businessKey($row)])) {
@@ -493,9 +525,15 @@ class TarifImportService
                 $insertable[] = $row;
             }
             if ($insertable !== []) {
+                \Illuminate\Support\Facades\Log::info('IMPORTCHUNK INSERT START', ['count'=>count($insertable)]);
+                $tIns = microtime(true);
                 Tarif::insert($insertable);
+                \Illuminate\Support\Facades\Log::info('IMPORTCHUNK INSERT COMPLETE', ['elapsed'=>round(microtime(true)-$tIns,2)]);
                 $stats->inserted += count($insertable);
+            } else {
+                \Illuminate\Support\Facades\Log::info('IMPORTCHUNK NOTHING TO INSERT');
             }
+            \Illuminate\Support\Facades\Log::info('IMPORTCHUNK TRANSACTION COMPLETE', ['elapsed_total'=>round(microtime(true)-$chunkStart,2), 'mem_peak'=>round(memory_get_peak_usage(true)/1024/1024,1)]);
         });
     }
 

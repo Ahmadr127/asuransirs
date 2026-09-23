@@ -52,10 +52,40 @@ class TarifChunkImport implements ToCollection, WithChunkReading
 
     public function collection(Collection $rows): void
     {
+        static $chunkNum = 0;
+        $chunkNum++;
+        $rowsCount = $rows->count();
+        $mem = round(memory_get_usage(true)/1024/1024,1);
+        $peak = round(memory_get_peak_usage(true)/1024/1024,1);
+        \Illuminate\Support\Facades\Log::info("CHUNK {$chunkNum} COLLECTION START", [
+            'batch'=> $this->jenisTarifId,
+            'chunk' => $chunkNum,
+            'rows' => $rowsCount,
+            'mem_cur' => $mem,
+            'mem_peak' => $peak,
+            'ts' => now()->toDateTimeString(),
+        ]);
+        $t0 = microtime(true);
         $this->service->importChunk($rows, $this->jenisTarifId, $this->headerMap, $this->seenKeys, $this->existingKeys, $this);
+        $elapsed = round(microtime(true)-$t0,2);
+        $mem2 = round(memory_get_usage(true)/1024/1024,1);
+        $peak2 = round(memory_get_peak_usage(true)/1024/1024,1);
+        \Illuminate\Support\Facades\Log::info("CHUNK {$chunkNum} COLLECTION COMPLETE", [
+            'chunk' => $chunkNum,
+            'rows' => $rowsCount,
+            'elapsed' => $elapsed,
+            'mem_cur' => $mem2,
+            'mem_peak' => $peak2,
+            'processedRows' => $this->processedRows,
+            'inserted' => $this->inserted,
+        ]);
 
         if (is_callable($this->onChunk)) {
+            \Illuminate\Support\Facades\Log::info("CHUNK {$chunkNum} PROGRESS UPDATE START", ['chunk'=>$chunkNum, 'processed'=>$this->processedRows]);
+            $upT0 = microtime(true);
             ($this->onChunk)($this);
+            \Illuminate\Support\Facades\Log::info("CHUNK {$chunkNum} PROGRESS UPDATE COMPLETE", ['chunk'=>$chunkNum, 'elapsed'=>round(microtime(true)-$upT0,2)]);
         }
+        \Illuminate\Support\Facades\Log::info("CHUNK {$chunkNum} COMPLETE", ['chunk'=>$chunkNum]);
     }
 }

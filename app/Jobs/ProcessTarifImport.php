@@ -60,29 +60,50 @@ class ProcessTarifImport implements ShouldQueue
         $providersBefore = Provider::count();
         $servicesBefore = Service::count();
         $classesBefore = ServiceClass::count();
+        // Snapshot awal untuk retry monotonik: jangan turun saat retry reprocess duplicate
+        $initialProcessed = (int) $batch->processed_rows;
+        $initialInserted = (int) $batch->inserted;
+        $initialDup = (int) $batch->skipped_duplicate;
+        $initialErr = (int) $batch->skipped_error;
 
         try {
+            $importStart = microtime(true);
+            Log::info('IMPORT START', ['batch_id'=>$batch->id, 'file'=>$batch->filename, 'ts'=>now()->toDateTimeString(), 'mem'=>round(memory_get_usage(true)/1024/1024,1)]);
             $path = Storage::path($batch->path);
-            $batch->update(['total_rows' => max(0, $service->countSheetRows($path) - 1)]);
+            Log::info('IMPORT COUNT ROWS START', ['batch_id'=>$batch->id]);
+            $cntT0 = microtime(true);
+            $total = max(0, $service->countSheetRows($path) - 1);
+            Log::info('IMPORT COUNT ROWS COMPLETE', ['batch_id'=>$batch->id, 'total'=>$total, 'elapsed'=>round(microtime(true)-$cntT0,2)]);
+            $batch->update(['total_rows' => $total]);
 
             $import = new TarifChunkImport($service, (int) $batch->jenis_tarif_id);
-            $import->onChunk = function (TarifChunkImport $chunk) use ($batch) {
+            $import->onChunk = function (TarifChunkImport $chunk) use ($batch, $initialProcessed, $initialInserted, $initialDup, $initialErr) {
+                Log::info('IMPORT PROGRESS UPDATE START', ['batch_id'=>$batch->id, 'chunk_processed'=>$chunk->processedRows, 'mem'=>round(memory_get_usage(true)/1024/1024,1)]);
+                $upT0 = microtime(true);
+                $batch->refresh();
+                // processed: chunk is cumulative from 0 for file → max(batch, chunk) NEVER DECREASE
+                // inserted/dup/err: chunk is delta new in this execution → total = initial + chunk, also max
                 $batch->update([
-                    'processed_rows' => $chunk->processedRows,
-                    'inserted' => $chunk->inserted,
-                    'skipped_duplicate' => $chunk->skippedDuplicate,
-                    'skipped_error' => $chunk->skippedError,
+                    'processed_rows' => max((int) $batch->processed_rows, (int) $chunk->processedRows),
+                    'inserted' => max((int) $batch->inserted, $initialInserted + (int) $chunk->inserted),
+                    'skipped_duplicate' => max((int) $batch->skipped_duplicate, $initialDup + (int) $chunk->skippedDuplicate),
+                    'skipped_error' => max((int) $batch->skipped_error, $initialErr + (int) $chunk->skippedError),
                 ]);
+                Log::info('IMPORT PROGRESS UPDATE COMPLETE', ['batch_id'=>$batch->id, 'elapsed'=>round(microtime(true)-$upT0,2)]);
             };
 
+            Log::info('EXCEL IMPORT START', ['batch_id'=>$batch->id, 'ts'=>now()->toDateTimeString(), 'mem_peak'=>round(memory_get_peak_usage(true)/1024/1024,1)]);
+            $excelT0 = microtime(true);
             Excel::import($import, $path);
+            Log::info('EXCEL IMPORT COMPLETE', ['batch_id'=>$batch->id, 'elapsed'=>round(microtime(true)-$excelT0,2), 'total_time'=>round(microtime(true)-$importStart,1), 'mem_peak'=>round(memory_get_peak_usage(true)/1024/1024,1)]);
 
+            $batch->refresh();
             $batch->update([
                 'status' => ImportBatch::STATUS_COMPLETED,
-                'processed_rows' => $import->processedRows,
-                'inserted' => $import->inserted,
-                'skipped_duplicate' => $import->skippedDuplicate,
-                'skipped_error' => $import->skippedError,
+                'processed_rows' => max((int) $batch->processed_rows, (int) $import->processedRows, $initialProcessed + (int) $import->processedRows),
+                'inserted' => max((int) $batch->inserted, $initialInserted + (int) $import->inserted),
+                'skipped_duplicate' => max((int) $batch->skipped_duplicate, $initialDup + (int) $import->skippedDuplicate),
+                'skipped_error' => max((int) $batch->skipped_error, $initialErr + (int) $import->skippedError),
                 'providers_created' => max(0, Provider::count() - $providersBefore),
                 'services_created' => max(0, Service::count() - $servicesBefore),
                 'classes_created' => max(0, ServiceClass::count() - $classesBefore),
