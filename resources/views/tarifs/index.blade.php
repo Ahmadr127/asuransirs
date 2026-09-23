@@ -1,11 +1,11 @@
 @extends('layouts.app')
 
-@section('title', 'Kelola Tarif')
+@section('title', 'Buku Tarif')
 
 @section('content')
 <div class="w-full mx-auto">
     <x-card padding="false">
-        <x-slot name="title">Kelola Tarif</x-slot>
+        <x-slot name="title">Buku Tarif</x-slot>
         <x-slot name="subtitle">Satu tabel dinamis untuk tarif, obat, alkes, bhp, dan makanan</x-slot>
         <x-slot name="actions">
             <a href="{{ route('tarif-import.index') }}" class="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-semibold text-gray-600 border border-gray-300 rounded-md bg-white hover:bg-gray-50 transition-colors">
@@ -22,29 +22,18 @@
             </a>
         </x-slot>
 
-        @php
-            $currentJenis = request('jenis_tarif_id', '');
-        @endphp
-
-        <div class="px-4 pt-3 border-b border-gray-100 bg-white">
-            <div class="flex items-center gap-2 flex-wrap pb-3">
-                <a href="{{ route('tarifs.index', request()->except(['jenis_tarif_id', 'page'])) }}"
-                   class="inline-flex items-center px-3 py-1.5 text-sm font-semibold rounded-full transition-colors {{ (string) $currentJenis === '' ? 'text-white bg-sp-primary' : 'text-gray-600 bg-gray-100 hover:bg-gray-200' }}">
-                    Semua
-                </a>
-                @foreach($jenisTarifs as $jenis)
-                    <a href="{{ request()->fullUrlWithQuery(['jenis_tarif_id' => $jenis->id, 'page' => null]) }}"
-                       class="inline-flex items-center px-3 py-1.5 text-sm font-semibold rounded-full transition-colors {{ (string) $currentJenis === (string) $jenis->id ? 'text-white bg-sp-primary' : 'text-gray-600 bg-gray-100 hover:bg-gray-200' }}">
-                        {{ $jenis->name }}
-                    </a>
-                @endforeach
-            </div>
-        </div>
-
         <div class="px-4 py-3 border-b border-gray-100 bg-white">
-            <form method="GET" class="flex flex-col gap-3">
-                <input type="hidden" name="jenis_tarif_id" value="{{ $currentJenis }}">
+            <form method="GET" class="flex flex-col gap-3" onsubmit="return cleanTarifFilter(this)">
                 <div class="flex flex-col lg:flex-row gap-3 items-end">
+                    <div class="lg:w-44">
+                        <label for="jenis_tarif_id" class="block text-xs font-semibold text-gray-600 mb-1">Jenis Tarif</label>
+                        <select id="jenis_tarif_id" name="jenis_tarif_id" class="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-sp-primary/20 focus:border-sp-primary transition-colors">
+                            <option value="">Semua Jenis</option>
+                            @foreach($jenisTarifs as $jenis)
+                                <option value="{{ $jenis->id }}" {{ (string) request('jenis_tarif_id') === (string) $jenis->id ? 'selected' : '' }}>{{ $jenis->name }}</option>
+                            @endforeach
+                        </select>
+                    </div>
                     <div class="flex-1">
                         <label for="search" class="block text-xs font-semibold text-gray-600 mb-1">Pencarian</label>
                         <div class="relative">
@@ -138,12 +127,9 @@
             </form>
         </div>
 
-        <x-table :columns="['Jenis', 'Service Code', 'Service Description', 'Provider', 'Kode Kelas', 'Kelas', 'Surgery Type', 'Tarif', 'Periode Berlaku', 'Status', 'Aksi']" :pagination="$tarifs" empty="Tidak ada data tarif." class="border-0 rounded-none shadow-none">
+        <x-table :columns="['Service Code', 'Service Description', 'Provider', 'Kode Kelas', 'Kelas', 'Surgery Type', 'Tarif', 'Periode Berlaku', 'Status', 'Aksi']" :pagination="$tarifs" empty="Tidak ada data tarif." class="border-0 rounded-none shadow-none">
             @foreach($tarifs as $tarif)
             <tr class="hover:bg-gray-50 transition-colors">
-                <td class="px-4 py-3 whitespace-nowrap">
-                    <span class="inline-flex px-2 py-0.5 text-xs font-semibold rounded-full bg-blue-100 text-blue-800">{{ $tarif->jenisTarif->name ?? '-' }}</span>
-                </td>
                 <td class="px-4 py-3 whitespace-nowrap">
                     <span class="inline-flex px-2 py-1 text-xs font-semibold font-mono rounded bg-gray-100 text-gray-800">{{ $tarif->service->code ?? '-' }}</span>
                 </td>
@@ -186,3 +172,22 @@
     </x-card>
 </div>
 @endsection
+
+@push('scripts')
+<script>
+// URL filter tetap pendek: field kosong / nilai default tidak ikut disubmit
+// (input disabled tidak dikirim browser). Backend memperlakukan parameter
+// yang hilang sama dengan "Semua"/default.
+function cleanTarifFilter(form) {
+    form.querySelectorAll('select, input').forEach(function (el) {
+        if (!el.name) return;
+        if (el.value === '') { el.disabled = true; return; }
+        if ((el.name === 'sort' && el.value === 'created_at') ||
+            (el.name === 'direction' && el.value === 'desc')) {
+            el.disabled = true;
+        }
+    });
+    return true;
+}
+</script>
+@endpush

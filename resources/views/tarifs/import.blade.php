@@ -125,6 +125,10 @@
                                 <i class="bi bi-upload"></i> Import Data
                             </button>
                         </form>
+                    @else
+                        <span class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-gray-500 border border-gray-200 rounded-md bg-gray-50" title="Tombol muncul bila ada baris VALID/WARNING">
+                            <i class="bi bi-info-circle"></i> Tidak ada baris siap import (semua {{ ($result['duplicate_rows'] ?? 0) > 0 && ($result['error_rows'] ?? 0) === 0 ? 'duplikat' : 'error/duplikat' }})
+                        </span>
                     @endif
                     <a href="{{ route('tarif-import.index') }}" class="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-semibold text-gray-600 border border-gray-300 rounded-md bg-white hover:bg-gray-50 transition-colors">
                         Batal

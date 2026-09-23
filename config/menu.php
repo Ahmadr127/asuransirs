@@ -92,6 +92,13 @@ return [
         'title' => 'Management Tarif',
         'menus' => [
             [
+                'label' => 'Buku Tarif',
+                'icon' => 'bi-cash-coin',
+                'route' => 'tarifs.index',
+                'route_pattern' => 'tarifs.*',
+                'permission' => 'manage_tarifs',
+            ],
+            [
                 'label' => 'Master & Tarif',
                 'icon' => 'bi-cash-coin',
                 'permissions' => ['manage_tarif_masters', 'manage_tarifs'],
@@ -123,13 +130,6 @@ return [
                         'route' => 'classes.index',
                         'route_pattern' => 'classes.*',
                         'permission' => 'manage_tarif_masters',
-                    ],
-                    [
-                        'label' => 'Tarif',
-                        'icon' => 'bi-cash-coin',
-                        'route' => 'tarifs.index',
-                        'route_pattern' => 'tarifs.*',
-                        'permission' => 'manage_tarifs',
                     ],
                     [
                         'label' => 'Import Excel',

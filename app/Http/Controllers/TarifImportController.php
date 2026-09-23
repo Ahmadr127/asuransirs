@@ -178,6 +178,8 @@ class TarifImportController extends Controller
 
     /**
      * STEP commit: baca ulang file tersimpan, insert batch valid via chunk.
+     * File + sesi dipertahankan bila gagal agar user bisa retry tanpa
+     * upload ulang; hanya dihapus setelah commit sukses.
      */
     public function commit(CommitRequest $request)
     {
@@ -185,7 +187,8 @@ class TarifImportController extends Controller
         // waktu lebih. Scan bertahap sudah menjamin file valid sebelumnya.
         @set_time_limit(300);
 
-        $payload = Cache::get($this->cacheKey($request->validated()['token']));
+        $token = $request->validated()['token'];
+        $payload = Cache::get($this->cacheKey($token));
 
         if (! is_array($payload) || ! Storage::exists($payload['path'] ?? '')) {
             return redirect()->route('tarif-import.index')
@@ -198,12 +201,21 @@ class TarifImportController extends Controller
                 (int) $payload['jenis_tarif_id']
             );
         } catch (\Throwable $e) {
+            // Pertahankan file + sesi agar bisa retry; catat penyebab asli.
+            \Illuminate\Support\Facades\Log::error('Tarif import commit gagal', [
+                'token' => $token,
+                'jenis_tarif_id' => $payload['jenis_tarif_id'] ?? null,
+                'path' => $payload['path'] ?? null,
+                'error' => $e->getMessage(),
+            ]);
+            Cache::put($this->cacheKey($token), $payload, now()->addMinutes(120));
+
             return redirect()->route('tarif-import.index')
                 ->with('error', 'Import gagal: '.$e->getMessage());
-        } finally {
-            Storage::delete($payload['path']);
-            Cache::forget($this->cacheKey($request->validated()['token']));
         }
+
+        Storage::delete($payload['path']);
+        Cache::forget($this->cacheKey($token));
 
         return redirect()->route('tarifs.index')
             ->with('success', sprintf(
