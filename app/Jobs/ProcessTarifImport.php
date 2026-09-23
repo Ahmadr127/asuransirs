@@ -35,8 +35,8 @@ class ProcessTarifImport implements ShouldQueue
     /** Retry manual via UI (idempoten), bukan otomatis oleh worker. */
     public int $tries = 1;
 
-    /** File besar: beri ruang hingga 30 menit. */
-    public int $timeout = 1800;
+    /** File besar 120K-500K: chunk 2000 ~20s/chunk → 126K ~21 min, 500K ~83 min. Beri 90 menit. */
+    public int $timeout = 5400;
 
     public function __construct(protected int $batchId) {}
 

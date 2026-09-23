@@ -32,8 +32,8 @@ class ScanTarifImport implements ShouldQueue
     /** Retry manual via UI, bukan otomatis oleh worker. */
     public int $tries = 1;
 
-    /** File besar: beri ruang hingga 30 menit. */
-    public int $timeout = 1800;
+    /** File besar 120K-500K: 10000 rows ~35s/slice → 126K ~7.5 min, 500K ~29 min. Beri 60 menit + margin retry_after. */
+    public int $timeout = 3600;
 
     public function __construct(protected int $batchId) {}
 
@@ -93,7 +93,12 @@ class ScanTarifImport implements ShouldQueue
             $lastRow = $total + 1;
             $emptyStreak = 0;
             $lastSaved = -1;
+            $startedAt = microtime(true);
+            $chunkIdx = 0;
+            Log::info('Scan dimulai', ['batch_id' => $batch->id, 'total' => $total, 'slice' => TarifImportService::SCAN_SLICE]);
             while ($cursor <= $lastRow) {
+                $chunkIdx++;
+                $chunkStart = microtime(true);
                 $end = min($cursor + TarifImportService::SCAN_SLICE - 1, $lastRow);
                 $rawRows = $service->readSlice($path, $cursor, $end);
                 if ($rawRows === []) {
@@ -102,8 +107,12 @@ class ScanTarifImport implements ShouldQueue
                 $cursor += count($rawRows);
                 if (! collect($rawRows)->contains(fn ($r) => TarifImportService::isNonEmptyRow($r))) {
                     unset($rawRows);
+                    if (function_exists('gc_collect_cycles')) {
+                        gc_collect_cycles();
+                    }
                     $emptyStreak++;
                     if ($emptyStreak >= 3) {
+                        Log::info('Scan tail empty, berhenti', ['batch_id' => $batch->id, 'cursor' => $cursor]);
                         break;
                     }
 
@@ -112,12 +121,31 @@ class ScanTarifImport implements ShouldQueue
                 $emptyStreak = 0;
                 $service->processSlice($rawRows, $header['map'], $cursor - count($rawRows), $existingKeys, $state);
                 unset($rawRows);
+                if (function_exists('gc_collect_cycles')) {
+                    gc_collect_cycles();
+                }
                 $processed = (int) $state['summary']['processed'];
                 if ($processed !== $lastSaved) {
                     $batch->update(['scan_processed_rows' => $processed]);
                     $lastSaved = $processed;
                 }
+                $elapsed = round(microtime(true) - $chunkStart, 2);
+                $totalElapsed = round(microtime(true) - $startedAt, 1);
+                $peak = round(memory_get_peak_usage(true) / 1024 / 1024, 1);
+                $cur = round(memory_get_usage(true) / 1024 / 1024, 1);
+                Log::info("Scan chunk {$chunkIdx}", [
+                    'batch_id' => $batch->id,
+                    'processed' => $processed,
+                    'total' => $total,
+                    'cursor' => $cursor,
+                    'chunk_time' => $elapsed,
+                    'total_time' => $totalElapsed,
+                    'mem_cur' => $cur,
+                    'mem_peak' => $peak,
+                    'rows_sec' => $elapsed > 0 ? round(TarifImportService::SCAN_SLICE / $elapsed, 0) : 0,
+                ]);
             }
+            Log::info('Scan loop selesai', ['batch_id' => $batch->id, 'total_time' => round(microtime(true) - $startedAt, 1), 'peak' => round(memory_get_peak_usage(true)/1024/1024,1)]);
 
             $result = $service->finalizeScanState($state, 'scan-'.$batch->id);
 

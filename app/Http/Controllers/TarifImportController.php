@@ -218,28 +218,39 @@ class TarifImportController extends Controller
     }
 
     /**
-     * Tandai failed batch processing yang tidak menunjukkan tanda hidup.
-     * Job sehat mengupdate progress tiap chunk (hitungan detik — jauh di
-     * bawah 300), jadi sunyi 5 menit berarti worker sudah tidak ada
-     * (dibunuh timeout/SIGKILL/reboot). Hanya untuk processing_*
-     * (pending = antrean wajar, bukan macet).
+     * Tandai failed batch yang benar-benar mati. Mencegah false positive
+     * bila satu chunk besar (10000 rows ~35s) sedang diproses atau worker
+     * sedang GC/query DB.
+     * - Threshold 10 menit (600s) — 2× chunk terberat + margin.
+     * - Cek jobs table: jika job masih reserved (ada row di jobs dengan
+     *   reserved_at), jangan tandai failed — worker masih hidup.
+     * - Hanya untuk processing_* (pending = antrean wajar).
      */
     protected function reapStaleBatches(): void
     {
-        $staleBefore = now()->subSeconds(300);
+        $staleBefore = now()->subSeconds(600);
+
+        // Jika ada job reserved di queue, worker masih hidup → jangan false positive.
+        $hasReservedJob = \Illuminate\Support\Facades\DB::table('jobs')
+            ->whereNotNull('reserved_at')
+            ->exists();
+
+        if ($hasReservedJob) {
+            return;
+        }
 
         ImportBatch::where('status', ImportBatch::STATUS_PROCESSING_SCAN)
             ->where('updated_at', '<', $staleBefore)
             ->update([
                 'status' => ImportBatch::STATUS_SCAN_FAILED,
-                'scan_error_message' => 'Worker berhenti tanpa kabar (di atas 5 menit tanpa progress). Pastikan worker queue:work berjalan, lalu ulangi scan.',
+                'scan_error_message' => 'Worker berhenti tanpa kabar (di atas 10 menit tanpa progress). Pastikan worker queue:work berjalan (php artisan queue:work --timeout=3600 --memory=1024 --tries=1), lalu ulangi scan.',
             ]);
 
         ImportBatch::where('status', ImportBatch::STATUS_PROCESSING_IMPORT)
             ->where('updated_at', '<', $staleBefore)
             ->update([
                 'status' => ImportBatch::STATUS_FAILED,
-                'error_message' => 'Worker berhenti tanpa kabar (di atas 5 menit tanpa progress). Pastikan worker queue:work berjalan, lalu ulangi import.',
+                'error_message' => 'Worker berhenti tanpa kabar (di atas 10 menit tanpa progress). Pastikan worker queue:work berjalan (php artisan queue:work --timeout=5400 --memory=1024 --tries=1), lalu ulangi import.',
             ]);
     }
 

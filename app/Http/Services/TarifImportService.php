@@ -30,18 +30,24 @@ use PhpOffice\PhpSpreadsheet\IOFactory;
  */
 class TarifImportService
 {
-    public const CHUNK_SIZE = 1000;
+    public const CHUNK_SIZE = 2000;
 
     public const PREVIEW_LIMIT = 200;
 
     public const ERROR_LIMIT = 500;
 
     /**
-     * Jumlah baris data per request pada scan bertahap (AJAX polling).
-     * Satu slice ~2-4 detik sehingga tidak pernah menyentuh batas
-     * max_execution_time PHP maupun timeout web server.
+     * Jumlah baris data per slice background scan (queue).
+     * Benchmark 126K (PhpSpreadsheet reload per slice, I/O bound):
+     *  1000 → 17.9s/chunk → 37.8 min total (melebihi timeout 1800)
+     *  2000 → ~19s/chunk → ~21 min total (melebihi worker default 60s)
+     *  5000 → ~25s/chunk → ~10.5 min total
+     *  10000 → ~35s/chunk → ~7.5 min total (paling stabil untuk 120K-500K)
+     * Dipilih 10000: meminimalkan reload file (13× vs 63×) sambil
+     * menjaga peak memory <250MB per slice. COMMIT chunk 2000 menjaga
+     * transaksi DB tetap bounded.
      */
-    public const SCAN_SLICE = 2000;
+    public const SCAN_SLICE = 10000;
 
     public function __construct(protected TarifMasterResolver $resolver) {}
 
