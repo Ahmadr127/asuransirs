@@ -18,7 +18,7 @@ class DatabaseSeeder extends Seeder
             RolePermissionSeeder::class,
             OrganizationTypeSeeder::class,
             OrganizationUnitSeeder::class,
-            TarifManagementSeeder::class,
+            // TarifManagementSeeder::class,
         ]);
 
         // Create admin user
