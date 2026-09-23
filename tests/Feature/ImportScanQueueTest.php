@@ -259,6 +259,8 @@ class ImportScanQueueTest extends TestCase
         $batch = ImportBatch::first();
         $this->assertNotNull($batch);
         $response->assertRedirect(route('tarif-import.batches.show', $batch));
+        // Feedback dispatch via Floating Process Manager, bukan flash toast.
+        $response->assertSessionMissing('info');
         $this->assertSame(ImportBatch::STATUS_PENDING_SCAN, $batch->status);
 
         Queue::assertPushed(ScanTarifImport::class);
@@ -330,6 +332,45 @@ class ImportScanQueueTest extends TestCase
         $this->assertCount(2, $json->json('preview'));
     }
 
+    public function test_status_endpoint_not_captured_by_batch_binding(): void
+    {
+        $this->makeBatch([$this->validRow()]);
+
+        $response = $this->actingAs($this->user)->getJson(route('tarif-import.batches.status'));
+
+        $response->assertOk();
+        $response->assertJsonStructure(['batches' => [['id', 'status', 'scan_percent', 'percent']]]);
+        $this->assertSame(1, count($response->json('batches')));
+    }
+
+    public function test_show_binds_numeric_id(): void
+    {
+        $batch = $this->makeBatch([$this->validRow()]);
+
+        $this->actingAs($this->user)->get(route('tarif-import.batches.show', $batch))->assertOk();
+        $this->actingAs($this->user)->getJson(route('tarif-import.batches.preview', $batch))->assertOk();
+    }
+
+    public function test_delete_button_visible_on_history_show_and_result(): void
+    {
+        $batch = $this->makeBatch([$this->validRow()], 'completed');
+
+        $history = $this->actingAs($this->user)->get(route('tarif-import.batches'));
+        $history->assertOk();
+        $history->assertSee('Delete');
+        $history->assertSee(route('tarif-import.batches.destroy', $batch), false);
+
+        $scanning = $this->makeBatch([$this->validRow()], 'pending_scan');
+        $show = $this->actingAs($this->user)->get(route('tarif-import.batches.show', $scanning));
+        $show->assertOk();
+        $show->assertSee('Delete');
+
+        $scanned = $this->makeBatch([$this->validRow()], 'scan_completed');
+        $result = $this->actingAs($this->user)->get(route('tarif-import.batches.show', $scanned));
+        $result->assertOk();
+        $result->assertSee('Delete');
+    }
+
     public function test_retry_scan_redispatches(): void
     {
         Queue::fake();
@@ -370,6 +411,7 @@ class ImportScanQueueTest extends TestCase
         ]);
 
         $response->assertRedirect(route('tarif-import.batches'));
+        $response->assertSessionMissing('info');
         $this->assertSame(ImportBatch::STATUS_PENDING_IMPORT, $batch->fresh()->status);
         Queue::assertPushed(ProcessTarifImport::class);
         // HTTP tidak membaca Excel: belum ada insert.

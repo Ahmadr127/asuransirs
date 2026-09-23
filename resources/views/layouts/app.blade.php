@@ -234,6 +234,7 @@
     
     <script src="{{ asset('js/chart.umd.min.js') }}"></script>
     <script src="{{ asset('js/toast.js') }}"></script>
+    <script src="{{ asset('js/process-manager.js') }}"></script>
     <script>
         document.addEventListener('DOMContentLoaded', function(){
             @if(session('success'))

@@ -99,6 +99,13 @@ return [
                 'permission' => 'manage_tarifs',
             ],
             [
+                'label' => 'Bridge Tarif',
+                'icon' => 'bi-arrow-left-right',
+                'route' => 'bridge.index',
+                'route_pattern' => 'bridge.*',
+                'permission' => 'manage_tarifs',
+            ],
+            [
                 'label' => 'Master & Tarif',
                 'icon' => 'bi-cash-coin',
                 'permissions' => ['manage_tarif_masters', 'manage_tarifs'],

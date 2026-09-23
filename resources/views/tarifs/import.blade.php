@@ -64,6 +64,15 @@
                     <a href="{{ route('tarif-import.index') }}" class="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-semibold text-gray-600 border border-gray-300 rounded-md bg-white hover:bg-gray-50 transition-colors">
                         Upload Ulang
                     </a>
+                    @if(isset($batch))
+                        <form action="{{ route('tarif-import.batches.destroy', $batch) }}" method="POST" onsubmit="return confirm('Hapus import ini? Data history import dan file terkait akan dihapus. Tindakan ini tidak dapat dibatalkan.');">
+                            @csrf
+                            @method('DELETE')
+                            <button type="submit" class="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-semibold text-red-600 border border-red-300 rounded-md bg-white hover:bg-red-50 transition-colors">
+                                <i class="bi bi-trash"></i> Delete
+                            </button>
+                        </form>
+                    @endif
                 </x-slot>
                 <div class="px-4 py-3 text-sm font-medium text-red-700 bg-red-50 border border-red-200 rounded-md">
                     {{ $result['fatal'] }}
@@ -93,6 +102,15 @@
                         <span class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-gray-500 border border-gray-200 rounded-md bg-gray-50" title="Tombol muncul bila ada baris VALID/WARNING">
                             <i class="bi bi-info-circle"></i> Tidak ada baris siap import (semua {{ ($result['duplicate_rows'] ?? 0) > 0 && ($result['error_rows'] ?? 0) === 0 ? 'duplikat' : 'error/duplikat' }})
                         </span>
+                    @endif
+                    @if(isset($batch) && !in_array($batch->status, [\App\Models\ImportBatch::STATUS_PROCESSING_SCAN, \App\Models\ImportBatch::STATUS_PROCESSING_IMPORT], true))
+                        <form action="{{ route('tarif-import.batches.destroy', $batch) }}" method="POST" onsubmit="return confirm('Hapus import ini? Data history import dan file terkait akan dihapus. Tindakan ini tidak dapat dibatalkan.');">
+                            @csrf
+                            @method('DELETE')
+                            <button type="submit" class="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-semibold text-red-600 border border-red-300 rounded-md bg-white hover:bg-red-50 transition-colors">
+                                <i class="bi bi-trash"></i> Delete
+                            </button>
+                        </form>
                     @endif
                     <a href="{{ route('tarif-import.index') }}" class="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-semibold text-gray-600 border border-gray-300 rounded-md bg-white hover:bg-gray-50 transition-colors">
                         Batal

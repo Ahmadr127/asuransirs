@@ -59,8 +59,7 @@ class TarifImportController extends Controller
 
         ScanTarifImport::dispatch($batch->id);
 
-        return redirect()->route('tarif-import.batches.show', $batch)
-            ->with('info', 'Scan sedang diproses...');
+        return redirect()->route('tarif-import.batches.show', $batch);
     }
 
     /**
@@ -84,7 +83,17 @@ class TarifImportController extends Controller
 
         if ($batch->status === ImportBatch::STATUS_SCAN_COMPLETED) {
             $jenisTarifs = JenisTarif::where('status', 'active')->orderBy('name')->get();
-            $summary = $batch->scan_summary ?? [];
+            $summary = array_merge([
+                'total_rows' => 0, 'valid_rows' => 0, 'warning_rows' => 0,
+                'error_rows' => 0, 'duplicate_rows' => 0,
+                'duplicate_in_file' => 0, 'duplicate_in_db' => 0,
+                'provider_found' => 0, 'provider_missing' => 0,
+                'service_found' => 0, 'service_missing' => 0,
+                'class_found' => 0, 'class_missing' => 0,
+                'provider_will_create' => 0, 'service_will_create' => 0, 'class_will_create' => 0,
+                'new_provider_total' => 0, 'new_service_total' => 0, 'new_class_total' => 0,
+                'processed' => 0,
+            ], $batch->scan_summary ?? []);
             $candidates = $batch->scan_candidates ?? [];
             $result = array_merge($summary, [
                 'filename' => $batch->filename,
@@ -151,8 +160,7 @@ class TarifImportController extends Controller
         ]);
         ProcessTarifImport::dispatch($batch->id);
 
-        return redirect()->route('tarif-import.batches')
-            ->with('info', 'Import sedang diproses...');
+        return redirect()->route('tarif-import.batches');
     }
 
     /**
@@ -194,6 +202,7 @@ class TarifImportController extends Controller
                 'classes_created' => (int) $b->classes_created,
                 'error_message' => $b->error_message,
                 'scan_error_message' => $b->scan_error_message,
+                'scan_summary' => $b->scan_summary,
                 'is_terminal' => $b->isTerminal(),
                 'is_scan_active' => $b->isScanActive(),
                 'is_import_active' => $b->isImportActive(),

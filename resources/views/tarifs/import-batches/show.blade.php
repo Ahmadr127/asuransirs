@@ -3,11 +3,18 @@
 @section('title', 'Scan Import Tarif')
 
 @section('content')
-<div class="w-full mx-auto flex flex-col gap-4">
+<div class="w-full mx-auto flex flex-col gap-4" data-bpm-track="{{ $batch->id }}" data-bpm-title="{{ $batch->filename }}">
     <x-card>
         <x-slot name="title">Scanning Excel</x-slot>
         <x-slot name="subtitle">{{ $batch->filename }} &bull; {{ $batch->jenisTarif->name ?? '-' }} &bull; scan berjalan di background, halaman boleh ditinggal</x-slot>
         <x-slot name="actions">
+            <form action="{{ route('tarif-import.batches.destroy', $batch) }}" method="POST" onsubmit="return confirm('Hapus import ini? Data history import dan file terkait akan dihapus. Tindakan ini tidak dapat dibatalkan.');">
+                @csrf
+                @method('DELETE')
+                <button type="submit" class="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-semibold text-red-600 border border-red-300 rounded-md bg-white hover:bg-red-50 transition-colors">
+                    <i class="bi bi-trash"></i> Delete
+                </button>
+            </form>
             <a href="{{ route('tarif-import.batches') }}" class="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-semibold text-gray-600 border border-gray-300 rounded-md bg-white hover:bg-gray-50 transition-colors">
                 <i class="bi bi-clock-history"></i> Riwayat
             </a>
@@ -37,8 +44,7 @@
     const errBox = document.getElementById('scan-error');
     const fmt = n => Number(n || 0).toLocaleString('id-ID');
 
-    window.Toast && Toast.info('Scan sedang diproses...', { title: 'Scan dimulai', duration: 5000 });
-
+    // Notifikasi persisten ditangani Floating Process Manager.
     async function poll() {
         let res;
         try {
@@ -54,7 +60,6 @@
 
         if (b.status === 'scan_completed') {
             text.textContent = 'Scan selesai. Menampilkan preview...';
-            window.Toast && Toast.success('Scan selesai. Preview siap ditampilkan.', { title: 'Scan selesai' });
             setTimeout(() => { window.location.href = showUrl; }, 800);
             return;
         }
@@ -62,7 +67,6 @@
             errBox.textContent = b.scan_error_message || 'Scan gagal.';
             errBox.classList.remove('hidden');
             text.textContent = 'Terhenti.';
-            window.Toast && Toast.error(b.scan_error_message || 'Scan gagal.', { title: 'Scan gagal', duration: 8000 });
             setTimeout(() => { window.location.href = showUrl; }, 1500);
             return;
         }

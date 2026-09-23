@@ -15,7 +15,7 @@
 
         <x-table :columns="['File', 'Jenis', 'Status', 'Progress', 'Hasil', 'Aksi']" :pagination="$batches" empty="Belum ada import. Upload Excel dari halaman Import untuk memulai scan.">
             @foreach($batches as $batch)
-            <tr class="hover:bg-gray-50 transition-colors" data-batch-row="{{ $batch->id }}" data-batch-status="{{ $batch->status }}">
+            <tr class="hover:bg-gray-50 transition-colors" data-batch-row="{{ $batch->id }}" data-batch-status="{{ $batch->status }}" data-bpm-track="{{ $batch->id }}" data-bpm-title="{{ $batch->filename }}">
                 <td class="px-4 py-3">
                     <div class="text-sm font-medium text-gray-900">{{ $batch->filename }}</div>
                     <div class="text-xs text-gray-500">#{{ $batch->id }} &bull; {{ $batch->created_at?->format('d/m/Y H:i') }}</div>
@@ -157,25 +157,10 @@
                     `<p class="mt-1 text-xs text-gray-600">${label ? label + ': ' : ''}${fmt(done)} / ${fmt(total)} rows (${isScan ? b.scan_percent : b.percent}%)</p>`;
             }
 
-            // Transisi terminal/entry-baru: toast sekali + reload agar aksi & badge akurat.
+            // Transisi terminal/entry-baru: reload agar aksi & badge akurat.
+            // Notifikasi persisten ditangani Floating Process Manager.
             if (old !== b.status && ['scan_completed', 'scan_failed', 'completed', 'failed'].includes(b.status)) {
                 prev[b.id] = b.status;
-                if (b.status === 'scan_completed') {
-                    window.Toast && Toast.success('Scan selesai. Preview siap ditampilkan.', { title: `Scan selesai (${b.filename})` });
-                } else if (b.status === 'scan_failed') {
-                    window.Toast && Toast.error(`${b.filename}\n${b.scan_error_message || 'Scan gagal.'}`, { title: 'Scan gagal', duration: 10000 });
-                } else if (b.status === 'completed') {
-                    window.Toast && Toast.success(
-                        `Total ${fmt(b.total_rows)} • Berhasil ${fmt(b.inserted)} • Duplikat ${fmt(b.skipped_duplicate)} • Error ${fmt(b.skipped_error)}` +
-                        ` • Provider +${fmt(b.providers_created)} • Service +${fmt(b.services_created)} • Kelas +${fmt(b.classes_created)}`,
-                        { title: `Import berhasil (${b.filename})`, duration: 8000 }
-                    );
-                } else {
-                    window.Toast && Toast.error(
-                        `${b.filename}\nProgress terakhir: ${fmt(b.processed_rows)} / ${fmt(b.total_rows)} rows\n${b.error_message || 'Terjadi kesalahan saat memproses file.'}`,
-                        { title: 'Import gagal', duration: 10000 }
-                    );
-                }
                 setTimeout(() => window.location.reload(), 1500);
                 return;
             }

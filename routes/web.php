@@ -99,19 +99,22 @@ Route::middleware('auth')->group(function () {
     Route::middleware('permission:manage_tarifs')->group(function () {
         Route::get('tarifs/import', [TarifImportController::class, 'index'])->name('tarif-import.index');
         Route::post('tarifs/import/scan', [TarifImportController::class, 'scan'])->name('tarif-import.scan');
-        Route::get('tarifs/import/batches/{batch}', [TarifImportController::class, 'show'])->name('tarif-import.batches.show');
-        Route::get('tarifs/import/batches/{batch}/preview', [TarifImportController::class, 'preview'])->name('tarif-import.batches.preview');
         Route::post('tarifs/import/commit', [TarifImportController::class, 'commit'])->name('tarif-import.commit');
         Route::get('tarifs/import/batches', [TarifImportController::class, 'batches'])->name('tarif-import.batches');
         Route::get('tarifs/import/batches/status', [TarifImportController::class, 'batchStatus'])->name('tarif-import.batches.status');
-        Route::get('tarifs/import/batches/{batch}/preview', [TarifImportController::class, 'preview'])->name('tarif-import.batches.preview');
-        Route::get('tarifs/import/batches/{batch}', [TarifImportController::class, 'show'])->name('tarif-import.batches.show');
-        Route::post('tarifs/import/batches/{batch}/retry-scan', [TarifImportController::class, 'retryScan'])->name('tarif-import.batches.retry-scan');
-        Route::post('tarifs/import/batches/{batch}/retry', [TarifImportController::class, 'retryBatch'])->name('tarif-import.batches.retry');
-        Route::delete('tarifs/import/batches/{batch}', [TarifImportController::class, 'destroyBatch'])->name('tarif-import.batches.destroy');
+        Route::get('tarifs/import/batches/{batch}/preview', [TarifImportController::class, 'preview'])->name('tarif-import.batches.preview')->whereNumber('batch');
+        Route::get('tarifs/import/batches/{batch}', [TarifImportController::class, 'show'])->name('tarif-import.batches.show')->whereNumber('batch');
+        Route::post('tarifs/import/batches/{batch}/retry-scan', [TarifImportController::class, 'retryScan'])->name('tarif-import.batches.retry-scan')->whereNumber('batch');
+        Route::post('tarifs/import/batches/{batch}/retry', [TarifImportController::class, 'retryBatch'])->name('tarif-import.batches.retry')->whereNumber('batch');
+        Route::delete('tarifs/import/batches/{batch}', [TarifImportController::class, 'destroyBatch'])->name('tarif-import.batches.destroy')->whereNumber('batch');
         Route::get('tarifs/import/template', [TarifImportController::class, 'template'])->name('tarif-import.template');
         Route::get('tarifs/export-xlsx', [TarifImportController::class, 'exportXlsx'])->name('tarif-import.export-xlsx');
         Route::get('tarifs/export', [TarifController::class, 'export'])->name('tarifs.export');
+        Route::get('bridge', [\App\Http\Controllers\BridgeTarifController::class, 'index'])->name('bridge.index');
+        Route::post('bridge/scan', [\App\Http\Controllers\BridgeTarifController::class, 'scan'])->name('bridge.scan');
+        Route::post('bridge/resolve', [\App\Http\Controllers\BridgeTarifController::class, 'resolveMapping'])->name('bridge.resolve');
+        Route::post('bridge/generate', [\App\Http\Controllers\BridgeTarifController::class, 'generate'])->name('bridge.generate');
+        Route::get('bridge/download/{token}', [\App\Http\Controllers\BridgeTarifController::class, 'download'])->name('bridge.download');
         Route::resource('tarifs', TarifController::class);
     });
 
