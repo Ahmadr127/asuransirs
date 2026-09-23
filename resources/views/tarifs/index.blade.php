@@ -8,6 +8,12 @@
         <x-slot name="title">Kelola Tarif</x-slot>
         <x-slot name="subtitle">Satu tabel dinamis untuk tarif, obat, alkes, bhp, dan makanan</x-slot>
         <x-slot name="actions">
+            <a href="{{ route('tarif-import.index') }}" class="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-semibold text-gray-600 border border-gray-300 rounded-md bg-white hover:bg-gray-50 transition-colors">
+                <i class="bi bi-upload"></i> Import Excel
+            </a>
+            <a href="{{ route('tarif-import.export-xlsx', request()->query()) }}" class="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-semibold text-gray-600 border border-gray-300 rounded-md bg-white hover:bg-gray-50 transition-colors">
+                <i class="bi bi-file-earmark-spreadsheet"></i> Export XLSX
+            </a>
             <a href="{{ route('tarifs.export', request()->query()) }}" class="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-semibold text-gray-600 border border-gray-300 rounded-md bg-white hover:bg-gray-50 transition-colors">
                 <i class="bi bi-download"></i> Export CSV
             </a>
@@ -154,7 +160,7 @@
                 </td>
                 <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-900">{{ $tarif->serviceClass->name ?? '-' }}</td>
                 <td class="px-4 py-3 whitespace-nowrap">
-                    <span class="inline-flex px-2 py-0.5 text-xs font-semibold rounded-full {{ $tarif->surgery_type === 'SURGERY' ? 'bg-purple-100 text-purple-800' : 'bg-gray-100 text-gray-800' }}">{{ $tarif->surgery_type }}</span>
+                    <span class="inline-flex px-2 py-0.5 text-xs font-semibold rounded-full {{ $tarif->surgery_type === 'SURGERY' ? 'bg-purple-100 text-purple-800' : 'bg-gray-100 text-gray-800' }}">{{ $tarif->surgery_type ?? '-' }}</span>
                 </td>
                 <td class="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900">Rp {{ number_format($tarif->tariff, 2, ',', '.') }}</td>
                 <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500">{{ $tarif->valid_date_from->format('d/m/Y') }} – {{ $tarif->end_date_to->format('d/m/Y') }}</td>

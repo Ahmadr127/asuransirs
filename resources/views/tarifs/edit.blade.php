@@ -28,8 +28,9 @@
                 />
 
                 <div>
-                    <label for="surgery_type" class="block text-sm font-semibold text-sp-navy mb-1">Surgery Type <span class="text-red-500">*</span></label>
-                    <select id="surgery_type" name="surgery_type" required class="w-full text-sm px-3 py-2 border rounded-md outline-none transition-colors bg-white border-gray-300 focus:ring-2 focus:ring-sp-primary/20 focus:border-sp-primary">
+                    <label for="surgery_type" class="block text-sm font-semibold text-sp-navy mb-1">Surgery Type <span class="text-gray-400 font-normal">(opsional)</span></label>
+                    <select id="surgery_type" name="surgery_type" class="w-full text-sm px-3 py-2 border rounded-md outline-none transition-colors bg-white border-gray-300 focus:ring-2 focus:ring-sp-primary/20 focus:border-sp-primary">
+                        <option value="" {{ old('surgery_type', $tarif->surgery_type) === null || old('surgery_type', $tarif->surgery_type) === '' ? 'selected' : '' }}>Tanpa bedah (kosong)</option>
                         <option value="SURGERY" {{ old('surgery_type', $tarif->surgery_type) === 'SURGERY' ? 'selected' : '' }}>SURGERY</option>
                         <option value="NON SURGERY" {{ old('surgery_type', $tarif->surgery_type) === 'NON SURGERY' ? 'selected' : '' }}>NON SURGERY</option>
                     </select>

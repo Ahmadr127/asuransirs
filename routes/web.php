@@ -1,19 +1,20 @@
 <?php
 
-use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\ActivityLogController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\DashboardController;
-use App\Http\Controllers\UserController;
-use App\Http\Controllers\RoleController;
-use App\Http\Controllers\PermissionController;
+use App\Http\Controllers\JenisTarifController;
 use App\Http\Controllers\OrganizationTypeController;
 use App\Http\Controllers\OrganizationUnitController;
-use App\Http\Controllers\ActivityLogController;
+use App\Http\Controllers\PermissionController;
 use App\Http\Controllers\ProviderController;
-use App\Http\Controllers\ServiceController;
+use App\Http\Controllers\RoleController;
 use App\Http\Controllers\ServiceClassController;
-use App\Http\Controllers\JenisTarifController;
+use App\Http\Controllers\ServiceController;
 use App\Http\Controllers\TarifController;
+use App\Http\Controllers\TarifImportController;
+use App\Http\Controllers\UserController;
+use Illuminate\Support\Facades\Route;
 
 /*
 |--------------------------------------------------------------------------
@@ -42,7 +43,7 @@ Route::middleware('guest')->group(function () {
 Route::middleware('auth')->group(function () {
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
     Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
-    
+
     // Profile routes
     Route::get('/profile', [App\Http\Controllers\ProfileController::class, 'index'])->name('profile.index');
 
@@ -76,7 +77,7 @@ Route::middleware('auth')->group(function () {
     // Organization Unit Management routes
     Route::middleware('permission:manage_organization_units')->group(function () {
         Route::resource('organization-units', OrganizationUnitController::class);
-        
+
         // Member management routes
         Route::post('organization-units/{organization_unit}/members', [OrganizationUnitController::class, 'addMember'])
             ->name('organization-units.add-member');
@@ -96,6 +97,13 @@ Route::middleware('auth')->group(function () {
 
     // Tarif Management routes
     Route::middleware('permission:manage_tarifs')->group(function () {
+        Route::get('tarifs/import', [TarifImportController::class, 'index'])->name('tarif-import.index');
+        Route::post('tarifs/import/scan', [TarifImportController::class, 'scan'])->name('tarif-import.scan');
+        Route::post('tarifs/import/scan-chunk', [TarifImportController::class, 'scanChunk'])->name('tarif-import.scan-chunk');
+        Route::get('tarifs/import/result', [TarifImportController::class, 'result'])->name('tarif-import.result');
+        Route::post('tarifs/import/commit', [TarifImportController::class, 'commit'])->name('tarif-import.commit');
+        Route::get('tarifs/import/template', [TarifImportController::class, 'template'])->name('tarif-import.template');
+        Route::get('tarifs/export-xlsx', [TarifImportController::class, 'exportXlsx'])->name('tarif-import.export-xlsx');
         Route::get('tarifs/export', [TarifController::class, 'export'])->name('tarifs.export');
         Route::resource('tarifs', TarifController::class);
     });

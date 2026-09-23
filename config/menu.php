@@ -131,6 +131,13 @@ return [
                         'route_pattern' => 'tarifs.*',
                         'permission' => 'manage_tarifs',
                     ],
+                    [
+                        'label' => 'Import Excel',
+                        'icon' => 'bi-file-earmark-spreadsheet',
+                        'route' => 'tarif-import.index',
+                        'route_pattern' => 'tarif-import.*',
+                        'permission' => 'manage_tarifs',
+                    ],
                 ],
             ],
         ],

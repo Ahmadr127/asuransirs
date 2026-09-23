@@ -10,7 +10,7 @@
                 <div>
                     <div class="flex items-center gap-2 flex-wrap mb-2">
                         <span class="inline-flex px-3 py-1 text-sm font-semibold rounded-full bg-blue-100 text-blue-800">{{ $tarif->jenisTarif->name ?? '-' }}</span>
-                        <span class="inline-flex px-3 py-1 text-sm font-semibold rounded-full {{ $tarif->surgery_type === 'SURGERY' ? 'bg-purple-100 text-purple-800' : 'bg-gray-100 text-gray-800' }}">{{ $tarif->surgery_type }}</span>
+                        <span class="inline-flex px-3 py-1 text-sm font-semibold rounded-full {{ $tarif->surgery_type === 'SURGERY' ? 'bg-purple-100 text-purple-800' : 'bg-gray-100 text-gray-800' }}">{{ $tarif->surgery_type ?? '-' }}</span>
                         <span class="inline-flex px-3 py-1 text-sm font-semibold rounded-full {{ \App\Models\Tarif::badgeClass($tarif->status) }}">{{ $tarif->status }}</span>
                     </div>
                     <h2 class="text-2xl font-bold text-gray-900">{{ $tarif->service->name ?? '-' }}</h2>
