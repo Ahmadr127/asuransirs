@@ -45,6 +45,8 @@
     const fmt = n => Number(n || 0).toLocaleString('id-ID');
 
     // Notifikasi persisten ditangani Floating Process Manager.
+    // Hentikan polling bila batch tak ditemukan berulang (mis. dihapus).
+    let misses = 0;
     async function poll() {
         let res;
         try {
@@ -53,7 +55,17 @@
         if (!res.ok) { return schedule(); }
         const data = await res.json();
         const b = (data.batches || []).find(x => String(x.id) === String(batchId));
-        if (!b) { return schedule(); }
+        if (!b) {
+            misses++;
+            if (misses >= 20) {
+                errBox.textContent = 'Batch tidak ditemukan (mungkin sudah dihapus). Polling dihentikan.';
+                errBox.classList.remove('hidden');
+                text.textContent = 'Terhenti.';
+                return;
+            }
+            return schedule();
+        }
+        misses = 0;
 
         bar.style.width = b.scan_percent + '%';
         text.textContent = `${fmt(b.scan_processed_rows)} / ${fmt(b.scan_total_rows)} rows (${b.scan_percent}%)`;

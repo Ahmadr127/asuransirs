@@ -31,6 +31,9 @@ class BridgeTarifTest extends TestCase
     {
         parent::setUp();
 
+        // View memakai @vite; test tidak bergantung pada hasil build frontend.
+        $this->withoutVite();
+
         Storage::fake('local');
         Cache::flush();
         $this->createTables();

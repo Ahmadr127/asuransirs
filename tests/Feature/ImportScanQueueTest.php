@@ -41,6 +41,9 @@ class ImportScanQueueTest extends TestCase
     {
         parent::setUp();
 
+        // View memakai @vite; test tidak bergantung pada hasil build frontend.
+        $this->withoutVite();
+
         Storage::fake('local');
         $this->createTables();
         $this->truncateTables();
@@ -369,6 +372,96 @@ class ImportScanQueueTest extends TestCase
         $result = $this->actingAs($this->user)->get(route('tarif-import.batches.show', $scanned));
         $result->assertOk();
         $result->assertSee('Delete');
+    }
+
+    public function test_scan_job_failed_hook_marks_terminal(): void
+    {
+        $batch = $this->makeBatch([$this->validRow()], 'processing_scan');
+        ImportBatch::where('id', $batch->id)->update(['scan_processed_rows' => 4200, 'scan_total_rows' => 10000]);
+
+        (new \App\Jobs\ScanTarifImport($batch->id))->failed(new \RuntimeException('Simulasi worker timeout.'));
+        $batch->refresh();
+
+        $this->assertSame(ImportBatch::STATUS_SCAN_FAILED, $batch->status);
+        $this->assertStringContainsString('Simulasi worker timeout', (string) $batch->scan_error_message);
+        $this->assertSame(4200, (int) $batch->scan_processed_rows);
+        $this->assertSame(10000, (int) $batch->scan_total_rows);
+    }
+
+    public function test_import_job_failed_hook_marks_terminal(): void
+    {
+        $batch = $this->makeBatch([$this->validRow()], 'processing_import');
+        ImportBatch::where('id', $batch->id)->update(['processed_rows' => 500, 'total_rows' => 1000]);
+
+        (new \App\Jobs\ProcessTarifImport($batch->id))->failed(new \RuntimeException('Simulasi worker timeout.'));
+        $batch->refresh();
+
+        $this->assertSame(ImportBatch::STATUS_FAILED, $batch->status);
+        $this->assertStringContainsString('Simulasi worker timeout', (string) $batch->error_message);
+        $this->assertSame(500, (int) $batch->processed_rows);
+    }
+
+    public function test_stale_processing_batches_reaped_on_status_poll(): void
+    {
+        $staleScan = $this->makeBatch([$this->validRow()], 'processing_scan');
+        ImportBatch::where('id', $staleScan->id)->update(['updated_at' => now()->subHours(2)]);
+        $staleImport = $this->makeBatch([$this->validRow()], 'processing_import');
+        ImportBatch::where('id', $staleImport->id)->update(['updated_at' => now()->subHours(2)]);
+        $fresh = $this->makeBatch([$this->validRow()], 'processing_scan');
+        $recentlyActive = $this->makeBatch([$this->validRow()], 'processing_import');
+        ImportBatch::where('id', $recentlyActive->id)->update(['updated_at' => now()->subMinutes(4)]);
+        $pending = $this->makeBatch([$this->validRow()], 'pending_scan');
+        ImportBatch::where('id', $pending->id)->update(['updated_at' => now()->subHours(5)]);
+
+        $response = $this->actingAs($this->user)->getJson(route('tarif-import.batches.status'));
+        $response->assertOk();
+
+        $this->assertSame(ImportBatch::STATUS_SCAN_FAILED, $staleScan->fresh()->status);
+        $this->assertNotEmpty($staleScan->fresh()->scan_error_message);
+        $this->assertSame(ImportBatch::STATUS_FAILED, $staleImport->fresh()->status);
+        $this->assertSame('processing_scan', $fresh->fresh()->status);
+        $this->assertSame('processing_import', $recentlyActive->fresh()->status);
+        $this->assertSame('pending_scan', $pending->fresh()->status);
+
+        // Payload ikut terminal agar polling berhenti.
+        $byId = collect($response->json('batches'))->keyBy('id');
+        $this->assertTrue($byId[$staleScan->id]['is_terminal']);
+    }
+
+    public function test_jobs_declare_1800s_timeout(): void
+    {
+        $this->assertSame(1800, (new \App\Jobs\ScanTarifImport(1))->timeout);
+        $this->assertSame(1800, (new \App\Jobs\ProcessTarifImport(1))->timeout);
+    }
+
+    public function test_scan_stops_at_formatted_empty_tail(): void
+    {
+        // 5 baris data + format yang di-drag sampai baris 5000 (tanpa nilai).
+        $spreadsheet = new Spreadsheet;
+        $sheet = $spreadsheet->getActiveSheet();
+        $sheet->fromArray(array_merge([$this->header(), $this->validRow(), $this->validRow([2 => 'VK02', 9 => '2025-01-01', 10 => '2025-12-31']), $this->validRow([9 => '2026-01-01', 10 => '2026-12-31']), $this->validRow([2 => 'VK03', 9 => '2027-01-01', 10 => '2027-12-31']), $this->validRow([2 => 'VK04', 9 => '2028-01-01', 10 => '2028-12-31'])]), null, 'A1');
+        $sheet->getStyle('A2:K5000')->getFill()->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID);
+        $tmp = tempnam(sys_get_temp_dir(), 'tarif').'.xlsx';
+        (new Xlsx($spreadsheet))->save($tmp);
+        $spreadsheet->disconnectWorksheets();
+        $filename = 'tarif-imports/'.uniqid('tail', true).'.xlsx';
+        Storage::put($filename, file_get_contents($tmp));
+
+        $batch = ImportBatch::create([
+            'user_id' => $this->user->id,
+            'filename' => 'ekor.xlsx',
+            'path' => $filename,
+            'jenis_tarif_id' => $this->jenis->id,
+            'status' => 'pending_scan',
+        ]);
+
+        (new \App\Jobs\ScanTarifImport($batch->id))->handle($this->service);
+        $batch->refresh();
+
+        $this->assertSame(ImportBatch::STATUS_SCAN_COMPLETED, $batch->status);
+        // Total dikoreksi ke baris berisi data, bukan dimensi sheet.
+        $this->assertSame(5, (int) $batch->scan_total_rows);
+        $this->assertSame(5, (int) $batch->scan_processed_rows);
     }
 
     public function test_retry_scan_redispatches(): void

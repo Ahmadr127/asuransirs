@@ -175,9 +175,15 @@ class TarifImportController extends Controller
 
     /**
      * JSON status untuk polling (1–2 detik) selama fase aktif scan/import.
+     * Sekaligus jaring pengaman terakhir: job sehat mengupdate progress
+     * tiap chunk (hitungan detik), jadi status processing yang sunyi
+     * > 1 jam berarti worker mati mendadak (SIGKILL/reboot) — tandai
+     * failed agar frontend berhenti polling dengan status terminal.
      */
     public function batchStatus(Request $request)
     {
+        $this->reapStaleBatches();
+
         $batches = ImportBatch::with('jenisTarif')->orderByDesc('id')->limit(30)->get();
 
         return response()->json([
@@ -209,6 +215,32 @@ class TarifImportController extends Controller
                 'updated_at' => $b->updated_at?->toDateTimeString(),
             ])->values(),
         ]);
+    }
+
+    /**
+     * Tandai failed batch processing yang tidak menunjukkan tanda hidup.
+     * Job sehat mengupdate progress tiap chunk (hitungan detik — jauh di
+     * bawah 300), jadi sunyi 5 menit berarti worker sudah tidak ada
+     * (dibunuh timeout/SIGKILL/reboot). Hanya untuk processing_*
+     * (pending = antrean wajar, bukan macet).
+     */
+    protected function reapStaleBatches(): void
+    {
+        $staleBefore = now()->subSeconds(300);
+
+        ImportBatch::where('status', ImportBatch::STATUS_PROCESSING_SCAN)
+            ->where('updated_at', '<', $staleBefore)
+            ->update([
+                'status' => ImportBatch::STATUS_SCAN_FAILED,
+                'scan_error_message' => 'Worker berhenti tanpa kabar (di atas 5 menit tanpa progress). Pastikan worker queue:work berjalan, lalu ulangi scan.',
+            ]);
+
+        ImportBatch::where('status', ImportBatch::STATUS_PROCESSING_IMPORT)
+            ->where('updated_at', '<', $staleBefore)
+            ->update([
+                'status' => ImportBatch::STATUS_FAILED,
+                'error_message' => 'Worker berhenti tanpa kabar (di atas 5 menit tanpa progress). Pastikan worker queue:work berjalan, lalu ulangi import.',
+            ]);
     }
 
     /**

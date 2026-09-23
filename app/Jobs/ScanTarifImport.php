@@ -86,18 +86,37 @@ class ScanTarifImport implements ShouldQueue
 
             // Streaming per chunk mengikuti nomor baris Excel (kursor),
             // release tiap slice setelah diproses. Tanpa hard limit row.
+            // Dimensi sheet sering mencakup ribuan baris kosong ber-format
+            // (hasil drag-format); 3 slice kosong beruntun dianggap buntut
+            // file sehingga scan berhenti dan total dikoreksi ke baris data.
             $cursor = 2;
             $lastRow = $total + 1;
+            $emptyStreak = 0;
+            $lastSaved = -1;
             while ($cursor <= $lastRow) {
                 $end = min($cursor + TarifImportService::SCAN_SLICE - 1, $lastRow);
                 $rawRows = $service->readSlice($path, $cursor, $end);
                 if ($rawRows === []) {
                     break;
                 }
-                $service->processSlice($rawRows, $header['map'], $cursor, $existingKeys, $state);
                 $cursor += count($rawRows);
-                $batch->update(['scan_processed_rows' => (int) $state['summary']['processed']]);
+                if (! collect($rawRows)->contains(fn ($r) => TarifImportService::isNonEmptyRow($r))) {
+                    unset($rawRows);
+                    $emptyStreak++;
+                    if ($emptyStreak >= 3) {
+                        break;
+                    }
+
+                    continue;
+                }
+                $emptyStreak = 0;
+                $service->processSlice($rawRows, $header['map'], $cursor - count($rawRows), $existingKeys, $state);
                 unset($rawRows);
+                $processed = (int) $state['summary']['processed'];
+                if ($processed !== $lastSaved) {
+                    $batch->update(['scan_processed_rows' => $processed]);
+                    $lastSaved = $processed;
+                }
             }
 
             $result = $service->finalizeScanState($state, 'scan-'.$batch->id);
@@ -128,5 +147,32 @@ class ScanTarifImport implements ShouldQueue
                 'scan_error_message' => mb_substr($e->getMessage(), 0, 2000),
             ]);
         }
+    }
+
+    /**
+     * Dipanggil worker ketika job gagal di luar try/catch handle()
+     * (timeout worker, tries habis, error sebelum/sesudah blok utama).
+     * Menjamin batch tidak tertahan di processing_scan selamanya —
+     * progress terakhir tetap tersimpan.
+     */
+    public function failed(\Throwable $exception): void
+    {
+        $batch = ImportBatch::find($this->batchId);
+        if (! $batch) {
+            return;
+        }
+        if (! in_array($batch->status, [ImportBatch::STATUS_PENDING_SCAN, ImportBatch::STATUS_PROCESSING_SCAN], true)) {
+            return;
+        }
+
+        Log::error('Queue scan tarif gagal (failed hook)', [
+            'batch_id' => $batch->id,
+            'filename' => $batch->filename,
+            'error' => $exception->getMessage(),
+        ]);
+        $batch->update([
+            'status' => ImportBatch::STATUS_SCAN_FAILED,
+            'scan_error_message' => mb_substr($exception->getMessage(), 0, 2000),
+        ]);
     }
 }

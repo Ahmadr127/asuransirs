@@ -99,4 +99,30 @@ class ProcessTarifImport implements ShouldQueue
             ]);
         }
     }
+
+    /**
+     * Dipanggil worker ketika job gagal di luar try/catch handle()
+     * (timeout worker, tries habis). Menjamin batch tidak tertahan
+     * di processing_import selamanya — progress terakhir tersimpan.
+     */
+    public function failed(\Throwable $exception): void
+    {
+        $batch = ImportBatch::find($this->batchId);
+        if (! $batch) {
+            return;
+        }
+        if (! in_array($batch->status, [ImportBatch::STATUS_PENDING_IMPORT, ImportBatch::STATUS_PROCESSING_IMPORT], true)) {
+            return;
+        }
+
+        Log::error('Queue import tarif gagal (failed hook)', [
+            'batch_id' => $batch->id,
+            'filename' => $batch->filename,
+            'error' => $exception->getMessage(),
+        ]);
+        $batch->update([
+            'status' => ImportBatch::STATUS_FAILED,
+            'error_message' => mb_substr($exception->getMessage(), 0, 2000),
+        ]);
+    }
 }
