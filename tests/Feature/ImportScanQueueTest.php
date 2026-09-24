@@ -161,6 +161,7 @@ class ImportScanQueueTest extends TestCase
                 $table->string('path');
                 $table->foreignId('jenis_tarif_id')->nullable()->constrained('jenis_tarifs');
                 $table->string('status', 20)->default('pending_scan');
+                $table->boolean('cancel_requested')->default(false);
                 $table->unsignedBigInteger('total_rows')->default(0);
                 $table->unsignedBigInteger('processed_rows')->default(0);
                 $table->unsignedBigInteger('inserted')->default(0);

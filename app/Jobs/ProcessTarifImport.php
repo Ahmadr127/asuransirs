@@ -2,6 +2,7 @@
 
 namespace App\Jobs;
 
+use App\Exceptions\ImportBatchCancelled;
 use App\Http\Services\TarifImportService;
 use App\Imports\TarifChunkImport;
 use App\Models\ImportBatch;
@@ -46,6 +47,15 @@ class ProcessTarifImport implements ShouldQueue
         if (! $batch) {
             return;
         }
+        // Kill sebelum mulai: jangan sentuh apa pun, tandai dibatalkan.
+        if ($batch->cancel_requested) {
+            $batch->update([
+                'status' => ImportBatch::STATUS_CANCELLED,
+                'error_message' => 'Proses import dihentikan oleh user sebelum dimulai.',
+            ]);
+
+            return;
+        }
         if (! Storage::exists($batch->path)) {
             $batch->update([
                 'status' => ImportBatch::STATUS_FAILED,
@@ -81,6 +91,10 @@ class ProcessTarifImport implements ShouldQueue
                 Log::info('IMPORT PROGRESS UPDATE START', ['batch_id'=>$batch->id, 'chunk_processed'=>$chunk->processedRows, 'mem'=>round(memory_get_usage(true)/1024/1024,1)]);
                 $upT0 = microtime(true);
                 $batch->refresh();
+                // Checkpoint kill: berhenti aman bila user meminta.
+                if ($batch->cancel_requested) {
+                    throw new ImportBatchCancelled('Proses import dihentikan oleh user pada '.$batch->processed_rows.' rows.');
+                }
                 // processed: chunk is cumulative from 0 for file → max(batch, chunk) NEVER DECREASE
                 // inserted/dup/err: chunk is delta new in this execution → total = initial + chunk, also max
                 $batch->update([
@@ -107,6 +121,15 @@ class ProcessTarifImport implements ShouldQueue
                 'providers_created' => max(0, Provider::count() - $providersBefore),
                 'services_created' => max(0, Service::count() - $servicesBefore),
                 'classes_created' => max(0, ServiceClass::count() - $classesBefore),
+            ]);
+        } catch (ImportBatchCancelled $e) {
+            Log::info('Import tarif dibatalkan user', [
+                'batch_id' => $batch->id,
+                'filename' => $batch->filename,
+            ]);
+            $batch->update([
+                'status' => ImportBatch::STATUS_CANCELLED,
+                'error_message' => mb_substr($e->getMessage(), 0, 2000),
             ]);
         } catch (\Throwable $e) {
             Log::error('Queue import tarif gagal', [

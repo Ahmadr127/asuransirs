@@ -43,6 +43,12 @@ class ScanTarifImport implements ShouldQueue
         if (! $batch) {
             return;
         }
+        // Kill sebelum mulai: jangan sentuh apa pun, tandai dibatalkan.
+        if ($batch->cancel_requested) {
+            $this->markCancelled($batch, 'Proses scan dihentikan oleh user sebelum dimulai.');
+
+            return;
+        }
         if (! Storage::exists($batch->path)) {
             $batch->update([
                 'status' => ImportBatch::STATUS_SCAN_FAILED,
@@ -129,6 +135,13 @@ class ScanTarifImport implements ShouldQueue
                     $batch->update(['scan_processed_rows' => $processed]);
                     $lastSaved = $processed;
                 }
+                // Checkpoint kill: berhenti aman bila user meminta.
+                $batch->refresh();
+                if ($batch->cancel_requested) {
+                    $this->markCancelled($batch, 'Proses scan dihentikan oleh user pada '.$processed.' rows.');
+
+                    return;
+                }
                 $elapsed = round(microtime(true) - $chunkStart, 2);
                 $totalElapsed = round(microtime(true) - $startedAt, 1);
                 $peak = round(memory_get_peak_usage(true) / 1024 / 1024, 1);
@@ -175,6 +188,19 @@ class ScanTarifImport implements ShouldQueue
                 'scan_error_message' => mb_substr($e->getMessage(), 0, 2000),
             ]);
         }
+    }
+
+    /**
+     * Tandai batch dibatalkan (bukan gagal) — dipakai early-exit maupun
+     * checkpoint kill. Progress terakhir tetap tersimpan.
+     */
+    protected function markCancelled(ImportBatch $batch, string $message): void
+    {
+        Log::info('Scan tarif dibatalkan user', ['batch_id' => $batch->id, 'filename' => $batch->filename]);
+        $batch->update([
+            'status' => ImportBatch::STATUS_CANCELLED,
+            'scan_error_message' => $message,
+        ]);
     }
 
     /**

@@ -106,6 +106,7 @@ Route::middleware('auth')->group(function () {
         Route::get('tarifs/import/batches/{batch}', [TarifImportController::class, 'show'])->name('tarif-import.batches.show')->whereNumber('batch');
         Route::post('tarifs/import/batches/{batch}/retry-scan', [TarifImportController::class, 'retryScan'])->name('tarif-import.batches.retry-scan')->whereNumber('batch');
         Route::post('tarifs/import/batches/{batch}/retry', [TarifImportController::class, 'retryBatch'])->name('tarif-import.batches.retry')->whereNumber('batch');
+        Route::post('tarifs/import/batches/{batch}/kill', [TarifImportController::class, 'killBatch'])->name('tarif-import.batches.kill')->whereNumber('batch');
         Route::delete('tarifs/import/batches/{batch}', [TarifImportController::class, 'destroyBatch'])->name('tarif-import.batches.destroy')->whereNumber('batch');
         Route::get('tarifs/import/template', [TarifImportController::class, 'template'])->name('tarif-import.template');
         Route::get('tarifs/export-xlsx', [TarifImportController::class, 'exportXlsx'])->name('tarif-import.export-xlsx');

@@ -8,6 +8,12 @@
         <x-slot name="title">Scanning Excel</x-slot>
         <x-slot name="subtitle">{{ $batch->filename }} &bull; {{ $batch->jenisTarif->name ?? '-' }} &bull; scan berjalan di background, halaman boleh ditinggal</x-slot>
         <x-slot name="actions">
+            <form action="{{ route('tarif-import.batches.kill', $batch) }}" method="POST" onsubmit="return confirm('HENTIKAN proses scan ini? Job antrean akan dihapus dan status menjadi DIBATALKAN.');">
+                @csrf
+                <button type="submit" class="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-semibold text-white rounded-md bg-orange-600 hover:bg-orange-700 transition-colors">
+                    <i class="bi bi-stop-circle"></i> Kill
+                </button>
+            </form>
             <form action="{{ route('tarif-import.batches.destroy', $batch) }}" method="POST" onsubmit="return confirm('Hapus import ini? Data history import dan file terkait akan dihapus. Tindakan ini tidak dapat dibatalkan.');">
                 @csrf
                 @method('DELETE')
@@ -80,6 +86,12 @@
             errBox.classList.remove('hidden');
             text.textContent = 'Terhenti.';
             setTimeout(() => { window.location.href = showUrl; }, 1500);
+            return;
+        }
+        if (b.status === 'cancelled') {
+            errBox.textContent = 'Proses dihentikan oleh user.';
+            errBox.classList.remove('hidden');
+            text.textContent = 'Dibatalkan.';
             return;
         }
         schedule();

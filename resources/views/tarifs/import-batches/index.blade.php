@@ -57,6 +57,15 @@
                         @if($batch->error_message)
                             <div class="mt-1 p-1.5 bg-red-50 border border-red-200 rounded text-red-800 break-words">{{ \Illuminate\Support\Str::limit($batch->error_message, 300) }}</div>
                         @endif
+                    @elseif($batch->status === \App\Models\ImportBatch::STATUS_CANCELLED)
+                        <div class="font-medium text-gray-700">Dibatalkan user</div>
+                        <div>Progress terakhir: {{ number_format($batch->processed_rows) }} / {{ number_format($batch->total_rows) }} rows</div>
+                        @if($batch->error_message)
+                            <div class="mt-1 p-1.5 bg-gray-50 border border-gray-200 rounded text-gray-700 break-words">{{ \Illuminate\Support\Str::limit($batch->error_message, 300) }}</div>
+                        @endif
+                        @if($batch->scan_error_message)
+                            <div class="mt-1 p-1.5 bg-gray-50 border border-gray-200 rounded text-gray-700 break-words">{{ \Illuminate\Support\Str::limit($batch->scan_error_message, 300) }}</div>
+                        @endif
                     @else
                         <span class="text-gray-400">Menunggu worker...</span>
                     @endif
@@ -76,11 +85,19 @@
                                 </button>
                             </form>
                         @endif
-                        @if($batch->status === \App\Models\ImportBatch::STATUS_FAILED)
+                        @if($batch->status === \App\Models\ImportBatch::STATUS_FAILED || $batch->status === \App\Models\ImportBatch::STATUS_CANCELLED)
                             <form action="{{ route('tarif-import.batches.retry', $batch) }}" method="POST">
                                 @csrf
                                 <button type="submit" class="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-semibold text-white rounded-md bg-blue-600 hover:bg-blue-700 transition-colors">
                                     <i class="bi bi-arrow-repeat"></i> Retry
+                                </button>
+                            </form>
+                        @endif
+                        @if($batch->isScanActive() || $batch->isImportActive())
+                            <form action="{{ route('tarif-import.batches.kill', $batch) }}" method="POST" onsubmit="return confirm('HENTIKAN proses batch ini? Job antrean milik batch akan dihapus dan status menjadi DIBATALKAN. Tindakan ini tidak dapat dibatalkan.');">
+                                @csrf
+                                <button type="submit" class="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-semibold text-white rounded-md bg-orange-600 hover:bg-orange-700 transition-colors">
+                                    <i class="bi bi-stop-circle"></i> Kill
                                 </button>
                             </form>
                         @endif
@@ -121,6 +138,7 @@
         processing_scan: 'bg-blue-100 text-blue-800',
         failed: 'bg-red-100 text-red-800',
         scan_failed: 'bg-red-100 text-red-800',
+        cancelled: 'bg-gray-100 text-gray-600',
         pending_scan: 'bg-yellow-100 text-yellow-800',
         pending_import: 'bg-yellow-100 text-yellow-800',
     };
@@ -159,7 +177,7 @@
 
             // Transisi terminal/entry-baru: reload agar aksi & badge akurat.
             // Notifikasi persisten ditangani Floating Process Manager.
-            if (old !== b.status && ['scan_completed', 'scan_failed', 'completed', 'failed'].includes(b.status)) {
+            if (old !== b.status && ['scan_completed', 'scan_failed', 'completed', 'failed', 'cancelled'].includes(b.status)) {
                 prev[b.id] = b.status;
                 setTimeout(() => window.location.reload(), 1500);
                 return;

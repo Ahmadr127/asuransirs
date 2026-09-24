@@ -70,6 +70,11 @@ class TarifImportController extends Controller
     {
         $batch->load('jenisTarif');
 
+        if ($batch->status === ImportBatch::STATUS_CANCELLED) {
+            return redirect()->route('tarif-import.batches')
+                ->with('info', 'Batch ini telah dihentikan (DIBATALKAN). Gunakan Retry untuk menjalankannya kembali.');
+        }
+
         if ($batch->status === ImportBatch::STATUS_SCAN_FAILED) {
             $jenisTarifs = JenisTarif::where('status', 'active')->orderBy('name')->get();
             $result = [
@@ -274,6 +279,7 @@ class TarifImportController extends Controller
 
         $batch->update([
             'status' => ImportBatch::STATUS_PENDING_SCAN,
+            'cancel_requested' => false,
             'scan_total_rows' => 0,
             'scan_processed_rows' => 0,
             'scan_summary' => null,
@@ -288,13 +294,13 @@ class TarifImportController extends Controller
     }
 
     /**
-     * Retry import gagal: pakai file + jenis tarif yang sama, selalu
-     * melalui queue. Idempoten via business key existing.
+     * Retry import gagal/dibatalkan: pakai file + jenis tarif yang sama,
+     * selalu melalui queue. Idempoten via business key existing.
      */
     public function retryBatch(ImportBatch $batch)
     {
-        if ($batch->status !== ImportBatch::STATUS_FAILED) {
-            return back()->with('error', 'Retry import hanya untuk status FAILED.');
+        if (! in_array($batch->status, [ImportBatch::STATUS_FAILED, ImportBatch::STATUS_CANCELLED], true)) {
+            return back()->with('error', 'Retry import hanya untuk status FAILED / DIBATALKAN.');
         }
 
         if (! Storage::exists($batch->path)) {
@@ -303,6 +309,7 @@ class TarifImportController extends Controller
 
         $batch->update([
             'status' => ImportBatch::STATUS_PENDING_IMPORT,
+            'cancel_requested' => false,
             'processed_rows' => 0,
             'inserted' => 0,
             'skipped_duplicate' => 0,
@@ -318,13 +325,115 @@ class TarifImportController extends Controller
     }
 
     /**
+     * KILL proses scan/import: hentikan worker secara kooperatif
+     * (flag cancel_requested dibaca tiap checkpoint) + hapus SEMUA job
+     * antrean milik batch ini (pending maupun reserved) dari tabel jobs
+     * dan failed_jobs, lalu tandai batch DIBATALKAN. Tanpa ini, job yang
+     * tertinggal menjadi ghost proses yang membalik status batch.
+     */
+    public function killBatch(ImportBatch $batch)
+    {
+        if ($batch->isTerminal()) {
+            return back()->with('error', 'Batch sudah selesai ('.ImportBatch::statusLabel($batch->status).'). Tidak ada proses untuk dihentikan.');
+        }
+
+        if (! $batch->isScanActive() && ! $batch->isImportActive()) {
+            return back()->with('error', 'Batch tidak dalam antrean/proses.');
+        }
+
+        $wasScan = $batch->isScanActive();
+
+        // 1. Flag dulu agar worker yang telanjur jalan berhenti di checkpoint.
+        $batch->update(['cancel_requested' => true]);
+
+        // 2. Hapus job milik batch ini dari antrean (pending + reserved).
+        $deleted = $this->deleteBatchJobs($batch->id);
+
+        // 3. Tandai terminal agar polling berhenti dan retry memungkinkan.
+        $batch->update([
+            'status' => ImportBatch::STATUS_CANCELLED,
+            'scan_error_message' => $wasScan ? 'Proses scan dihentikan paksa oleh user.' : $batch->scan_error_message,
+            'error_message' => $wasScan ? $batch->error_message : 'Proses import dihentikan paksa oleh user.',
+        ]);
+
+        $totalJobs = $deleted['jobs'] + $deleted['failed'];
+
+        return back()->with(
+            'success',
+            "Proses batch #{$batch->id} dihentikan. {$totalJobs} job dihapus dari antrean; worker yang sedang jalan akan berhenti aman di checkpoint."
+        );
+    }
+
+    /**
+     * Hapus baris jobs + failed_jobs milik satu batch.
+     * LIKE hanya prefilter murah (quote di payload JSON ter-escape,
+     * jadi pola literal tidak bisa diandalkan); penentu sah adalah
+     * verifikasi unserialize di payloadBelongsToBatch().
+     *
+     * @return array{jobs: int, failed: int}
+     */
+    protected function deleteBatchJobs(int $batchId): array
+    {
+        $deleted = ['jobs' => 0, 'failed' => 0];
+
+        foreach (['jobs' => 'jobs', 'failed' => 'failed_jobs'] as $key => $table) {
+            if (! \Illuminate\Support\Facades\Schema::hasTable($table)) {
+                continue;
+            }
+            $rows = \Illuminate\Support\Facades\DB::table($table)
+                ->where('payload', 'like', '%batchId%')
+                ->where('payload', 'like', '%i:'.$batchId.';%')
+                ->get(['id', 'payload']);
+            foreach ($rows as $row) {
+                if (! $this->payloadBelongsToBatch((string) $row->payload, $batchId)) {
+                    continue;
+                }
+                \Illuminate\Support\Facades\DB::table($table)->where('id', $row->id)->delete();
+                $deleted[$key]++;
+            }
+        }
+
+        return $deleted;
+    }
+
+    /**
+     * Verifikasi payload job database-queue benar milik batch ini dengan
+     * membaca command yang terserialisasi (ScanTarifImport /
+     * ProcessTarifImport membawa batchId).
+     */
+    protected function payloadBelongsToBatch(string $payloadJson, int $batchId): bool
+    {
+        try {
+            $payload = json_decode($payloadJson, true, 512, JSON_THROW_ON_ERROR);
+            $command = unserialize($payload['data']['command'] ?? '', [
+                'allowed_classes' => [ScanTarifImport::class, ProcessTarifImport::class],
+            ]);
+        } catch (\Throwable) {
+            return false;
+        }
+
+        if (! $command instanceof ScanTarifImport && ! $command instanceof ProcessTarifImport) {
+            return false;
+        }
+
+        try {
+            $prop = new \ReflectionProperty($command, 'batchId');
+            $prop->setAccessible(true);
+
+            return (int) $prop->getValue($command) === $batchId;
+        } catch (\Throwable) {
+            return false;
+        }
+    }
+
+    /**
      * Hapus batch + file terkait. Diblokir selama processing_scan /
      * processing_import karena tidak ada cancel worker yang aman.
      */
     public function destroyBatch(ImportBatch $batch)
     {
         if ($batch->status === ImportBatch::STATUS_PROCESSING_SCAN || $batch->status === ImportBatch::STATUS_PROCESSING_IMPORT) {
-            return back()->with('error', 'Batch sedang diproses dan tidak dapat dihapus. Tunggu hingga selesai atau gagal.');
+            return back()->with('error', 'Batch sedang diproses dan tidak dapat dihapus. Hentikan dulu via tombol Kill.');
         }
 
         if (Storage::exists($batch->path)) {

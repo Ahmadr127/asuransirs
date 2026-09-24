@@ -30,6 +30,8 @@ class ImportBatch extends Model
 
     public const STATUS_FAILED = 'failed';
 
+    public const STATUS_CANCELLED = 'cancelled';
+
     /** Alias kompatibilitas alur lama. */
     public const STATUS_PENDING = self::STATUS_PENDING_IMPORT;
 
@@ -44,6 +46,7 @@ class ImportBatch extends Model
         self::STATUS_PROCESSING_IMPORT,
         self::STATUS_COMPLETED,
         self::STATUS_FAILED,
+        self::STATUS_CANCELLED,
     ];
 
     public const TERMINAL_STATUSES = [
@@ -51,6 +54,7 @@ class ImportBatch extends Model
         self::STATUS_SCAN_FAILED,
         self::STATUS_COMPLETED,
         self::STATUS_FAILED,
+        self::STATUS_CANCELLED,
     ];
 
     public const SCAN_ACTIVE_STATUSES = [
@@ -69,6 +73,7 @@ class ImportBatch extends Model
         'path',
         'jenis_tarif_id',
         'status',
+        'cancel_requested',
         'total_rows',
         'processed_rows',
         'inserted',
@@ -90,6 +95,7 @@ class ImportBatch extends Model
     protected function casts(): array
     {
         return [
+            'cancel_requested' => 'boolean',
             'scan_summary' => 'array',
             'scan_candidates' => 'array',
             'scan_preview' => 'array',
@@ -144,6 +150,7 @@ class ImportBatch extends Model
             self::STATUS_COMPLETED, self::STATUS_SCAN_COMPLETED => 'bg-green-100 text-green-800',
             self::STATUS_PROCESSING_IMPORT, self::STATUS_PROCESSING_SCAN => 'bg-blue-100 text-blue-800',
             self::STATUS_FAILED, self::STATUS_SCAN_FAILED => 'bg-red-100 text-red-800',
+            self::STATUS_CANCELLED => 'bg-gray-100 text-gray-600',
             default => 'bg-yellow-100 text-yellow-800',
         };
     }
@@ -159,6 +166,7 @@ class ImportBatch extends Model
             self::STATUS_PROCESSING_IMPORT => 'PROCESSING',
             self::STATUS_COMPLETED => 'COMPLETED',
             self::STATUS_FAILED => 'FAILED',
+            self::STATUS_CANCELLED => 'DIBATALKAN',
             default => strtoupper($status),
         };
     }
