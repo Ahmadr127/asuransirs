@@ -16,6 +16,12 @@ class TarifBridgeRepository
 
     protected bool $loaded = false;
 
+    /** @var array<string, string>|null nama kelas ternormalisasi => kode */
+    protected ?array $classMap = null;
+
+    /** @var array<string, string>|null kode kelas (upper+trim) => kode */
+    protected ?array $classCodeMap = null;
+
     public function preload(): self
     {
         if ($this->loaded) {
@@ -79,5 +85,77 @@ class TarifBridgeRepository
         usort($pairs, fn ($a, $b) => [$a['service_code'], $a['class_code']] <=> [$b['service_code'], $b['class_code']]);
 
         return $pairs;
+    }
+
+    /**
+     * Cek pasangan service+class benar-benar ada di master Tarif.
+     * Dipakai untuk validasi pilihan manual pada grup NOT_FOUND.
+     */
+    public function pairExists(string $serviceCode, string $classCode): bool
+    {
+        $serviceCode = mb_strtoupper(trim($serviceCode));
+        $classCode = mb_strtoupper(trim($classCode));
+        if ($serviceCode === '' || $classCode === '') {
+            return false;
+        }
+
+        return DB::table('tarifs')
+            ->join('services as s', 's.id', '=', 'tarifs.service_id')
+            ->join('classes as c', 'c.id', '=', 'tarifs.class_id')
+            ->whereRaw('UPPER(TRIM(s.code)) = ?', [$serviceCode])
+            ->whereRaw('UPPER(TRIM(c.code)) = ?', [$classCode])
+            ->exists();
+    }
+
+    /**
+     * Cek kode service ada di master. Dipakai untuk validasi pilihan
+     * manual NOT_FOUND.
+     */
+    public function serviceExists(string $serviceCode): bool
+    {
+        $serviceCode = mb_strtoupper(trim($serviceCode));
+        if ($serviceCode === '') {
+            return false;
+        }
+
+        return DB::table('services')
+            ->whereRaw('UPPER(TRIM(code)) = ?', [$serviceCode])
+            ->exists();
+    }
+
+    /**
+     * Kode kelas master untuk satu baris Excel. Urutan: cocokkan NAMA
+     * kelas dulu (persis setelah normalisasi), lalu KODE kelas. Selama
+     * salah satunya ada di master, classcode bisa diproses.
+     * null bila keduanya tidak ada di master.
+     */
+    public function classCodeFor(?string $className, ?string $classCode = null): ?string
+    {
+        if ($this->classMap === null) {
+            $this->classMap = [];
+            $this->classCodeMap = [];
+            foreach (DB::table('classes')->select(['code', 'name'])->orderBy('id')->get() as $row) {
+                $code = mb_strtoupper(trim((string) $row->code));
+                if ($code !== '' && ! isset($this->classCodeMap[$code])) {
+                    $this->classCodeMap[$code] = $code;
+                }
+                $key = BridgeTarifRowNormalizer::normalizeKey((string) $row->name);
+                if ($key !== '' && ! isset($this->classMap[$key])) {
+                    $this->classMap[$key] = $code;
+                }
+            }
+        }
+
+        $nameKey = BridgeTarifRowNormalizer::normalizeKey((string) $className);
+        if ($nameKey !== '' && isset($this->classMap[$nameKey])) {
+            return $this->classMap[$nameKey];
+        }
+
+        $codeKey = mb_strtoupper(trim((string) $classCode));
+        if ($codeKey !== '' && isset($this->classCodeMap[$codeKey])) {
+            return $this->classCodeMap[$codeKey];
+        }
+
+        return null;
     }
 }

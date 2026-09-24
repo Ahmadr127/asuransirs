@@ -29,12 +29,20 @@ class TarifBridgeResolver
      */
     public function resolve(array $normalized): array
     {
+        // Kode kelas master diproses independen dari status mapping:
+        // selama kelas ada di master (cocok nama/kode), new_class_code
+        // terisi walau service-nya masih AMBIGUOUS/NOT_FOUND/INVALID.
+        $masterClassCode = $this->repository->classCodeFor(
+            $normalized['class_name'] ?? '',
+            $normalized['service_class_code'] ?? ''
+        );
+
         if (($normalized['description_key'] ?? '') === '' || ($normalized['class_key'] ?? '') === '') {
             return [
                 'status' => self::STATUS_INVALID,
                 'candidates' => [],
                 'new_service_code' => null,
-                'new_class_code' => null,
+                'new_class_code' => $masterClassCode,
             ];
         }
 
@@ -45,7 +53,7 @@ class TarifBridgeResolver
                 'status' => self::STATUS_NOT_FOUND,
                 'candidates' => [],
                 'new_service_code' => null,
-                'new_class_code' => null,
+                'new_class_code' => $masterClassCode,
             ];
         }
 
@@ -54,7 +62,7 @@ class TarifBridgeResolver
                 'status' => self::STATUS_AMBIGUOUS,
                 'candidates' => $candidates,
                 'new_service_code' => null,
-                'new_class_code' => null,
+                'new_class_code' => $masterClassCode,
             ];
         }
 

@@ -118,7 +118,7 @@ class BridgeTarifService
     }
 
     /**
-     * Pilihan manual user untuk satu mapping key ambigu; berlaku ke
+     * Pilihan manual user untuk satu mapping key; berlaku ke
      * seluruh row dengan key sama.
      */
     public function resolve(string $token, string $mappingKey, string $serviceCode, string $classCode): array
@@ -126,33 +126,99 @@ class BridgeTarifService
         $session = $this->session($token);
         $result = $this->scanFile(Storage::path($session['path']), $session['resolutions']);
 
-        if (! isset($result['groups'][$mappingKey])) {
-            throw new \RuntimeException('Grup mapping tidak ditemukan atau sudah terselesaikan.');
-        }
-
-        $choice = ['service_code' => $serviceCode, 'class_code' => $classCode];
-        $valid = false;
-        foreach ($result['groups'][$mappingKey]['candidates'] as $candidate) {
-            if (mb_strtoupper(trim($candidate['service_code'])) === mb_strtoupper(trim($serviceCode))
-                && mb_strtoupper(trim($candidate['class_code'])) === mb_strtoupper(trim($classCode))
-            ) {
-                $valid = true;
-                break;
-            }
-        }
-        if (! $valid) {
-            throw new \RuntimeException('Kandidat yang dipilih tidak valid untuk mapping ini.');
-        }
-
-        $session['resolutions'][$mappingKey] = $choice;
+        $session['resolutions'][$mappingKey] = $this->validateChoice(
+            $result['groups'] ?? [], $mappingKey, $serviceCode, $classCode
+        );
         Cache::put($this->cacheKey($token), $session, now()->addMinutes(self::CACHE_TTL_MINUTES));
 
         return $this->scanFile(Storage::path($session['path']), $session['resolutions']);
     }
 
     /**
+     * Terapkan banyak pilihan sekaligus (dari modal). Entri kosong
+     * dilewati; entri tidak valid menggagalkan semuanya agar tidak
+     * ada mapping setengah jalan. @return jumlah mapping diterapkan
+     */
+    public function resolveMany(string $token, array $candidates): int
+    {
+        $session = $this->session($token);
+        $result = $this->scanFile(Storage::path($session['path']), $session['resolutions']);
+
+        $choices = [];
+        foreach ($candidates as $mappingKey => $candidate) {
+            $parts = explode('|', (string) $candidate);
+            if (count($parts) !== 2 || trim($parts[0]) === '') {
+                continue;
+            }
+            $choices[(string) $mappingKey] = $this->validateChoice(
+                $result['groups'] ?? [], (string) $mappingKey, trim($parts[0]), trim($parts[1] ?? '')
+            );
+        }
+        if ($choices === []) {
+            throw new \RuntimeException('Tidak ada mapping valid yang dipilih.');
+        }
+
+        foreach ($choices as $mappingKey => $choice) {
+            $session['resolutions'][$mappingKey] = $choice;
+        }
+        Cache::put($this->cacheKey($token), $session, now()->addMinutes(self::CACHE_TTL_MINUTES));
+
+        return count($choices);
+    }
+
+    /**
+     * Hasil terkini untuk satu sesi (dipakai halaman hasil GET agar
+     * refresh aman — pola PRG).
+     *
+     * @return array{token: string, filename: string, summary: array, groups: array, preview: array}
+     */
+    public function resultFor(string $token): array
+    {
+        $session = $this->session($token);
+        $result = $this->scanFile(Storage::path($session['path']), $session['resolutions']);
+        unset($result['decisions'], $result['headers'], $result['map']);
+
+        return array_merge($result, ['token' => $token, 'filename' => $session['filename']]);
+    }
+
+    /** @return array{service_code: string, class_code: string} */
+    protected function validateChoice(array $groups, string $mappingKey, string $serviceCode, string $classCode): array
+    {
+        if (! isset($groups[$mappingKey])) {
+            throw new \RuntimeException('Grup mapping tidak ditemukan atau sudah terselesaikan.');
+        }
+
+        if ($groups[$mappingKey]['manual'] ?? false) {
+            // Grup NOT_FOUND: cukup pilih service; kelas ikut bawaan Excel
+            // kecuali diisi override (harus pair yang valid di master).
+            if (! $this->repository->serviceExists($serviceCode)) {
+                throw new \RuntimeException('Service tidak ada di master.');
+            }
+            if (trim($classCode) !== '' && ! $this->repository->pairExists($serviceCode, $classCode)) {
+                throw new \RuntimeException('Pasangan service + kelas tidak ada di master Tarif.');
+            }
+
+            return [
+                'service_code' => mb_strtoupper(trim($serviceCode)),
+                'class_code' => mb_strtoupper(trim($classCode)),
+            ];
+        }
+
+        foreach ($groups[$mappingKey]['candidates'] as $candidate) {
+            if (mb_strtoupper(trim($candidate['service_code'])) === mb_strtoupper(trim($serviceCode))
+                && mb_strtoupper(trim($candidate['class_code'])) === mb_strtoupper(trim($classCode))
+            ) {
+                return ['service_code' => trim($serviceCode), 'class_code' => trim($classCode)];
+            }
+        }
+
+        throw new \RuntimeException('Kandidat yang dipilih tidak valid untuk mapping ini.');
+    }
+
+    /**
      * Generate Excel hasil: hitung ulang mapping + terapkan resolusi,
-     * tulis file baru. Row unresolved tetap memakai kode original.
+     * tulis file baru. SERVICECODE hanya berubah untuk row MATCHED;
+     * SERVICECODE KELAS berubah kapan pun kode master-nya ketemu.
      *
      * @return array{output_filename: string, download_token: string, total: int, changed: int, unresolved: int}
      */
@@ -164,6 +230,8 @@ class BridgeTarifService
         $changed = 0;
         foreach ($result['decisions'] as $decision) {
             if ($decision['status'] === TarifBridgeResolver::STATUS_MATCHED) {
+                $changed++;
+            } elseif ($decision['new_class_code'] !== null) {
                 $changed++;
             }
         }

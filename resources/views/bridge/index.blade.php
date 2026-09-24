@@ -26,36 +26,5 @@
             </div>
         </form>
     </x-card>
-
-    @if(isset($result))
-        <x-card padding="false">
-            <x-slot name="title">Hasil Mapping</x-slot>
-            <x-slot name="subtitle">{{ $result['filename'] ?? '' }}</x-slot>
-            <x-slot name="actions">
-                @if(($result['summary']['matched'] ?? 0) > 0)
-                    <form action="{{ route('bridge.generate') }}" method="POST" onsubmit="return confirm('Generate Excel baru? Hanya SERVICECODE dan SERVICECODE KELAS yang berubah untuk row MATCHED.');">
-                        @csrf
-                        <input type="hidden" name="token" value="{{ $result['token'] }}">
-                        <button type="submit" class="inline-flex items-center gap-1.5 px-4 py-1.5 text-sm font-semibold text-white rounded-md bg-green-600 hover:bg-green-700 transition-colors">
-                            <i class="bi bi-file-earmark-arrow-down"></i> Generate Excel
-                        </button>
-                    </form>
-                @endif
-            </x-slot>
-
-            <x-bridge.summary-stats :summary="$result['summary']" />
-
-            @if(!empty($result['groups']))
-                <div class="px-4 pb-4 flex flex-col gap-3">
-                    <p class="text-sm font-semibold text-gray-700">Ambiguous — pilih satu kandidat per grup (berlaku untuk seluruh row dengan key sama):</p>
-                    @foreach($result['groups'] as $key => $group)
-                        <x-bridge.ambiguous-resolver :token="$result['token']" :mapping-key="$key" :group="$group" />
-                    @endforeach
-                </div>
-            @endif
-
-            <x-bridge.preview-table :rows="$result['preview']" />
-        </x-card>
-    @endif
 </div>
 @endsection

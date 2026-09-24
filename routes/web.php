@@ -113,7 +113,10 @@ Route::middleware('auth')->group(function () {
         Route::get('bridge', [\App\Http\Controllers\BridgeTarifController::class, 'index'])->name('bridge.index');
         Route::post('bridge/scan', [\App\Http\Controllers\BridgeTarifController::class, 'scan'])->name('bridge.scan');
         Route::post('bridge/resolve', [\App\Http\Controllers\BridgeTarifController::class, 'resolveMapping'])->name('bridge.resolve');
+        Route::post('bridge/resolve-batch', [\App\Http\Controllers\BridgeTarifController::class, 'resolveBatch'])->name('bridge.resolve-batch');
+        Route::get('bridge/result/{token}', [\App\Http\Controllers\BridgeTarifController::class, 'showResult'])->name('bridge.result')->where('token', '[A-Za-z0-9]{16,64}');
         Route::post('bridge/generate', [\App\Http\Controllers\BridgeTarifController::class, 'generate'])->name('bridge.generate');
+        Route::get('bridge/search-services', [\App\Http\Controllers\BridgeTarifController::class, 'searchServices'])->name('bridge.search-services');
         Route::get('bridge/download/{token}', [\App\Http\Controllers\BridgeTarifController::class, 'download'])->name('bridge.download');
         Route::resource('tarifs', TarifController::class);
     });

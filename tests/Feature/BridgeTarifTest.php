@@ -206,6 +206,24 @@ class BridgeTarifTest extends TestCase
         $response->assertDontSee('Jenis Tarif');
     }
 
+    public function test_form_and_result_pages_are_separated(): void
+    {
+        $index = $this->actingAs($this->user)->get(route('bridge.index'));
+        $index->assertOk();
+        $index->assertSee('Scan Excel', false);
+        $index->assertDontSee('Hasil Mapping');
+
+        $token = $this->scanOk([
+            ['PRV1', 'OLD-MRI', 'MRI BRAIN', 'OLD-K1', 'KELAS 1', 100000, 'a'],
+        ]);
+
+        $result = $this->actingAs($this->user)->get(route('bridge.result', $token));
+        $result->assertOk();
+        $result->assertSee('Hasil Mapping');
+        $result->assertSee('Kembali');
+        $result->assertDontSee('Scan Excel', false);
+    }
+
     public function test_scan_requires_file(): void
     {
         $response = $this->actingAs($this->user)->post(route('bridge.scan'), []);
@@ -249,10 +267,13 @@ class BridgeTarifTest extends TestCase
             ['PRV1', 'OLD-MRI', 'MRI BRAIN', 'OLD-K1', 'KELAS 1', 100000, 'a'],
             ['PRV1', 'OLD-USG', 'USG ABDOMEN', 'OLD-K1', 'VIP', 1, 'x'],
         ])]);
+        $response->assertRedirect();
+        $token = $this->extractToken($response);
 
-        $response->assertOk();
-        $response->assertSee('MATCHED');
-        $response->assertSee('NOT_FOUND');
+        $page = $this->actingAs($this->user)->get(route('bridge.result', $token));
+        $page->assertOk();
+        $page->assertSee('MATCHED');
+        $page->assertSee('NOT_FOUND');
     }
 
     public function test_legacy_html_generate_preserves_other_columns(): void
@@ -260,7 +281,7 @@ class BridgeTarifTest extends TestCase
         $response = $this->actingAs($this->user)->post(route('bridge.scan'), ['file' => $this->legacyHtmlFile([
             ['PRV1', 'OLD-MRI', 'MRI BRAIN', 'OLD-K1', 'KELAS 1', 100000, 'catatan-a'],
         ])]);
-        $response->assertOk();
+        $response->assertRedirect();
         $token = $this->extractToken($response);
 
         $gen = $this->actingAs($this->user)->post(route('bridge.generate'), ['token' => $token]);
@@ -294,18 +315,19 @@ class BridgeTarifTest extends TestCase
 
     public function test_scan_statuses(): void
     {
-        $response = $this->actingAs($this->user)->post(route('bridge.scan'), ['file' => $this->upload([
+        $token = $this->scanOk([
             ['PRV1', 'OLD-MRI', 'MRI BRAIN', 'OLD-K1', 'KELAS 1', 100000, 'a'],
             ['PRV1', 'OLD-CT', 'CT SCAN HEAD', 'OLD-K1', 'KELAS 1', 200000, 'b'],
             ['PRV1', 'OLD-USG', 'USG ABDOMEN', 'OLD-K1', 'KELAS 1', 50000, 'c'],
             ['PRV1', 'OLD-X', '', 'OLD-K1', 'KELAS 1', 10000, 'd'],
-        ])]);
+        ]);
 
-        $response->assertOk();
-        $response->assertSee('MATCHED');
-        $response->assertSee('AMBIGUOUS');
-        $response->assertSee('NOT_FOUND');
-        $response->assertSee('INVALID');
+        $page = $this->actingAs($this->user)->get(route('bridge.result', $token));
+        $page->assertOk();
+        $page->assertSee('MATCHED');
+        $page->assertSee('AMBIGUOUS');
+        $page->assertSee('NOT_FOUND');
+        $page->assertSee('INVALID');
     }
 
     public function test_matching_is_case_and_whitespace_insensitive(): void
@@ -327,12 +349,9 @@ class BridgeTarifTest extends TestCase
 
     public function test_generate_changes_only_mapping_columns(): void
     {
-        $response = $this->actingAs($this->user)->post(route('bridge.scan'), ['file' => $this->upload([
+        $token = $this->scanOk([
             ['PRV1', 'OLD-MRI', 'MRI BRAIN', 'OLD-K1', 'KELAS 1', 100000, 'catatan-a'],
-        ])]);
-
-        $response->assertOk();
-        $token = $this->extractToken($response);
+        ]);
 
         $gen = $this->actingAs($this->user)->post(route('bridge.generate'), ['token' => $token]);
         $gen->assertRedirect(route('bridge.download', $token));
@@ -359,32 +378,32 @@ class BridgeTarifTest extends TestCase
     {
         $before = [Provider::count(), Service::count(), ServiceClass::count(), Tarif::count()];
 
-        $response = $this->actingAs($this->user)->post(route('bridge.scan'), ['file' => $this->upload([
+        $token = $this->scanOk([
             ['PRV1', 'OLD-MRI', 'MRI BRAIN', 'OLD-K1', 'KELAS 1', 100000, 'a'],
             ['PRV1', 'OLD-USG', 'USG ABDOMEN', 'OLD-X', 'VIP', 1, 'x'],
-        ])]);
-        $response->assertOk();
-        $this->actingAs($this->user)->post(route('bridge.generate'), ['token' => $this->extractToken($response)]);
+        ]);
+        $this->actingAs($this->user)->post(route('bridge.generate'), ['token' => $token]);
 
         $this->assertSame($before, [Provider::count(), Service::count(), ServiceClass::count(), Tarif::count()]);
     }
 
     public function test_manual_resolve_applies_to_all_same_key_rows(): void
     {
-        $response = $this->actingAs($this->user)->post(route('bridge.scan'), ['file' => $this->upload([
+        $token = $this->scanOk([
             ['PRV1', 'OLD-A', 'CT SCAN HEAD', 'OLD-K1', 'KELAS 1', 1, 'a'],
             ['PRV1', 'OLD-B', 'CT SCAN HEAD', 'OLD-K1', 'KELAS 1', 2, 'b'],
-        ])]);
-        $response->assertOk();
-        $token = $this->extractToken($response);
+        ]);
 
         $resolved = $this->actingAs($this->user)->post(route('bridge.resolve'), [
             'token' => $token,
             'mapping_key' => 'CT SCAN HEAD|KELAS 1',
             'candidate' => 'CT002|CT-K1',
         ]);
-        $resolved->assertOk();
-        $resolved->assertSee('CT002');
+        $resolved->assertRedirect(route('bridge.result', $token));
+
+        $page = $this->actingAs($this->user)->get(route('bridge.result', $token));
+        $page->assertOk();
+        $page->assertSee('CT002');
 
         $gen = $this->actingAs($this->user)->post(route('bridge.generate'), ['token' => $token]);
         $gen->assertRedirect();
@@ -395,6 +414,459 @@ class BridgeTarifTest extends TestCase
         $sheet = IOFactory::load($out)->getActiveSheet()->toArray(null, true, true, false);
         $this->assertSame('CT002', array_values($sheet[1])[1]);
         $this->assertSame('CT002', array_values($sheet[2])[1]);
+    }
+
+    public function test_manual_resolve_not_found_applies_to_all_same_key_rows(): void
+    {
+        $token = $this->scanOk([
+            ['PRV1', 'OLD-A', 'USG ABDOMEN', 'OLD-K1', 'VIP', 1, 'a'],
+            ['PRV1', 'OLD-B', 'USG ABDOMEN', 'OLD-K1', 'VIP', 2, 'b'],
+            ['PRV1', 'OLD-C', 'X-RAY THORAX', 'OLD-K2', 'KELAS 2', 3, 'c'],
+        ]);
+
+        $page = $this->actingAs($this->user)->get(route('bridge.result', $token));
+        $page->assertOk();
+        $page->assertSee('Not Found');
+
+        // Tanpa kelas: kelas ikut bawaan Excel.
+        $resolved = $this->actingAs($this->user)->post(route('bridge.resolve'), [
+            'token' => $token,
+            'mapping_key' => 'USG ABDOMEN|VIP',
+            'candidate' => 'MRI001|',
+        ]);
+        $resolved->assertRedirect(route('bridge.result', $token));
+
+        // Dengan override kelas yang valid di master.
+        $resolved2 = $this->actingAs($this->user)->post(route('bridge.resolve'), [
+            'token' => $token,
+            'mapping_key' => 'X-RAY THORAX|KELAS 2',
+            'candidate' => 'MRI001|MRI-K1',
+        ]);
+        $resolved2->assertRedirect(route('bridge.result', $token));
+
+        $page = $this->actingAs($this->user)->get(route('bridge.result', $token));
+        $page->assertOk();
+        $page->assertSee('MRI001');
+
+        $gen = $this->actingAs($this->user)->post(route('bridge.generate'), ['token' => $token]);
+        $gen->assertRedirect();
+        $dl = $this->actingAs($this->user)->get(route('bridge.download', $token));
+
+        $out = tempnam(sys_get_temp_dir(), 'bout').'.xlsx';
+        file_put_contents($out, $dl->streamedContent() ?: $dl->getContent());
+        $sheet = IOFactory::load($out)->getActiveSheet()->toArray(null, true, true, false);
+        $this->assertSame('MRI001', array_values($sheet[1])[1]);
+        $this->assertSame('OLD-K1', array_values($sheet[1])[3]);
+        $this->assertSame('MRI001', array_values($sheet[2])[1]);
+        $this->assertSame('OLD-K1', array_values($sheet[2])[3]);
+        $this->assertSame('MRI001', array_values($sheet[3])[1]);
+        $this->assertSame('MRI-K1', array_values($sheet[3])[3]);
+    }
+
+    public function test_manual_resolve_rejects_unknown_pair(): void
+    {
+        $token = $this->scanOk([
+            ['PRV1', 'OLD-A', 'USG ABDOMEN', 'OLD-K1', 'VIP', 1, 'a'],
+        ]);
+
+        $unknownService = $this->actingAs($this->user)->post(route('bridge.resolve'), [
+            'token' => $token,
+            'mapping_key' => 'USG ABDOMEN|VIP',
+            'candidate' => 'NOPE|',
+        ]);
+        $unknownService->assertRedirect();
+        $unknownService->assertSessionHas('error');
+
+        $unknownPair = $this->actingAs($this->user)->post(route('bridge.resolve'), [
+            'token' => $token,
+            'mapping_key' => 'USG ABDOMEN|VIP',
+            'candidate' => 'MRI001|NOPE',
+        ]);
+        $unknownPair->assertRedirect();
+        $unknownPair->assertSessionHas('error');
+    }
+
+    public function test_manual_resolve_not_found_auto_fills_class_from_master(): void
+    {
+        ServiceClass::create(['code' => 'VIP-1', 'name' => 'VIP', 'status' => 'active']);
+
+        $token = $this->scanOk([
+            ['PRV1', 'OLD-A', 'USG ABDOMEN', 'OLD-K1', 'VIP', 1, 'a'],
+            ['PRV1', 'OLD-B', 'USG KANDUNGAN', 'OLD-K9', 'TANPA KELAS', 2, 'b'],
+        ]);
+
+        $resolved = $this->actingAs($this->user)->post(route('bridge.resolve'), [
+            'token' => $token,
+            'mapping_key' => 'USG ABDOMEN|VIP',
+            'candidate' => 'MRI001|',
+        ]);
+        $resolved->assertRedirect(route('bridge.result', $token));
+
+        // Preview ikut terupdate: service dari pilihan, kelas dari master.
+        $page = $this->actingAs($this->user)->get(route('bridge.result', $token));
+        $page->assertOk();
+        $page->assertSee('VIP-1');
+
+        $gen = $this->actingAs($this->user)->post(route('bridge.generate'), ['token' => $token]);
+        $gen->assertRedirect();
+        $dl = $this->actingAs($this->user)->get(route('bridge.download', $token));
+
+        $out = tempnam(sys_get_temp_dir(), 'bout').'.xlsx';
+        file_put_contents($out, $dl->streamedContent() ?: $dl->getContent());
+        $sheet = IOFactory::load($out)->getActiveSheet()->toArray(null, true, true, false);
+        $this->assertSame('MRI001', array_values($sheet[1])[1]);
+        $this->assertSame('VIP-1', array_values($sheet[1])[3]);
+        // Row yang tidak dipetakan + kelas tak ada di master: utuh.
+        $this->assertSame('OLD-B', array_values($sheet[2])[1]);
+        $this->assertSame('OLD-K9', array_values($sheet[2])[3]);
+    }
+
+    public function test_manual_resolve_matches_class_by_code_when_name_unknown(): void
+    {
+        // Nama kelas tidak dikenal, tetapi kode lama sama dengan kode master.
+        $token = $this->scanOk([
+            ['PRV1', 'OLD-A', 'USG ABDOMEN', 'MRI-K1', 'Kelas Tak Dikenal', 1, 'a'],
+        ]);
+
+        $resolved = $this->actingAs($this->user)->post(route('bridge.resolve'), [
+            'token' => $token,
+            'mapping_key' => 'USG ABDOMEN|KELAS TAK DIKENAL',
+            'candidate' => 'MRI001|',
+        ]);
+        $resolved->assertRedirect(route('bridge.result', $token));
+
+        $gen = $this->actingAs($this->user)->post(route('bridge.generate'), ['token' => $token]);
+        $gen->assertRedirect();
+        $dl = $this->actingAs($this->user)->get(route('bridge.download', $token));
+
+        $out = tempnam(sys_get_temp_dir(), 'bout').'.xlsx';
+        file_put_contents($out, $dl->streamedContent() ?: $dl->getContent());
+        $sheet = IOFactory::load($out)->getActiveSheet()->toArray(null, true, true, false);
+        $this->assertSame('MRI001', array_values($sheet[1])[1]);
+        $this->assertSame('MRI-K1', array_values($sheet[1])[3]);
+    }
+
+    public function test_unresolved_rows_fill_class_code_from_master(): void
+    {
+        ServiceClass::create(['code' => 'VIP-1', 'name' => 'VIP', 'status' => 'active']);
+
+        // Tanpa pemetaan manual apa pun: preview langsung menampilkan
+        // kode kelas master untuk row AMBIGUOUS maupun NOT_FOUND.
+        $token = $this->scanOk([
+            ['PRV1', 'OLD-CT', 'CT SCAN HEAD', 'OLD-K1', 'KELAS 1', 200000, 'b'],
+            ['PRV1', 'OLD-USG', 'USG ABDOMEN', 'OLD-K1', 'VIP', 1, 'x'],
+        ]);
+
+        $page = $this->actingAs($this->user)->get(route('bridge.result', $token));
+        $page->assertOk();
+        $page->assertSee('MRI-K1');
+        $page->assertSee('VIP-1');
+
+        // Export: service tetap original, kelas mengikuti master.
+        $gen = $this->actingAs($this->user)->post(route('bridge.generate'), ['token' => $token]);
+        $gen->assertRedirect();
+        $dl = $this->actingAs($this->user)->get(route('bridge.download', $token));
+
+        $out = tempnam(sys_get_temp_dir(), 'bout').'.xlsx';
+        file_put_contents($out, $dl->streamedContent() ?: $dl->getContent());
+        $sheet = IOFactory::load($out)->getActiveSheet()->toArray(null, true, true, false);
+        $this->assertSame('OLD-CT', array_values($sheet[1])[1]);
+        $this->assertSame('MRI-K1', array_values($sheet[1])[3]);
+        $this->assertSame('OLD-USG', array_values($sheet[2])[1]);
+        $this->assertSame('VIP-1', array_values($sheet[2])[3]);
+    }
+
+    public function test_search_services_endpoint(): void
+    {
+        // Satu kata: cocok per kata (kode "MRI001" memuat kata "mri").
+        $found = $this->actingAs($this->user)->getJson(route('bridge.search-services', ['q' => 'mri']));
+        $found->assertOk();
+        $found->assertJsonFragment(['service_code' => 'MRI001']);
+
+        // Banyak kata: yang paling mirip (cocok 2 kata) di urutan pertama.
+        $multi = $this->actingAs($this->user)->getJson(route('bridge.search-services', ['q' => 'mri brain kontras']));
+        $multi->assertOk();
+        $multi->assertJsonPath('data.0.service_code', 'MRI001');
+
+        // Tidak mirip sama sekali: tidak ditampilkan.
+        $none = $this->actingAs($this->user)->getJson(route('bridge.search-services', ['q' => 'zzz-tidak-ada']));
+        $none->assertOk();
+        $none->assertExactJson(['data' => []]);
+
+        $short = $this->actingAs($this->user)->getJson(route('bridge.search-services', ['q' => 'x']));
+        $short->assertOk();
+        $short->assertExactJson(['data' => []]);
+    }
+
+    public function test_search_services_similar_to_description(): void
+    {
+        // Tanpa ketikan: daftar terisi kandidat paling mirip description.
+        $similar = $this->actingAs($this->user)->getJson(route('bridge.search-services', [
+            'description' => 'Mri Brain Tanpa Kontras',
+        ]));
+        $similar->assertOk();
+        $similarData = $similar->json('data');
+        $this->assertNotEmpty($similarData);
+        $this->assertSame('MRI001', $similarData[0]['service_code']);
+
+        // Description tidak mirip apa pun: kosong.
+        $none = $this->actingAs($this->user)->getJson(route('bridge.search-services', [
+            'description' => 'zzz tidak ada di mana pun',
+        ]));
+        $none->assertOk();
+        $none->assertExactJson(['data' => []]);
+
+        // Ketikan ikut menyaring, urutan tetap paling mirip dulu.
+        $filtered = $this->actingAs($this->user)->getJson(route('bridge.search-services', [
+            'description' => 'Mri Brain',
+            'q' => 'otak',
+        ]));
+        $filtered->assertOk();
+        $filtered->assertJsonFragment(['service_code' => 'MRI001']);
+        $filtered->assertJsonMissing(['service_code' => 'CT001']);
+        $filtered->assertJsonMissing(['service_code' => 'CT002']);
+    }
+
+    public function test_search_ranks_by_words_phrase_and_all_tokens(): void
+    {
+        foreach ([
+            ['KM001', 'Kamar Operasi & Sarana'],
+            ['KM002', 'Kamar Operasi Bedah Anak'],
+            ['KM003', 'Kamar Bedah'],
+            ['KM004', 'Ruang Operasi'],
+            ['KM005', 'Tindakan Medis Operasi'],
+        ] as [$code, $name]) {
+            Service::create(['code' => $code, 'name' => $name, 'description' => $name, 'status' => 'active']);
+        }
+
+        // Exact phrase dulu, lalu yang hanya memuat sebagian token.
+        $res = $this->actingAs($this->user)->getJson(route('bridge.search-services', ['q' => 'kamar operasi']));
+        $res->assertOk();
+        $this->assertSame(
+            ['KM001', 'KM002', 'KM003', 'KM004', 'KM005'],
+            array_column($res->json('data'), 'service_code')
+        );
+
+        // 3 kata: yang memuat ketiganya paling atas.
+        $three = $this->actingAs($this->user)->getJson(route('bridge.search-services', ['q' => 'kamar operasi anak']));
+        $three->assertOk();
+        $threeData = $three->json('data');
+        $this->assertSame('KM002', $threeData[0]['service_code']);
+        $this->assertSame('KM001', $threeData[1]['service_code']);
+
+        // Case-insensitive + spasi ganda: hasil identik.
+        $messy = $this->actingAs($this->user)->getJson(route('bridge.search-services', ['q' => '  KAMAR   OPERASI  ']));
+        $messy->assertOk();
+        $this->assertSame(
+            ['KM001', 'KM002', 'KM003', 'KM004', 'KM005'],
+            array_column($messy->json('data'), 'service_code')
+        );
+    }
+
+    protected function seedKamarAnakServices(): void
+    {
+        foreach ([
+            ['KO1', 'Kamar Operasi Anak'],
+            ['KO2', 'Kamar Operasi Anak Bedah'],
+            ['KO4', 'Anak Operasi Kamar'],
+            ['KO3', 'Kamar Operasi'],
+            ['KO5', 'Operasi Anak'],
+            ['KO6', 'Ruang Operasi'],
+            ['KO7', 'Ruang Bedah'],
+        ] as [$code, $name]) {
+            Service::create(['code' => $code, 'name' => $name, 'description' => $name, 'status' => 'active']);
+        }
+    }
+
+    public function test_similar_ranks_exact_phrase_ordered_and_partial(): void
+    {
+        // A–F: exact(5) > frasa/urut(4) > acak(3) > sebagian besar(2) >
+        // sebagian kecil(1); tanpa token cocok tidak tampil.
+        $this->seedKamarAnakServices();
+
+        $res = $this->actingAs($this->user)->getJson(route('bridge.search-services', [
+            'description' => 'Kamar Operasi Anak',
+        ]));
+        $res->assertOk();
+        $this->assertSame(
+            ['KO1', 'KO2', 'KO4', 'KO3', 'KO5', 'KO6'],
+            array_column($res->json('data'), 'service_code')
+        );
+    }
+
+    public function test_similar_prefix_match_and_no_midword_false_positive(): void
+    {
+        // G: "mri" cocok dengan "MRI001" (prefix).
+        $prefix = $this->actingAs($this->user)->getJson(route('bridge.search-services', ['q' => 'mri']));
+        $prefix->assertOk();
+        $prefixData = $prefix->json('data');
+        $this->assertNotEmpty($prefixData);
+        $this->assertSame('MRI001', $prefixData[0]['service_code']);
+
+        // H: "tas" TIDAK cocok dengan "instalasi" (substring tengah).
+        Service::create(['code' => 'INST01', 'name' => 'Instalasi Gizi', 'description' => 'Instalasi Gizi', 'status' => 'active']);
+        $falsePositive = $this->actingAs($this->user)->getJson(route('bridge.search-services', ['q' => 'tas']));
+        $falsePositive->assertOk();
+        $falsePositive->assertExactJson(['data' => []]);
+    }
+
+    public function test_similar_keeps_numbers_and_exact_on_top(): void
+    {
+        // I: angka/ukuran ("22", "75x75") tetap dihitung; string identik
+        // setelah normalisasi ("S-22" vs "S 22") tetap exact teratas,
+        // 2/4 token di atas 1/4 token. Isi [...] diabaikan total.
+        foreach ([
+            ['SG001', 'Steri Green S-22 75x75'],
+            ['SG002', 'Steri Green'],
+            ['SG003', 'Green'],
+            ['SG999', 'Paket Khusus Mata'],
+        ] as [$code, $name]) {
+            Service::create(['code' => $code, 'name' => $name, 'description' => $name, 'status' => 'active']);
+        }
+
+        // J: klik tanpa mengetik — daftar terisi mirip description.
+        $res = $this->actingAs($this->user)->getJson(route('bridge.search-services', [
+            'description' => 'Steri Green S-22 75x75 [Khusus Mata]',
+        ]));
+        $res->assertOk();
+        $this->assertSame(
+            ['SG001', 'SG002', 'SG003'],
+            array_column($res->json('data'), 'service_code')
+        );
+
+        // L: query dihapus (q kosong) — kembali ke ranking description.
+        $cleared = $this->actingAs($this->user)->getJson(route('bridge.search-services', [
+            'description' => 'Steri Green S-22 75x75 [Khusus Mata]',
+            'q' => '',
+        ]));
+        $cleared->assertOk();
+        $this->assertSame(
+            ['SG001', 'SG002', 'SG003'],
+            array_column($cleared->json('data'), 'service_code')
+        );
+    }
+
+    public function test_similar_excludes_bracket_content_from_scoring(): void
+    {
+        Service::create(['code' => 'KO1', 'name' => 'Kamar Operasi Anak', 'description' => 'Kamar Operasi Anak', 'status' => 'active']);
+        Service::create(['code' => 'VVIP01', 'name' => 'VVIP Package', 'description' => 'VVIP Package', 'status' => 'active']);
+        Service::create(['code' => 'KAT01', 'name' => 'Operasi Katarak', 'description' => 'Operasi Katarak', 'status' => 'active']);
+        Service::create(['code' => 'MLM01', 'name' => 'Paket Malam VIP', 'description' => 'Paket Malam VIP', 'status' => 'active']);
+
+        // Kata yang hanya ada di dalam [...] tidak boleh memengaruhi hasil.
+        $res = $this->actingAs($this->user)->getJson(route('bridge.search-services', [
+            'description' => 'Kamar Operasi Anak [VVIP]',
+        ]));
+        $res->assertOk();
+        $codes = array_column($res->json('data'), 'service_code');
+        $this->assertSame('KO1', $codes[0]);
+        $this->assertNotContains('VVIP01', $codes);
+
+        // Beberapa blok [...] sekaligus.
+        $multi = $this->actingAs($this->user)->getJson(route('bridge.search-services', [
+            'description' => 'Operasi Katarak [VIP] [Malam]',
+        ]));
+        $multi->assertOk();
+        $multiCodes = array_column($multi->json('data'), 'service_code');
+        $this->assertSame('KAT01', $multiCodes[0]);
+        $this->assertNotContains('MLM01', $multiCodes);
+    }
+
+    public function test_similar_rejects_irrelevant_antebrachi_case(): void
+    {
+        // Kasus screenshot: isi [...] (nama dokter dkk) tidak boleh jadi
+        // kata kunci; "Drainase Abses" dkk tidak punya token yang cocok
+        // sehingga wajib tidak tampil (common token = 0).
+        foreach ([
+            ['DRN01', 'Drainase Abses - Dokter Anestesi'],
+            ['DRN02', 'Drainase Abses Skrotum'],
+            ['TND01', 'Tindakan Medis Operasi Bedah Anak'],
+            ['ANS01', 'Anestesi Umum'],
+            ['ANT01', 'Antebrachi Dextra'],
+        ] as [$code, $name]) {
+            Service::create(['code' => $code, 'name' => $name, 'description' => $name, 'status' => 'active']);
+        }
+
+        $res = $this->actingAs($this->user)->getJson(route('bridge.search-services', [
+            'description' => 'ANTEBRACHI DEXTRA [Adhi Rommy Setyawan., dr., Sp. Rad]',
+        ]));
+        $res->assertOk();
+        $codes = array_column($res->json('data'), 'service_code');
+        $this->assertSame(['ANT01'], $codes);
+    }
+
+    public function test_similar_rejects_midword_substring_despite_like_recall(): void
+    {
+        // LIKE %operasi% mengenai "Praoperasional", tetapi rank kata = 0
+        // sehingga tetap dibuang (recall -> rank -> filter).
+        Service::create(['code' => 'PRA01', 'name' => 'Praoperasional Minor', 'description' => 'Praoperasional Minor', 'status' => 'active']);
+
+        $res = $this->actingAs($this->user)->getJson(route('bridge.search-services', [
+            'description' => 'Operasi',
+        ]));
+        $res->assertOk();
+        $res->assertExactJson(['data' => []]);
+    }
+
+    public function test_resolve_batch_applies_multiple_groups_at_once(): void
+    {
+        $token = $this->scanOk([
+            ['PRV1', 'OLD-A', 'CT SCAN HEAD', 'OLD-K1', 'KELAS 1', 1, 'a'],
+            ['PRV1', 'OLD-B', 'USG ABDOMEN', 'OLD-K1', 'VIP', 2, 'b'],
+        ]);
+
+        $batch = $this->actingAs($this->user)->post(route('bridge.resolve-batch'), [
+            'token' => $token,
+            'rows' => [
+                ['key' => 'CT SCAN HEAD|KELAS 1', 'candidate' => 'CT001|CT-K1'],
+                ['key' => 'USG ABDOMEN|VIP', 'candidate' => 'MRI001|'],
+                ['key' => 'USG ABDOMEN|VIP', 'candidate' => ''],
+            ],
+        ]);
+        $batch->assertRedirect(route('bridge.result', $token));
+
+        $page = $this->actingAs($this->user)->get(route('bridge.result', $token));
+        $page->assertOk();
+        $page->assertSee('CT001');
+        $page->assertSee('MRI001');
+
+        $gen = $this->actingAs($this->user)->post(route('bridge.generate'), ['token' => $token]);
+        $gen->assertRedirect();
+        $dl = $this->actingAs($this->user)->get(route('bridge.download', $token));
+        $out = tempnam(sys_get_temp_dir(), 'bout').'.xlsx';
+        file_put_contents($out, $dl->streamedContent() ?: $dl->getContent());
+        $sheet = IOFactory::load($out)->getActiveSheet()->toArray(null, true, true, false);
+        $this->assertSame('CT001', array_values($sheet[1])[1]);
+        $this->assertSame('MRI001', array_values($sheet[2])[1]);
+        $this->assertSame('OLD-K1', array_values($sheet[2])[3]);
+    }
+
+    public function test_resolve_batch_rejects_empty_selection(): void
+    {
+        $token = $this->scanOk([
+            ['PRV1', 'OLD-A', 'USG ABDOMEN', 'OLD-K1', 'VIP', 1, 'a'],
+        ]);
+
+        $batch = $this->actingAs($this->user)->post(route('bridge.resolve-batch'), [
+            'token' => $token,
+            'rows' => [['key' => 'USG ABDOMEN|VIP', 'candidate' => '']],
+        ]);
+        $batch->assertRedirect();
+        $batch->assertSessionHas('error');
+    }
+
+    public function test_result_page_is_refresh_safe(): void
+    {
+        $token = $this->scanOk([
+            ['PRV1', 'OLD-MRI', 'MRI BRAIN', 'OLD-K1', 'KELAS 1', 100000, 'a'],
+        ]);
+
+        $this->actingAs($this->user)->get(route('bridge.result', $token))->assertOk();
+        // Refresh berulang tetap GET 200 (tidak 405).
+        $this->actingAs($this->user)->get(route('bridge.result', $token))->assertOk();
+
+        $expired = $this->actingAs($this->user)->get(route('bridge.result', '0123456789abcdef0123456789abcdef'));
+        $expired->assertRedirect(route('bridge.index'));
     }
 
     public function test_scan_avoids_per_row_queries(): void
@@ -427,6 +899,12 @@ class BridgeTarifTest extends TestCase
 
     protected function extractToken(\Illuminate\Testing\TestResponse $response): string
     {
+        // Alur PRG: token ada di Location header hasil redirect scan.
+        $location = $response->headers->get('Location', '');
+        if (is_string($location) && preg_match('#/bridge/result/([A-Za-z0-9]{16,64})$#', $location, $m)) {
+            return $m[1];
+        }
+
         $content = $response->getContent();
         $this->assertIsString($content);
         preg_match('/name="token" value="([a-f0-9]{32})"/', $content, $m);
@@ -434,5 +912,13 @@ class BridgeTarifTest extends TestCase
         $this->assertNotEmpty($m[1] ?? null, 'Token bridge tidak ditemukan di halaman hasil.');
 
         return $m[1];
+    }
+
+    protected function scanOk(array $rows): string
+    {
+        $response = $this->actingAs($this->user)->post(route('bridge.scan'), ['file' => $this->upload($rows)]);
+        $response->assertRedirect();
+
+        return $this->extractToken($response);
     }
 }

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Services\Bridge\BridgeServiceSearch;
 use App\Services\Bridge\BridgeTarifService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
@@ -36,10 +37,11 @@ class BridgeTarifController extends Controller
             $result = $this->service->scanUpload($validated['file']);
         } catch (\Throwable $e) {
             Log::warning('Bridge scan gagal: '.$e->getMessage(), ['file' => $validated['file']->getClientOriginalName()]);
+
             return back()->with('error', 'Scan gagal: '.$e->getMessage())->withInput();
         }
 
-        return view('bridge.index', compact('result'));
+        return redirect()->route('bridge.result', $result['token']);
     }
 
     public function resolveMapping(Request $request)
@@ -51,23 +53,73 @@ class BridgeTarifController extends Controller
         ]);
 
         $parts = explode('|', $validated['candidate']);
-        if (count($parts) !== 2 || trim($parts[0]) === '' || trim($parts[1]) === '') {
+        // Bagian kelas boleh kosong (grup NOT_FOUND: kelas ikut bawaan Excel).
+        if (count($parts) !== 2 || trim($parts[0]) === '') {
             return back()->with('error', 'Format kandidat tidak valid.');
         }
 
         try {
-            $result = $this->service->resolve(
+            $this->service->resolve(
                 $validated['token'],
                 $validated['mapping_key'],
                 trim($parts[0]),
-                trim($parts[1])
+                trim($parts[1] ?? '')
             );
-            $result['token'] = $validated['token'];
         } catch (\Throwable $e) {
             return back()->with('error', $e->getMessage());
         }
 
-        return view('bridge.index', compact('result'))->with('success', 'Mapping diterapkan ke seluruh row dengan key sama.');
+        return redirect()->route('bridge.result', $validated['token'])
+            ->with('success', 'Mapping diterapkan ke seluruh row dengan key sama.');
+    }
+
+    /**
+     * Terapkan banyak mapping sekaligus dari modal (satu tombol).
+     * Redirect (PRG) agar refresh halaman hasil aman (tidak 405).
+     */
+    public function resolveBatch(Request $request)
+    {
+        $validated = $request->validate([
+            'token' => 'required|string|max:64',
+            'rows' => 'nullable|array|max:500',
+            'rows.*.key' => 'required_with:rows|string',
+            'rows.*.candidate' => 'nullable|string|max:101',
+        ]);
+
+        $candidates = [];
+        foreach ($validated['rows'] ?? [] as $row) {
+            $candidate = trim((string) ($row['candidate'] ?? ''));
+            if ($candidate === '' || $candidate === '|') {
+                continue;
+            }
+            $candidates[$row['key']] = $candidate;
+        }
+        if ($candidates === []) {
+            return back()->with('error', 'Belum ada mapping yang dipilih.');
+        }
+
+        try {
+            $applied = $this->service->resolveMany($validated['token'], $candidates);
+        } catch (\Throwable $e) {
+            return back()->with('error', $e->getMessage());
+        }
+
+        return redirect()->route('bridge.result', $validated['token'])
+            ->with('success', "Diterapkan {$applied} mapping ke seluruh row dengan key sama.");
+    }
+
+    /**
+     * Halaman hasil GET (tujuan redirect pola PRG) — aman di-refresh.
+     */
+    public function showResult(string $token)
+    {
+        try {
+            $result = $this->service->resultFor($token);
+        } catch (\Throwable $e) {
+            return redirect()->route('bridge.index')->with('error', $e->getMessage());
+        }
+
+        return view('bridge.result', compact('result'));
     }
 
     public function generate(Request $request)
@@ -82,7 +134,7 @@ class BridgeTarifController extends Controller
 
         if ($generated['unresolved'] > 0) {
             return redirect()->route('bridge.download', $generated['download_token'])
-                ->with('info', 'Masih terdapat '.$generated['unresolved'].' row yang belum memiliki mapping — row tersebut tetap memakai kode dari Excel original.');
+                ->with('info', 'Masih terdapat '.$generated['unresolved'].' row yang belum memiliki mapping service — row tersebut tetap memakai SERVICECODE dari Excel original (kolom kelas mengikuti master bila ditemukan).');
         }
 
         return redirect()->route('bridge.download', $generated['download_token'])
@@ -98,5 +150,30 @@ class BridgeTarifController extends Controller
         }
 
         return response()->download($path, $this->service->outputFilename($token));
+    }
+
+    /**
+     * Cari master service untuk pemetaan manual NOT_FOUND (JSON).
+     * Bila description diisi: daftar terurut paling mirip dengan
+     * description baris Excel; ketikan user (q) ikut menyaring.
+     * Tanpa description: mirip dengan ketikan saja.
+     */
+    public function searchServices(Request $request): \Illuminate\Http\JsonResponse
+    {
+        $validated = $request->validate([
+            'q' => 'nullable|string|max:100',
+            'description' => 'nullable|string|max:255',
+        ]);
+        $q = trim((string) ($validated['q'] ?? ''));
+        $description = trim((string) ($validated['description'] ?? ''));
+
+        if ($description !== '') {
+            return response()->json(['data' => BridgeServiceSearch::similar($description, $q !== '' ? $q : null)]);
+        }
+        if (mb_strlen($q) < 2) {
+            return response()->json(['data' => []]);
+        }
+
+        return response()->json(['data' => BridgeServiceSearch::search($q)]);
     }
 }

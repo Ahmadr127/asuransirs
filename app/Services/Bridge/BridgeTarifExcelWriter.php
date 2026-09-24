@@ -23,10 +23,12 @@ class BridgeTarifExcelWriter
             $classCol = $map[BridgeTarifExcelReader::FIELD_SERVICE_CLASS_CODE];
 
             foreach ($decisions as $excelRow => $decision) {
-                if ($decision['status'] !== TarifBridgeResolver::STATUS_MATCHED) {
-                    continue;
-                }
-                if ($decision['new_service_code'] !== null) {
+                // SERVICECODE hanya diganti untuk row MATCHED; SERVICECODE
+                // KELAS diganti kapan pun kode master-nya ketemu (termasuk
+                // row yang service-nya masih AMBIGUOUS/NOT_FOUND).
+                if ($decision['status'] === TarifBridgeResolver::STATUS_MATCHED
+                    && $decision['new_service_code'] !== null
+                ) {
                     $sheet->setCellValue([$codeCol + 1, $excelRow], $decision['new_service_code']);
                 }
                 if ($decision['new_class_code'] !== null) {

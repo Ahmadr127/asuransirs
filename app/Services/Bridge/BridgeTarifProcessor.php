@@ -36,15 +36,35 @@ class BridgeTarifProcessor
             $normalized = BridgeTarifRowNormalizer::normalize($rawRow, $map, $excelRow);
             $resolved = $this->resolver->resolve($normalized);
 
-            // Pilihan manual user untuk grup ambigu berlaku ke semua row se-key.
-            if ($resolved['status'] === TarifBridgeResolver::STATUS_AMBIGUOUS
+            // Pilihan manual user untuk grup ambigu maupun NOT_FOUND
+            // berlaku ke semua row se-key.
+            $isManual = $resolved['status'] === TarifBridgeResolver::STATUS_NOT_FOUND;
+            if (($resolved['status'] === TarifBridgeResolver::STATUS_AMBIGUOUS
+                    || $isManual)
                 && isset($resolutions[$normalized['mapping_key']])
-                && $this->isValidChoice($resolved['candidates'], $resolutions[$normalized['mapping_key']])
+                && $this->isValidChoice(
+                    $resolved['candidates'],
+                    $resolutions[$normalized['mapping_key']],
+                    $isManual
+                )
             ) {
                 $choice = $resolutions[$normalized['mapping_key']];
                 $resolved['status'] = TarifBridgeResolver::STATUS_MATCHED;
-                $resolved['new_service_code'] = $choice['service_code'];
-                $resolved['new_class_code'] = $choice['class_code'];
+                $resolved['new_service_code'] = mb_strtoupper(trim($choice['service_code']));
+                // Grup manual (NOT_FOUND): kelas tidak dipilih ulang —
+                // otomatis dari master via nama kelas; bila nama kelas
+                // tidak ada di master, pertahankan bawaan Excel.
+                // Override class eksplisit (bila diisi) selalu menang.
+                $overrideClass = mb_strtoupper(trim($choice['class_code'] ?? ''));
+                if ($overrideClass !== '') {
+                    $resolved['new_class_code'] = $overrideClass;
+                } elseif ($isManual) {
+                    $resolved['new_class_code'] = $this->resolver->repository()
+                        ->classCodeFor($normalized['class_name'], $normalized['service_class_code'])
+                        ?? $normalized['service_class_code'];
+                } else {
+                    $resolved['new_class_code'] = $choice['class_code'];
+                }
             }
 
             $summary['total']++;
@@ -55,12 +75,15 @@ class BridgeTarifProcessor
                 default => $summary['invalid']++,
             };
 
-            if ($resolved['status'] === TarifBridgeResolver::STATUS_AMBIGUOUS) {
+            if ($resolved['status'] === TarifBridgeResolver::STATUS_AMBIGUOUS
+                || $resolved['status'] === TarifBridgeResolver::STATUS_NOT_FOUND
+            ) {
                 $key = $normalized['mapping_key'];
                 $groups[$key] ??= [
                     'description' => $normalized['service_description'],
                     'kelas' => $normalized['class_name'],
                     'candidates' => $resolved['candidates'],
+                    'manual' => $resolved['status'] === TarifBridgeResolver::STATUS_NOT_FOUND,
                     'rows' => [],
                     'resolved' => null,
                 ];
@@ -84,7 +107,9 @@ class BridgeTarifProcessor
 
         // Tandai grup yang sudah dipilih user.
         foreach ($groups as $key => $group) {
-            if (isset($resolutions[$key]) && $this->isValidChoice($group['candidates'], $resolutions[$key])) {
+            if (isset($resolutions[$key])
+                && $this->isValidChoice($group['candidates'], $resolutions[$key], $group['manual'] ?? false)
+            ) {
                 $groups[$key]['resolved'] = $resolutions[$key];
             }
         }
@@ -100,10 +125,21 @@ class BridgeTarifProcessor
     }
 
     /** @param  array<int, array>  $candidates */
-    protected function isValidChoice(array $candidates, mixed $choice): bool
+    protected function isValidChoice(array $candidates, mixed $choice, bool $manual): bool
     {
         if (! is_array($choice) || ! isset($choice['service_code'], $choice['class_code'])) {
             return false;
+        }
+        if ($manual) {
+            // Grup NOT_FOUND: service wajib ada di master; kelas opsional
+            // (kosong = ikut bawaan Excel, isi = override bila pair valid).
+            if (! $this->resolver->repository()->serviceExists($choice['service_code'])) {
+                return false;
+            }
+            $override = trim((string) ($choice['class_code'] ?? ''));
+
+            return $override === ''
+                || $this->resolver->repository()->pairExists($choice['service_code'], $override);
         }
         foreach ($candidates as $candidate) {
             if (mb_strtoupper(trim($candidate['service_code'])) === mb_strtoupper(trim($choice['service_code']))
