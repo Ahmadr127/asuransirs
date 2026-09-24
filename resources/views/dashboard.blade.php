@@ -3,53 +3,26 @@
 @section('title', 'Dashboard')
 
 @section('content')
-<div class="space-y-5">
-    <!-- Welcome + Quick Actions -->
-    <x-card>
-        <h2 class="text-2xl font-bold text-gray-900">Selamat Datang, {{ $user->name }}!</h2>
-        <p class="text-gray-500 mb-4">Sistem Manajemen Terintegrasi</p>
-    </x-card>
+<div class="w-full mx-auto flex flex-col gap-4">
+    @if(auth()->user()->hasPermission('manage_tarifs'))
+        <x-card padding="false">
+            <x-slot name="title">Jalan Pintas</x-slot>
+            <div class="p-4 flex flex-wrap gap-2">
+                <a href="{{ route('tarifs.index') }}" class="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-semibold text-white rounded-md bg-sp-primary hover:bg-sp-primary-dark transition-colors">
+                    <i class="bi bi-book"></i> Buku Tarif
+                </a>
+                <a href="{{ route('bridge.index') }}" class="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-semibold text-sp-navy rounded-md border border-gray-300 bg-white hover:bg-gray-50 transition-colors">
+                    <i class="bi bi-arrow-left-right"></i> Bridge Tarif
+                </a>
+            </div>
+        </x-card>
 
-    <!-- Stats -->
-    <div class="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        @foreach($stats as $stat)
-        <x-stats :label="$stat['label']" :value="$stat['value']" :icon="$stat['icon']" :color="$stat['color']" />
-        @endforeach
-    </div>
-
-    <!-- Chart -->
-    <x-card title="Tren Pengguna" subtitle="Pengguna baru dalam 6 bulan terakhir">
-        <x-chart
-            type="line"
-            :labels="$chartLabels"
-            :datasets="[[
-                'label' => 'Pengguna Baru',
-                'data' => $chartData,
-                'borderColor' => '#007774',
-                'backgroundColor' => 'rgba(0, 119, 116, 0.15)',
-                'fill' => true,
-                'tension' => 0.3,
-                'pointRadius' => 4,
-                'pointBackgroundColor' => '#007774',
-            ]]"
-            :height="260"
-        />
-    </x-card>
-
-    <!-- Searchable Table (pencarian per kolom di baris pertama) -->
-    <x-card title="Data Pengguna" subtitle="Ketik di kolom pencarian untuk memfilter data">
-        <x-searchable-table
-            :columns="[
-                ['key' => 'name', 'label' => 'Nama'],
-                ['key' => 'nik', 'label' => 'NIK'],
-                ['key' => 'username', 'label' => 'Username'],
-                ['key' => 'email', 'label' => 'Email'],
-                ['key' => 'role', 'label' => 'Role'],
-                ['key' => 'created_at', 'label' => 'Dibuat'],
-            ]"
-            :rows="$tableRows"
-            :per-page="8"
-        />
-    </x-card>
+        <x-bridge.upload-form />
+    @else
+        <x-card padding="false">
+            <x-slot name="title">Selamat Datang, {{ auth()->user()->name }}!</x-slot>
+            <div class="p-4 text-sm text-gray-500">Gunakan menu di samping untuk navigasi.</div>
+        </x-card>
+    @endif
 </div>
 @endsection

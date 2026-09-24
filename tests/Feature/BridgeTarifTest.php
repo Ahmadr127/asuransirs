@@ -224,6 +224,29 @@ class BridgeTarifTest extends TestCase
         $result->assertDontSee('Scan Excel', false);
     }
 
+    public function test_dashboard_shows_bridge_form_and_buku_tarif_shortcut(): void
+    {
+        $page = $this->actingAs($this->user)->get(route('dashboard'));
+        $page->assertOk();
+        $page->assertSee('Scan Excel', false);
+        $page->assertSee('Buku Tarif');
+        $page->assertSee(route('tarifs.index'), false);
+    }
+
+    public function test_dashboard_hides_bridge_for_users_without_permission(): void
+    {
+        $role = Role::create(['name' => 'user', 'display_name' => 'Pengguna']);
+        $other = User::create([
+            'name' => 'Biasa', 'email' => 'biasa@example.com',
+            'password' => 'secret', 'role_id' => $role->id,
+        ]);
+
+        $page = $this->actingAs($other)->get(route('dashboard'));
+        $page->assertOk();
+        $page->assertDontSee('Scan Excel', false);
+        $page->assertDontSee('Buku Tarif');
+    }
+
     public function test_scan_requires_file(): void
     {
         $response = $this->actingAs($this->user)->post(route('bridge.scan'), []);
