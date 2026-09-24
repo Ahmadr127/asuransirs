@@ -2,8 +2,7 @@
 
 namespace App\Services\Bridge;
 
-use App\Models\Tarif;
-use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 
 /**
  * Sumber master untuk Bridge: tabel tarifs (relasi service + class).
@@ -23,41 +22,43 @@ class TarifBridgeRepository
             return $this;
         }
 
-        /** @var Collection<int, Tarif> $tarifs */
-        $tarifs = Tarif::with([
-            'service:id,code,name,description',
-            'serviceClass:id,code,name',
-        ])->get(['id', 'service_id', 'class_id']);
+        // Master bisa 200rb+ row: jangan hidrasi Eloquent sekaligus (OOM).
+        // Streaming via query builder per chunk, hanya kolom yang dipakai.
+        DB::table('tarifs')
+            ->join('services as s', 's.id', '=', 'tarifs.service_id')
+            ->join('classes as c', 'c.id', '=', 'tarifs.class_id')
+            ->select([
+                's.code as service_code',
+                's.name as service_name',
+                's.description as service_description',
+                'c.code as class_code',
+                'c.name as class_name',
+            ])
+            ->orderBy('tarifs.id')
+            ->chunk(5000, function ($rows) {
+                foreach ($rows as $row) {
+                    $serviceKeys = array_unique(array_filter([
+                        BridgeTarifRowNormalizer::normalizeKey($row->service_name),
+                        BridgeTarifRowNormalizer::normalizeKey($row->service_description),
+                    ]));
+                    $classKey = BridgeTarifRowNormalizer::normalizeKey($row->class_name);
+                    if ($serviceKeys === [] || $classKey === '') {
+                        continue;
+                    }
 
-        foreach ($tarifs as $tarif) {
-            $service = $tarif->service;
-            $class = $tarif->serviceClass;
-            if (! $service || ! $class) {
-                continue;
-            }
+                    $pairKey = mb_strtoupper(trim((string) $row->service_code)).'|'.mb_strtoupper(trim((string) $row->class_code));
+                    $pair = [
+                        'service_code' => mb_strtoupper(trim((string) $row->service_code)),
+                        'service_name' => $row->service_name,
+                        'class_code' => mb_strtoupper(trim((string) $row->class_code)),
+                        'class_name' => $row->class_name,
+                    ];
 
-            $serviceKeys = array_unique(array_filter([
-                BridgeTarifRowNormalizer::normalizeKey($service->name),
-                BridgeTarifRowNormalizer::normalizeKey($service->description),
-            ]));
-            $classKey = BridgeTarifRowNormalizer::normalizeKey($class->name);
-            if ($serviceKeys === [] || $classKey === '') {
-                continue;
-            }
-
-            $pairKey = mb_strtoupper(trim($service->code)).'|'.mb_strtoupper(trim($class->code));
-            $pair = [
-                'service_code' => mb_strtoupper(trim($service->code)),
-                'service_name' => $service->name,
-                'class_code' => mb_strtoupper(trim($class->code)),
-                'class_name' => $class->name,
-            ];
-
-            foreach ($serviceKeys as $serviceKey) {
-                $key = $serviceKey.'|'.$classKey;
-                $this->map[$key][$pairKey] = $pair;
-            }
-        }
+                    foreach ($serviceKeys as $serviceKey) {
+                        $this->map[$serviceKey.'|'.$classKey][$pairKey] = $pair;
+                    }
+                }
+            });
 
         $this->loaded = true;
 

@@ -1,0 +1,4646 @@
+<!-- start tpl_cetak.html -->
+<!DOCTYPE HTML>
+<html>
+    <head>
+        <title>teraMedik : Healthcare Informatics</title>
+        <meta http-equiv="content-type" content="text/html; charset=iso-8859-1">
+        <link rel="shortcut icon" href="images/favicon.ico" type="image/x-icon">
+        
+        <!-- B: Styles -->
+        <link rel="stylesheet/less" type="text/css" media="all" href="assets/prints/styles/reset.css" />
+        <link rel="stylesheet/less" type="text/css" media="all" href="assets/prints/styles/prints-fancy.css" />
+        <!-- E: Styles -->
+        
+        <!-- B: Scripts -->
+        <script type="text/javascript" src="assets/prints/scripts/jquery.js"></script>
+        <script type="text/javascript" src="images/adm.js"></script>
+        <script type="text/javascript" src="images/popUp.js"></script>
+        <!-- E: Scripts -->
+        
+    </head>
+<body>
+
+
+
+<!-- start module_name -->
+<!-- end module_name -->
+
+
+<!-- START: bridging_allianz.html -->
+
+<style type="text/css">
+	table tr th { vertical-align: middle; }
+	h2 span { text-transform: uppercase; font-weight: bold; }	
+</style>
+
+   <table width="100%" class="bdr1 pad">
+		<thead>
+			<tr>
+				<th align="center">PROVID</th>
+				<th align="center">PROVIDER_NAME</th>
+				<th align="center">SERVICECODE</th>
+				<th align="center">SERVICECODE DESCRIPTION</th>
+				<th>SERVICECODE KELAS</th>
+				<th>KELAS</th>
+				<th align="center">RUANG BEDAH (SURGERY)/ RUANG NON BEDAH )NON SURGERY)</th>
+				<th>HELPER</th>
+				<th align="center">TARIFF</th>
+				<th align="center">TARIFF DESCRIPTION </th>
+				<th align="center">QUANTITY </th>
+				<th align="center">TOTAL BILLED</th>
+				<th align="center">GIVEN DATE (month, day, year)</th>
+				<th align="center">HEAMODIALISA/CHEMOTHERAPY/ODC/PHYSIOTHERAPY/RADIOTHERAPY</th>
+				<th align="center">HEAMODIALISA/CHEMOTHERAPY/ODC/PHYSIOTHERAPY/RADIOTHERAPY DESCRIPTION</th>
+				<th align="center">ICD_X_DIAGNOSIS_PRIMARY</th>
+				<th align="center">ICD_X_DESC_PRIMARY</th>
+				<th align="center">ICD_X_DIAGNOSIS_SECONDARY</th>
+				<th align="center">ICD_X_DESC_SECONDARY</th>
+				<th align="center">PHYSICIAN NAME</th>
+				<th align="center">PHYSICIAN DESCRIPTION (UMUM IGD/dpjp/dpjp konsulen)</th>
+				<th align="center">CLIENT NAME</th>
+				<th align="center">CLIENTS DOB (month, day, year)</th>
+				<th align="center">CLIENTS SEX</th>
+				<th align="center">CLIENTS ADDRESS</th>
+				<th align="center">CLIENTS MEMBER ID</th>
+				<th align="center">CLIENTS MR NUMBER</th>
+				<th align="center">CLIENTS INVOICE NUMBER</th>
+				<th align="center">CLIENTS REGISTER NUMBER</th>
+				<th align="center">CLIENTS OTHER NUMBER</th>
+				<th align="center">SERVICE_DATE_FROM</th>
+				<th align="center">SERVICE_DATE_TO</th>
+				<th align="center">LoS</th>
+			</tr>
+		</thead>
+		<tbody>
+		
+    				<tr>
+					<td align="center"></td>
+					<td align="center"></td>
+			    		<td align="left">
+						ALT 55
+					</td>
+			    		<td align="left">Steri Green S-22 75x75</td>
+      					<td align="left">2</td>
+					<td>VVIP</td>
+      					<td>NON OK</td>
+      					<td></td>
+			    		<td>17000.00</td>
+					<td></td>
+					<td align="center">2.00</td>
+					<td align="center">17000.00</td>
+					<td valign="middle">09/17/2026</td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td>Karisa Kartika Sukotjo, dr. Sp. OT</td>
+					<td>DPJP</td>
+					<td>Nicola Tiso , Tn</td>
+					<td>11/22/1961</td>
+					<td>MALE</td>
+					<td>Kp Kaum Ciparigi RT.001/005</td>
+					<td></td>
+					<td>00-35-16-42</td>					
+					<td></td>
+					<td>2609170310</td>
+					<td>="2211196122111961"</td>
+					<td>09/17/2026</td>
+					<td>09/18/2026</td>
+					<td>1 days</td>
+		   		</tr>
+    			
+    				<tr>
+					<td align="center"></td>
+					<td align="center"></td>
+			    		<td align="left">
+						ALT 53
+					</td>
+			    		<td align="left">Steri Record</td>
+      					<td align="left">2</td>
+					<td>VVIP</td>
+      					<td>NON OK</td>
+      					<td></td>
+			    		<td>17670.00</td>
+					<td></td>
+					<td align="center">15.00</td>
+					<td align="center">17670.00</td>
+					<td valign="middle">09/17/2026</td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td>Karisa Kartika Sukotjo, dr. Sp. OT</td>
+					<td>DPJP</td>
+					<td>Nicola Tiso , Tn</td>
+					<td>11/22/1961</td>
+					<td>MALE</td>
+					<td>Kp Kaum Ciparigi RT.001/005</td>
+					<td></td>
+					<td>00-35-16-42</td>					
+					<td></td>
+					<td>2609170310</td>
+					<td>="2211196122111961"</td>
+					<td>09/17/2026</td>
+					<td>09/18/2026</td>
+					<td>1 days</td>
+		   		</tr>
+    			
+    				<tr>
+					<td align="center"></td>
+					<td align="center"></td>
+			    		<td align="left">
+						ALT 171
+					</td>
+			    		<td align="left">Pemakaian Oksigen 2 liter/menit</td>
+      					<td align="left">2</td>
+					<td>VVIP</td>
+      					<td>NON OK</td>
+      					<td></td>
+			    		<td>180000.00</td>
+					<td></td>
+					<td align="center">3.00</td>
+					<td align="center">180000.00</td>
+					<td valign="middle">09/17/2026</td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td>Karisa Kartika Sukotjo, dr. Sp. OT</td>
+					<td>DPJP</td>
+					<td>Nicola Tiso , Tn</td>
+					<td>11/22/1961</td>
+					<td>MALE</td>
+					<td>Kp Kaum Ciparigi RT.001/005</td>
+					<td></td>
+					<td>00-35-16-42</td>					
+					<td></td>
+					<td>2609170310</td>
+					<td>="2211196122111961"</td>
+					<td>09/17/2026</td>
+					<td>09/18/2026</td>
+					<td>1 days</td>
+		   		</tr>
+    			
+    				<tr>
+					<td align="center"></td>
+					<td align="center"></td>
+			    		<td align="left">
+						ALT 68
+					</td>
+			    		<td align="left">Betadine</td>
+      					<td align="left">2</td>
+					<td>VVIP</td>
+      					<td>NON OK</td>
+      					<td></td>
+			    		<td>69600.00</td>
+					<td></td>
+					<td align="center">240.00</td>
+					<td align="center">69600.00</td>
+					<td valign="middle">09/17/2026</td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td>Karisa Kartika Sukotjo, dr. Sp. OT</td>
+					<td>DPJP</td>
+					<td>Nicola Tiso , Tn</td>
+					<td>11/22/1961</td>
+					<td>MALE</td>
+					<td>Kp Kaum Ciparigi RT.001/005</td>
+					<td></td>
+					<td>00-35-16-42</td>					
+					<td></td>
+					<td>2609170310</td>
+					<td>="2211196122111961"</td>
+					<td>09/17/2026</td>
+					<td>09/18/2026</td>
+					<td>1 days</td>
+		   		</tr>
+    			
+    				<tr>
+					<td align="center"></td>
+					<td align="center"></td>
+			    		<td align="left">
+						ALT 70
+					</td>
+			    		<td align="left">Alkohol 70%</td>
+      					<td align="left">2</td>
+					<td>VVIP</td>
+      					<td>NON OK</td>
+      					<td></td>
+			    		<td>25500.00</td>
+					<td></td>
+					<td align="center">300.00</td>
+					<td align="center">25500.00</td>
+					<td valign="middle">09/17/2026</td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td>Karisa Kartika Sukotjo, dr. Sp. OT</td>
+					<td>DPJP</td>
+					<td>Nicola Tiso , Tn</td>
+					<td>11/22/1961</td>
+					<td>MALE</td>
+					<td>Kp Kaum Ciparigi RT.001/005</td>
+					<td></td>
+					<td>00-35-16-42</td>					
+					<td></td>
+					<td>2609170310</td>
+					<td>="2211196122111961"</td>
+					<td>09/17/2026</td>
+					<td>09/18/2026</td>
+					<td>1 days</td>
+		   		</tr>
+    			
+    				<tr>
+					<td align="center"></td>
+					<td align="center"></td>
+			    		<td align="left">
+						ALT 185
+					</td>
+			    		<td align="left">USG Guidence</td>
+      					<td align="left">2</td>
+					<td>VVIP</td>
+      					<td>NON OK</td>
+      					<td></td>
+			    		<td>460000.00</td>
+					<td></td>
+					<td align="center">1.00</td>
+					<td align="center">460000.00</td>
+					<td valign="middle">09/17/2026</td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td>Puja Laksana Maqbul, dr., Sp.An., FIPM</td>
+					<td>DPJP KONSULEN</td>
+					<td>Nicola Tiso , Tn</td>
+					<td>11/22/1961</td>
+					<td>MALE</td>
+					<td>Kp Kaum Ciparigi RT.001/005</td>
+					<td></td>
+					<td>00-35-16-42</td>					
+					<td></td>
+					<td>2609170310</td>
+					<td>="2211196122111961"</td>
+					<td>09/17/2026</td>
+					<td>09/18/2026</td>
+					<td>1 days</td>
+		   		</tr>
+    			
+    				<tr>
+					<td align="center"></td>
+					<td align="center"></td>
+			    		<td align="left">
+						ALT 78
+					</td>
+			    		<td align="left">Elektroda Pencil</td>
+      					<td align="left">2</td>
+					<td>VVIP</td>
+      					<td>NON OK</td>
+      					<td></td>
+			    		<td>82500.00</td>
+					<td></td>
+					<td align="center">1.00</td>
+					<td align="center">82500.00</td>
+					<td valign="middle">09/17/2026</td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td>Karisa Kartika Sukotjo, dr. Sp. OT</td>
+					<td>DPJP</td>
+					<td>Nicola Tiso , Tn</td>
+					<td>11/22/1961</td>
+					<td>MALE</td>
+					<td>Kp Kaum Ciparigi RT.001/005</td>
+					<td></td>
+					<td>00-35-16-42</td>					
+					<td></td>
+					<td>2609170310</td>
+					<td>="2211196122111961"</td>
+					<td>09/17/2026</td>
+					<td>09/18/2026</td>
+					<td>1 days</td>
+		   		</tr>
+    			
+    				<tr>
+					<td align="center"></td>
+					<td align="center"></td>
+			    		<td align="left">
+						ALT 57
+					</td>
+			    		<td align="left">Steri Green S-22 100x100cm</td>
+      					<td align="left">2</td>
+					<td>VVIP</td>
+      					<td>NON OK</td>
+      					<td></td>
+			    		<td>70000.00</td>
+					<td></td>
+					<td align="center">5.00</td>
+					<td align="center">70000.00</td>
+					<td valign="middle">09/17/2026</td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td>Karisa Kartika Sukotjo, dr. Sp. OT</td>
+					<td>DPJP</td>
+					<td>Nicola Tiso , Tn</td>
+					<td>11/22/1961</td>
+					<td>MALE</td>
+					<td>Kp Kaum Ciparigi RT.001/005</td>
+					<td></td>
+					<td>00-35-16-42</td>					
+					<td></td>
+					<td>2609170310</td>
+					<td>="2211196122111961"</td>
+					<td>09/17/2026</td>
+					<td>09/18/2026</td>
+					<td>1 days</td>
+		   		</tr>
+    			
+    				<tr>
+					<td align="center"></td>
+					<td align="center"></td>
+			    		<td align="left">
+						53
+					</td>
+			    		<td align="left">Hematologi Rutin</td>
+      					<td align="left">2</td>
+					<td>VVIP</td>
+      					<td>NON OK</td>
+      					<td></td>
+			    		<td>183350.00</td>
+					<td></td>
+					<td align="center">1.00</td>
+					<td align="center">183350.00</td>
+					<td valign="middle">09/17/2026</td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td>Tanty Herdiyani, dr., Sp.PK</td>
+					<td>DPJP KONSULEN</td>
+					<td>Nicola Tiso , Tn</td>
+					<td>11/22/1961</td>
+					<td>MALE</td>
+					<td>Kp Kaum Ciparigi RT.001/005</td>
+					<td></td>
+					<td>00-35-16-42</td>					
+					<td></td>
+					<td>2609170310</td>
+					<td>="2211196122111961"</td>
+					<td>09/17/2026</td>
+					<td>09/18/2026</td>
+					<td>1 days</td>
+		   		</tr>
+    			
+    				<tr>
+					<td align="center"></td>
+					<td align="center"></td>
+			    		<td align="left">
+						47
+					</td>
+			    		<td align="left">Masa Pendarahan</td>
+      					<td align="left">2</td>
+					<td>VVIP</td>
+      					<td>NON OK</td>
+      					<td></td>
+			    		<td>47500.00</td>
+					<td></td>
+					<td align="center">1.00</td>
+					<td align="center">47500.00</td>
+					<td valign="middle">09/17/2026</td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td>Tanty Herdiyani, dr., Sp.PK</td>
+					<td>DPJP KONSULEN</td>
+					<td>Nicola Tiso , Tn</td>
+					<td>11/22/1961</td>
+					<td>MALE</td>
+					<td>Kp Kaum Ciparigi RT.001/005</td>
+					<td></td>
+					<td>00-35-16-42</td>					
+					<td></td>
+					<td>2609170310</td>
+					<td>="2211196122111961"</td>
+					<td>09/17/2026</td>
+					<td>09/18/2026</td>
+					<td>1 days</td>
+		   		</tr>
+    			
+    				<tr>
+					<td align="center"></td>
+					<td align="center"></td>
+			    		<td align="left">
+						48
+					</td>
+			    		<td align="left">Masa Pembekuan</td>
+      					<td align="left">2</td>
+					<td>VVIP</td>
+      					<td>NON OK</td>
+      					<td></td>
+			    		<td>47500.00</td>
+					<td></td>
+					<td align="center">1.00</td>
+					<td align="center">47500.00</td>
+					<td valign="middle">09/17/2026</td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td>Tanty Herdiyani, dr., Sp.PK</td>
+					<td>DPJP KONSULEN</td>
+					<td>Nicola Tiso , Tn</td>
+					<td>11/22/1961</td>
+					<td>MALE</td>
+					<td>Kp Kaum Ciparigi RT.001/005</td>
+					<td></td>
+					<td>00-35-16-42</td>					
+					<td></td>
+					<td>2609170310</td>
+					<td>="2211196122111961"</td>
+					<td>09/17/2026</td>
+					<td>09/18/2026</td>
+					<td>1 days</td>
+		   		</tr>
+    			
+    				<tr>
+					<td align="center"></td>
+					<td align="center"></td>
+			    		<td align="left">
+						115
+					</td>
+			    		<td align="left">Elektrolit : Na, K, Cl</td>
+      					<td align="left">2</td>
+					<td>VVIP</td>
+      					<td>NON OK</td>
+      					<td></td>
+			    		<td>331550.00</td>
+					<td></td>
+					<td align="center">1.00</td>
+					<td align="center">331550.00</td>
+					<td valign="middle">09/17/2026</td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td>Tanty Herdiyani, dr., Sp.PK</td>
+					<td>DPJP KONSULEN</td>
+					<td>Nicola Tiso , Tn</td>
+					<td>11/22/1961</td>
+					<td>MALE</td>
+					<td>Kp Kaum Ciparigi RT.001/005</td>
+					<td></td>
+					<td>00-35-16-42</td>					
+					<td></td>
+					<td>2609170310</td>
+					<td>="2211196122111961"</td>
+					<td>09/17/2026</td>
+					<td>09/18/2026</td>
+					<td>1 days</td>
+		   		</tr>
+    			
+    				<tr>
+					<td align="center"></td>
+					<td align="center"></td>
+			    		<td align="left">
+						88
+					</td>
+			    		<td align="left">PT (Waktu Protrombin)</td>
+      					<td align="left">2</td>
+					<td>VVIP</td>
+      					<td>NON OK</td>
+      					<td></td>
+			    		<td>228000.00</td>
+					<td></td>
+					<td align="center">1.00</td>
+					<td align="center">228000.00</td>
+					<td valign="middle">09/17/2026</td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td>Tanty Herdiyani, dr., Sp.PK</td>
+					<td>DPJP KONSULEN</td>
+					<td>Nicola Tiso , Tn</td>
+					<td>11/22/1961</td>
+					<td>MALE</td>
+					<td>Kp Kaum Ciparigi RT.001/005</td>
+					<td></td>
+					<td>00-35-16-42</td>					
+					<td></td>
+					<td>2609170310</td>
+					<td>="2211196122111961"</td>
+					<td>09/17/2026</td>
+					<td>09/18/2026</td>
+					<td>1 days</td>
+		   		</tr>
+    			
+    				<tr>
+					<td align="center"></td>
+					<td align="center"></td>
+			    		<td align="left">
+						374
+					</td>
+			    		<td align="left">HBs Ag</td>
+      					<td align="left">2</td>
+					<td>VVIP</td>
+      					<td>NON OK</td>
+      					<td></td>
+			    		<td>114000.00</td>
+					<td></td>
+					<td align="center">1.00</td>
+					<td align="center">114000.00</td>
+					<td valign="middle">09/17/2026</td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td>Tanty Herdiyani, dr., Sp.PK</td>
+					<td>DPJP KONSULEN</td>
+					<td>Nicola Tiso , Tn</td>
+					<td>11/22/1961</td>
+					<td>MALE</td>
+					<td>Kp Kaum Ciparigi RT.001/005</td>
+					<td></td>
+					<td>00-35-16-42</td>					
+					<td></td>
+					<td>2609170310</td>
+					<td>="2211196122111961"</td>
+					<td>09/17/2026</td>
+					<td>09/18/2026</td>
+					<td>1 days</td>
+		   		</tr>
+    			
+    				<tr>
+					<td align="center"></td>
+					<td align="center"></td>
+			    		<td align="left">
+						89
+					</td>
+			    		<td align="left">APTT</td>
+      					<td align="left">2</td>
+					<td>VVIP</td>
+      					<td>NON OK</td>
+      					<td></td>
+			    		<td>228000.00</td>
+					<td></td>
+					<td align="center">1.00</td>
+					<td align="center">228000.00</td>
+					<td valign="middle">09/17/2026</td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td>Tanty Herdiyani, dr., Sp.PK</td>
+					<td>DPJP KONSULEN</td>
+					<td>Nicola Tiso , Tn</td>
+					<td>11/22/1961</td>
+					<td>MALE</td>
+					<td>Kp Kaum Ciparigi RT.001/005</td>
+					<td></td>
+					<td>00-35-16-42</td>					
+					<td></td>
+					<td>2609170310</td>
+					<td>="2211196122111961"</td>
+					<td>09/17/2026</td>
+					<td>09/18/2026</td>
+					<td>1 days</td>
+		   		</tr>
+    			
+    				<tr>
+					<td align="center"></td>
+					<td align="center"></td>
+			    		<td align="left">
+						106
+					</td>
+			    		<td align="left">Gula Darah Sewaktu</td>
+      					<td align="left">2</td>
+					<td>VVIP</td>
+      					<td>NON OK</td>
+      					<td></td>
+			    		<td>47500.00</td>
+					<td></td>
+					<td align="center">1.00</td>
+					<td align="center">47500.00</td>
+					<td valign="middle">09/17/2026</td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td>Tanty Herdiyani, dr., Sp.PK</td>
+					<td>DPJP KONSULEN</td>
+					<td>Nicola Tiso , Tn</td>
+					<td>11/22/1961</td>
+					<td>MALE</td>
+					<td>Kp Kaum Ciparigi RT.001/005</td>
+					<td></td>
+					<td>00-35-16-42</td>					
+					<td></td>
+					<td>2609170310</td>
+					<td>="2211196122111961"</td>
+					<td>09/17/2026</td>
+					<td>09/18/2026</td>
+					<td>1 days</td>
+		   		</tr>
+    			
+    				<tr>
+					<td align="center"></td>
+					<td align="center"></td>
+			    		<td align="left">
+						106
+					</td>
+			    		<td align="left">Gula Darah Sewaktu</td>
+      					<td align="left">2</td>
+					<td>VVIP</td>
+      					<td>NON OK</td>
+      					<td></td>
+			    		<td>76000.00</td>
+					<td></td>
+					<td align="center">1.00</td>
+					<td align="center">76000.00</td>
+					<td valign="middle">09/17/2026</td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td>Tanty Herdiyani, dr., Sp.PK</td>
+					<td>DPJP KONSULEN</td>
+					<td>Nicola Tiso , Tn</td>
+					<td>11/22/1961</td>
+					<td>MALE</td>
+					<td>Kp Kaum Ciparigi RT.001/005</td>
+					<td></td>
+					<td>00-35-16-42</td>					
+					<td></td>
+					<td>2609170310</td>
+					<td>="2211196122111961"</td>
+					<td>09/17/2026</td>
+					<td>09/18/2026</td>
+					<td>1 days</td>
+		   		</tr>
+    			
+    				<tr>
+					<td align="center"></td>
+					<td align="center"></td>
+			    		<td align="left">
+						138
+					</td>
+			    		<td align="left">Ureum</td>
+      					<td align="left">2</td>
+					<td>VVIP</td>
+      					<td>NON OK</td>
+      					<td></td>
+			    		<td>66500.00</td>
+					<td></td>
+					<td align="center">1.00</td>
+					<td align="center">66500.00</td>
+					<td valign="middle">09/17/2026</td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td>Tanty Herdiyani, dr., Sp.PK</td>
+					<td>DPJP KONSULEN</td>
+					<td>Nicola Tiso , Tn</td>
+					<td>11/22/1961</td>
+					<td>MALE</td>
+					<td>Kp Kaum Ciparigi RT.001/005</td>
+					<td></td>
+					<td>00-35-16-42</td>					
+					<td></td>
+					<td>2609170310</td>
+					<td>="2211196122111961"</td>
+					<td>09/17/2026</td>
+					<td>09/18/2026</td>
+					<td>1 days</td>
+		   		</tr>
+    			
+    				<tr>
+					<td align="center"></td>
+					<td align="center"></td>
+			    		<td align="left">
+						139
+					</td>
+			    		<td align="left">Creatinine</td>
+      					<td align="left">2</td>
+					<td>VVIP</td>
+      					<td>NON OK</td>
+      					<td></td>
+			    		<td>66500.00</td>
+					<td></td>
+					<td align="center">1.00</td>
+					<td align="center">66500.00</td>
+					<td valign="middle">09/17/2026</td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td>Tanty Herdiyani, dr., Sp.PK</td>
+					<td>DPJP KONSULEN</td>
+					<td>Nicola Tiso , Tn</td>
+					<td>11/22/1961</td>
+					<td>MALE</td>
+					<td>Kp Kaum Ciparigi RT.001/005</td>
+					<td></td>
+					<td>00-35-16-42</td>					
+					<td></td>
+					<td>2609170310</td>
+					<td>="2211196122111961"</td>
+					<td>09/17/2026</td>
+					<td>09/18/2026</td>
+					<td>1 days</td>
+		   		</tr>
+    			
+    				<tr>
+					<td align="center"></td>
+					<td align="center"></td>
+			    		<td align="left">
+						156
+					</td>
+			    		<td align="left">SGOT</td>
+      					<td align="left">2</td>
+					<td>VVIP</td>
+      					<td>NON OK</td>
+      					<td></td>
+			    		<td>76000.00</td>
+					<td></td>
+					<td align="center">1.00</td>
+					<td align="center">76000.00</td>
+					<td valign="middle">09/17/2026</td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td>Tanty Herdiyani, dr., Sp.PK</td>
+					<td>DPJP KONSULEN</td>
+					<td>Nicola Tiso , Tn</td>
+					<td>11/22/1961</td>
+					<td>MALE</td>
+					<td>Kp Kaum Ciparigi RT.001/005</td>
+					<td></td>
+					<td>00-35-16-42</td>					
+					<td></td>
+					<td>2609170310</td>
+					<td>="2211196122111961"</td>
+					<td>09/17/2026</td>
+					<td>09/18/2026</td>
+					<td>1 days</td>
+		   		</tr>
+    			
+    				<tr>
+					<td align="center"></td>
+					<td align="center"></td>
+			    		<td align="left">
+						157
+					</td>
+			    		<td align="left">SGPT</td>
+      					<td align="left">2</td>
+					<td>VVIP</td>
+      					<td>NON OK</td>
+      					<td></td>
+			    		<td>76000.00</td>
+					<td></td>
+					<td align="center">1.00</td>
+					<td align="center">76000.00</td>
+					<td valign="middle">09/17/2026</td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td>Tanty Herdiyani, dr., Sp.PK</td>
+					<td>DPJP KONSULEN</td>
+					<td>Nicola Tiso , Tn</td>
+					<td>11/22/1961</td>
+					<td>MALE</td>
+					<td>Kp Kaum Ciparigi RT.001/005</td>
+					<td></td>
+					<td>00-35-16-42</td>					
+					<td></td>
+					<td>2609170310</td>
+					<td>="2211196122111961"</td>
+					<td>09/17/2026</td>
+					<td>09/18/2026</td>
+					<td>1 days</td>
+		   		</tr>
+    			
+    				<tr>
+					<td align="center"></td>
+					<td align="center"></td>
+			    		<td align="left">
+						127
+					</td>
+			    		<td align="left">ANTEBRACHI DEXTRA [ Adhi Rommy Setyawan., dr., Sp. Rad ]</td>
+      					<td align="left">2</td>
+					<td>VVIP</td>
+      					<td>NON OK</td>
+      					<td></td>
+			    		<td>400000.00</td>
+					<td></td>
+					<td align="center">1.00</td>
+					<td align="center">400000.00</td>
+					<td valign="middle">09/17/2026</td>
+					<td>RADIOTHERAPY</td>
+					<td>ANTEBRACHI DEXTRA [ Adhi Rommy Setyawan., dr., Sp. Rad ]</td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td>Adhi Rommy Setyawan., dr., Sp. Rad</td>
+					<td>DPJP KONSULEN</td>
+					<td>Nicola Tiso , Tn</td>
+					<td>11/22/1961</td>
+					<td>MALE</td>
+					<td>Kp Kaum Ciparigi RT.001/005</td>
+					<td></td>
+					<td>00-35-16-42</td>					
+					<td></td>
+					<td>2609170310</td>
+					<td>="2211196122111961"</td>
+					<td>09/17/2026</td>
+					<td>09/18/2026</td>
+					<td>1 days</td>
+		   		</tr>
+    			
+    				<tr>
+					<td align="center"></td>
+					<td align="center"></td>
+			    		<td align="left">
+						310
+					</td>
+			    		<td align="left">THORAX [ Laila Rose  Foresta, dr., Sp. Rad ]</td>
+      					<td align="left">2</td>
+					<td>VVIP</td>
+      					<td>NON OK</td>
+      					<td></td>
+			    		<td>330000.00</td>
+					<td></td>
+					<td align="center">1.00</td>
+					<td align="center">330000.00</td>
+					<td valign="middle">09/17/2026</td>
+					<td>RADIOTHERAPY</td>
+					<td>THORAX [ Laila Rose  Foresta, dr., Sp. Rad ]</td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td>Laila Rose  Foresta, dr., Sp. Rad</td>
+					<td>DPJP KONSULEN</td>
+					<td>Nicola Tiso , Tn</td>
+					<td>11/22/1961</td>
+					<td>MALE</td>
+					<td>Kp Kaum Ciparigi RT.001/005</td>
+					<td></td>
+					<td>00-35-16-42</td>					
+					<td></td>
+					<td>2609170310</td>
+					<td>="2211196122111961"</td>
+					<td>09/17/2026</td>
+					<td>09/18/2026</td>
+					<td>1 days</td>
+		   		</tr>
+    			
+    				<tr>
+					<td align="center"></td>
+					<td align="center"></td>
+			    		<td align="left">
+						2
+					</td>
+			    		<td align="left">Room Charge VVIP</td>
+      					<td align="left">2</td>
+					<td>VVIP</td>
+      					<td>NON OK</td>
+      					<td></td>
+			    		<td>1235000.00</td>
+					<td></td>
+					<td align="center">1.00</td>
+					<td align="center">1235000.00</td>
+					<td valign="middle">09/17/2026</td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td>Nicola Tiso , Tn</td>
+					<td>11/22/1961</td>
+					<td>MALE</td>
+					<td>Kp Kaum Ciparigi RT.001/005</td>
+					<td></td>
+					<td>00-35-16-42</td>					
+					<td></td>
+					<td>2609170310</td>
+					<td>="2211196122111961"</td>
+					<td>09/17/2026</td>
+					<td>09/18/2026</td>
+					<td>1 days</td>
+		   		</tr>
+    			
+    				<tr>
+					<td align="center"></td>
+					<td align="center"></td>
+			    		<td align="left">
+						Visite CHANDRA BHAKTI PERWIRA, DR
+					</td>
+			    		<td align="left">Visite  CHANDRA BHAKTI PERWIRA, DR </td>
+      					<td align="left">2</td>
+					<td>VVIP</td>
+      					<td>NON OK</td>
+      					<td></td>
+			    		<td>160000.00</td>
+					<td></td>
+					<td align="center">1.00</td>
+					<td align="center">160000.00</td>
+					<td valign="middle">09/17/2026</td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td>CHANDRA BHAKTI PERWIRA, DR</td>
+					<td>UMUM IGD</td>
+					<td>Nicola Tiso , Tn</td>
+					<td>11/22/1961</td>
+					<td>MALE</td>
+					<td>Kp Kaum Ciparigi RT.001/005</td>
+					<td></td>
+					<td>00-35-16-42</td>					
+					<td></td>
+					<td>2609170310</td>
+					<td>="2211196122111961"</td>
+					<td>09/17/2026</td>
+					<td>09/18/2026</td>
+					<td>1 days</td>
+		   		</tr>
+    			
+    				<tr>
+					<td align="center"></td>
+					<td align="center"></td>
+			    		<td align="left">
+						Visite Karisa Kartika Sukotjo, dr. Sp. OT
+					</td>
+			    		<td align="left">Visite  Karisa Kartika Sukotjo, dr. Sp. OT </td>
+      					<td align="left">2</td>
+					<td>VVIP</td>
+      					<td>NON OK</td>
+      					<td></td>
+			    		<td>260000.00</td>
+					<td></td>
+					<td align="center">1.00</td>
+					<td align="center">260000.00</td>
+					<td valign="middle">09/17/2026</td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td>Karisa Kartika Sukotjo, dr. Sp. OT</td>
+					<td>DPJP</td>
+					<td>Nicola Tiso , Tn</td>
+					<td>11/22/1961</td>
+					<td>MALE</td>
+					<td>Kp Kaum Ciparigi RT.001/005</td>
+					<td></td>
+					<td>00-35-16-42</td>					
+					<td></td>
+					<td>2609170310</td>
+					<td>="2211196122111961"</td>
+					<td>09/17/2026</td>
+					<td>09/18/2026</td>
+					<td>1 days</td>
+		   		</tr>
+    			
+    				<tr>
+					<td align="center"></td>
+					<td align="center"></td>
+			    		<td align="left">
+						Visite Puja Laksana Maqbul, dr., Sp.An., FIPM
+					</td>
+			    		<td align="left">Visite  Puja Laksana Maqbul, dr., Sp.An., FIPM </td>
+      					<td align="left">2</td>
+					<td>VVIP</td>
+      					<td>NON OK</td>
+      					<td></td>
+			    		<td>260000.00</td>
+					<td></td>
+					<td align="center">1.00</td>
+					<td align="center">260000.00</td>
+					<td valign="middle">09/17/2026</td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td>Puja Laksana Maqbul, dr., Sp.An., FIPM</td>
+					<td>DPJP KONSULEN</td>
+					<td>Nicola Tiso , Tn</td>
+					<td>11/22/1961</td>
+					<td>MALE</td>
+					<td>Kp Kaum Ciparigi RT.001/005</td>
+					<td></td>
+					<td>00-35-16-42</td>					
+					<td></td>
+					<td>2609170310</td>
+					<td>="2211196122111961"</td>
+					<td>09/17/2026</td>
+					<td>09/18/2026</td>
+					<td>1 days</td>
+		   		</tr>
+    			
+    				<tr>
+					<td align="center"></td>
+					<td align="center"></td>
+			    		<td align="left">
+						1380-1
+					</td>
+			    		<td align="left">Kamar Operasi </td>
+      					<td align="left">2</td>
+					<td>VVIP</td>
+      					<td>OK</td>
+      					<td></td>
+			    		<td>4681000.00</td>
+					<td></td>
+					<td align="center">1.00</td>
+					<td align="center">4681000.00</td>
+					<td valign="middle">09/17/2026</td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td>Nicola Tiso , Tn</td>
+					<td>11/22/1961</td>
+					<td>MALE</td>
+					<td>Kp Kaum Ciparigi RT.001/005</td>
+					<td></td>
+					<td>00-35-16-42</td>					
+					<td></td>
+					<td>2609170310</td>
+					<td>="2211196122111961"</td>
+					<td>09/17/2026</td>
+					<td>09/18/2026</td>
+					<td>1 days</td>
+		   		</tr>
+    			
+    				<tr>
+					<td align="center"></td>
+					<td align="center"></td>
+			    		<td align="left">
+						1380-2
+					</td>
+			    		<td align="left">BEDAH TULANG / ORTOHOPEDI - Reposisi Terbuka Dan Fiksasi Interna Fraktur Tulang Panjang (Karisa Kartika Sukotjo, dr. Sp. OT)</td>
+      					<td align="left">2</td>
+					<td>VVIP</td>
+      					<td>NON OK</td>
+      					<td></td>
+			    		<td>14000000.00</td>
+					<td></td>
+					<td align="center">1.00</td>
+					<td align="center">14000000.00</td>
+					<td valign="middle">09/17/2026</td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td>Karisa Kartika Sukotjo, dr. Sp. OT</td>
+					<td>DPJP</td>
+					<td>Nicola Tiso , Tn</td>
+					<td>11/22/1961</td>
+					<td>MALE</td>
+					<td>Kp Kaum Ciparigi RT.001/005</td>
+					<td></td>
+					<td>00-35-16-42</td>					
+					<td></td>
+					<td>2609170310</td>
+					<td>="2211196122111961"</td>
+					<td>09/17/2026</td>
+					<td>09/18/2026</td>
+					<td>1 days</td>
+		   		</tr>
+    			
+    				<tr>
+					<td align="center"></td>
+					<td align="center"></td>
+			    		<td align="left">
+						1380-3
+					</td>
+			    		<td align="left">BEDAH TULANG / ORTOHOPEDI - Reposisi Terbuka Dan Fiksasi Interna Fraktur Tulang Panjang, anasthesy, (Puja Laksana Maqbul, dr., Sp.An., FIPM)</td>
+      					<td align="left">2</td>
+					<td>VVIP</td>
+      					<td>NON OK</td>
+      					<td></td>
+			    		<td>5600000.00</td>
+					<td></td>
+					<td align="center">1.00</td>
+					<td align="center">5600000.00</td>
+					<td valign="middle">09/17/2026</td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td>Puja Laksana Maqbul, dr., Sp.An., FIPM</td>
+					<td>DPJP KONSULEN</td>
+					<td>Nicola Tiso , Tn</td>
+					<td>11/22/1961</td>
+					<td>MALE</td>
+					<td>Kp Kaum Ciparigi RT.001/005</td>
+					<td></td>
+					<td>00-35-16-42</td>					
+					<td></td>
+					<td>2609170310</td>
+					<td>="2211196122111961"</td>
+					<td>09/17/2026</td>
+					<td>09/18/2026</td>
+					<td>1 days</td>
+		   		</tr>
+    			
+    				<tr>
+					<td align="center"></td>
+					<td align="center"></td>
+			    		<td align="left">
+						BARANG HABIS PAKAI
+					</td>
+			    		<td align="left">Allergy - RED ( Stiker Pasien )</td>
+      					<td align="left">2</td>
+					<td>VVIP</td>
+      					<td>NON OK</td>
+      					<td></td>
+			    		<td>1206.00</td>
+					<td></td>
+					<td align="center">1.00</td>
+					<td align="center">1146.00</td>
+					<td valign="middle">09/17/2026</td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td>Karisa Kartika Sukotjo, dr. Sp. OT</td>
+					<td>DPJP</td>
+					<td>Nicola Tiso , Tn</td>
+					<td>11/22/1961</td>
+					<td>MALE</td>
+					<td>Kp Kaum Ciparigi RT.001/005</td>
+					<td></td>
+					<td>00-35-16-42</td>					
+					<td></td>
+					<td>2609170310</td>
+					<td>="2211196122111961"</td>
+					<td>09/17/2026</td>
+					<td>09/18/2026</td>
+					<td>1 days</td>
+		   		</tr>
+    			
+    				<tr>
+					<td align="center"></td>
+					<td align="center"></td>
+			    		<td align="left">
+						OBAT
+					</td>
+			    		<td align="left">APIDRA INJ</td>
+      					<td align="left">2</td>
+					<td>VVIP</td>
+      					<td>NON OK</td>
+      					<td></td>
+			    		<td>278113.00</td>
+					<td></td>
+					<td align="center">1.00</td>
+					<td align="center">264207.00</td>
+					<td valign="middle">09/17/2026</td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td>Karisa Kartika Sukotjo, dr. Sp. OT</td>
+					<td>DPJP</td>
+					<td>Nicola Tiso , Tn</td>
+					<td>11/22/1961</td>
+					<td>MALE</td>
+					<td>Kp Kaum Ciparigi RT.001/005</td>
+					<td></td>
+					<td>00-35-16-42</td>					
+					<td></td>
+					<td>2609170310</td>
+					<td>="2211196122111961"</td>
+					<td>09/17/2026</td>
+					<td>09/18/2026</td>
+					<td>1 days</td>
+		   		</tr>
+    			
+    				<tr>
+					<td align="center"></td>
+					<td align="center"></td>
+			    		<td align="left">
+						OBAT
+					</td>
+			    		<td align="left">Infusan Nacl 100 ml Sanbe</td>
+      					<td align="left">2</td>
+					<td>VVIP</td>
+      					<td>NON OK</td>
+      					<td></td>
+			    		<td>31949.00</td>
+					<td></td>
+					<td align="center">1.00</td>
+					<td align="center">30352.00</td>
+					<td valign="middle">09/17/2026</td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td>Karisa Kartika Sukotjo, dr. Sp. OT</td>
+					<td>DPJP</td>
+					<td>Nicola Tiso , Tn</td>
+					<td>11/22/1961</td>
+					<td>MALE</td>
+					<td>Kp Kaum Ciparigi RT.001/005</td>
+					<td></td>
+					<td>00-35-16-42</td>					
+					<td></td>
+					<td>2609170310</td>
+					<td>="2211196122111961"</td>
+					<td>09/17/2026</td>
+					<td>09/18/2026</td>
+					<td>1 days</td>
+		   		</tr>
+    			
+    				<tr>
+					<td align="center"></td>
+					<td align="center"></td>
+			    		<td align="left">
+						OBAT
+					</td>
+			    		<td align="left">CEFAZOLIN 1 GR INJ - JS</td>
+      					<td align="left">2</td>
+					<td>VVIP</td>
+      					<td>NON OK</td>
+      					<td></td>
+			    		<td>15950.00</td>
+					<td></td>
+					<td align="center">2.00</td>
+					<td align="center">30305.00</td>
+					<td valign="middle">09/17/2026</td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td>Karisa Kartika Sukotjo, dr. Sp. OT</td>
+					<td>DPJP</td>
+					<td>Nicola Tiso , Tn</td>
+					<td>11/22/1961</td>
+					<td>MALE</td>
+					<td>Kp Kaum Ciparigi RT.001/005</td>
+					<td></td>
+					<td>00-35-16-42</td>					
+					<td></td>
+					<td>2609170310</td>
+					<td>="2211196122111961"</td>
+					<td>09/17/2026</td>
+					<td>09/18/2026</td>
+					<td>1 days</td>
+		   		</tr>
+    			
+    				<tr>
+					<td align="center"></td>
+					<td align="center"></td>
+			    		<td align="left">
+						BARANG HABIS PAKAI
+					</td>
+			    		<td align="left">Fall Risk - Yellow ( Sticker Pasien )</td>
+      					<td align="left">2</td>
+					<td>VVIP</td>
+      					<td>NON OK</td>
+      					<td></td>
+			    		<td>1096.00</td>
+					<td></td>
+					<td align="center">1.00</td>
+					<td align="center">1041.00</td>
+					<td valign="middle">09/17/2026</td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td>Karisa Kartika Sukotjo, dr. Sp. OT</td>
+					<td>DPJP</td>
+					<td>Nicola Tiso , Tn</td>
+					<td>11/22/1961</td>
+					<td>MALE</td>
+					<td>Kp Kaum Ciparigi RT.001/005</td>
+					<td></td>
+					<td>00-35-16-42</td>					
+					<td></td>
+					<td>2609170310</td>
+					<td>="2211196122111961"</td>
+					<td>09/17/2026</td>
+					<td>09/18/2026</td>
+					<td>1 days</td>
+		   		</tr>
+    			
+    				<tr>
+					<td align="center"></td>
+					<td align="center"></td>
+			    		<td align="left">
+						OBAT
+					</td>
+			    		<td align="left">Infusan RL (RL)</td>
+      					<td align="left">2</td>
+					<td>VVIP</td>
+      					<td>NON OK</td>
+      					<td></td>
+			    		<td>36858.00</td>
+					<td></td>
+					<td align="center">1.00</td>
+					<td align="center">35015.00</td>
+					<td valign="middle">09/17/2026</td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td>Karisa Kartika Sukotjo, dr. Sp. OT</td>
+					<td>DPJP</td>
+					<td>Nicola Tiso , Tn</td>
+					<td>11/22/1961</td>
+					<td>MALE</td>
+					<td>Kp Kaum Ciparigi RT.001/005</td>
+					<td></td>
+					<td>00-35-16-42</td>					
+					<td></td>
+					<td>2609170310</td>
+					<td>="2211196122111961"</td>
+					<td>09/17/2026</td>
+					<td>09/18/2026</td>
+					<td>1 days</td>
+		   		</tr>
+    			
+    				<tr>
+					<td align="center"></td>
+					<td align="center"></td>
+			    		<td align="left">
+						
+					</td>
+			    		<td align="left">CEFTRIAXONE INJ -JS</td>
+      					<td align="left">2</td>
+					<td>VVIP</td>
+      					<td>NON OK</td>
+      					<td></td>
+			    		<td></td>
+					<td></td>
+					<td align="center">-1.00</td>
+					<td align="center">-6887.00</td>
+					<td valign="middle">09/18/2026</td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td>Karisa Kartika Sukotjo, dr. Sp. OT</td>
+					<td>DPJP</td>
+					<td>Nicola Tiso , Tn</td>
+					<td>11/22/1961</td>
+					<td>MALE</td>
+					<td>Kp Kaum Ciparigi RT.001/005</td>
+					<td></td>
+					<td>00-35-16-42</td>					
+					<td></td>
+					<td>2609170310</td>
+					<td>="2211196122111961"</td>
+					<td>09/17/2026</td>
+					<td>09/18/2026</td>
+					<td>1 days</td>
+		   		</tr>
+    			
+    				<tr>
+					<td align="center"></td>
+					<td align="center"></td>
+			    		<td align="left">
+						OBAT
+					</td>
+			    		<td align="left">SINCRONIK TAB</td>
+      					<td align="left">2</td>
+					<td>VVIP</td>
+      					<td>NON OK</td>
+      					<td></td>
+			    		<td>19716.00</td>
+					<td></td>
+					<td align="center">15.00</td>
+					<td align="center">280953.00</td>
+					<td valign="middle">09/18/2026</td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td>Karisa Kartika Sukotjo, dr. Sp. OT</td>
+					<td>DPJP</td>
+					<td>Nicola Tiso , Tn</td>
+					<td>11/22/1961</td>
+					<td>MALE</td>
+					<td>Kp Kaum Ciparigi RT.001/005</td>
+					<td></td>
+					<td>00-35-16-42</td>					
+					<td></td>
+					<td>2609170310</td>
+					<td>="2211196122111961"</td>
+					<td>09/17/2026</td>
+					<td>09/18/2026</td>
+					<td>1 days</td>
+		   		</tr>
+    			
+    				<tr>
+					<td align="center"></td>
+					<td align="center"></td>
+			    		<td align="left">
+						OBAT
+					</td>
+			    		<td align="left">CELEBREX TAB 200</td>
+      					<td align="left">2</td>
+					<td>VVIP</td>
+      					<td>NON OK</td>
+      					<td></td>
+			    		<td>24495.00</td>
+					<td></td>
+					<td align="center">12.00</td>
+					<td align="center">293940.00</td>
+					<td valign="middle">09/18/2026</td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td>Karisa Kartika Sukotjo, dr. Sp. OT</td>
+					<td>DPJP</td>
+					<td>Nicola Tiso , Tn</td>
+					<td>11/22/1961</td>
+					<td>MALE</td>
+					<td>Kp Kaum Ciparigi RT.001/005</td>
+					<td></td>
+					<td>00-35-16-42</td>					
+					<td></td>
+					<td>2609170310</td>
+					<td>="2211196122111961"</td>
+					<td>09/17/2026</td>
+					<td>09/18/2026</td>
+					<td>1 days</td>
+		   		</tr>
+    			
+    				<tr>
+					<td align="center"></td>
+					<td align="center"></td>
+			    		<td align="left">
+						
+					</td>
+			    		<td align="left">SINCRONIK TAB</td>
+      					<td align="left">2</td>
+					<td>VVIP</td>
+      					<td>NON OK</td>
+      					<td></td>
+			    		<td></td>
+					<td></td>
+					<td align="center">-15.00</td>
+					<td align="center">-280953.00</td>
+					<td valign="middle">09/18/2026</td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td>Karisa Kartika Sukotjo, dr. Sp. OT</td>
+					<td>DPJP</td>
+					<td>Nicola Tiso , Tn</td>
+					<td>11/22/1961</td>
+					<td>MALE</td>
+					<td>Kp Kaum Ciparigi RT.001/005</td>
+					<td></td>
+					<td>00-35-16-42</td>					
+					<td></td>
+					<td>2609170310</td>
+					<td>="2211196122111961"</td>
+					<td>09/17/2026</td>
+					<td>09/18/2026</td>
+					<td>1 days</td>
+		   		</tr>
+    			
+    				<tr>
+					<td align="center"></td>
+					<td align="center"></td>
+			    		<td align="left">
+						OBAT
+					</td>
+			    		<td align="left">CALCIUM LACTATE TAB - JS</td>
+      					<td align="left">2</td>
+					<td>VVIP</td>
+      					<td>NON OK</td>
+      					<td></td>
+			    		<td>289.00</td>
+					<td></td>
+					<td align="center">10.00</td>
+					<td align="center">2745.00</td>
+					<td valign="middle">09/18/2026</td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td>Karisa Kartika Sukotjo, dr. Sp. OT</td>
+					<td>DPJP</td>
+					<td>Nicola Tiso , Tn</td>
+					<td>11/22/1961</td>
+					<td>MALE</td>
+					<td>Kp Kaum Ciparigi RT.001/005</td>
+					<td></td>
+					<td>00-35-16-42</td>					
+					<td></td>
+					<td>2609170310</td>
+					<td>="2211196122111961"</td>
+					<td>09/17/2026</td>
+					<td>09/18/2026</td>
+					<td>1 days</td>
+		   		</tr>
+    			
+    				<tr>
+					<td align="center"></td>
+					<td align="center"></td>
+			    		<td align="left">
+						OBAT
+					</td>
+			    		<td align="left">PROVE D3 5000 TAB [Vitamin]</td>
+      					<td align="left">2</td>
+					<td>VVIP</td>
+      					<td>NON OK</td>
+      					<td></td>
+			    		<td>6840.00</td>
+					<td></td>
+					<td align="center">5.00</td>
+					<td align="center">32490.00</td>
+					<td valign="middle">09/18/2026</td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td>Karisa Kartika Sukotjo, dr. Sp. OT</td>
+					<td>DPJP</td>
+					<td>Nicola Tiso , Tn</td>
+					<td>11/22/1961</td>
+					<td>MALE</td>
+					<td>Kp Kaum Ciparigi RT.001/005</td>
+					<td></td>
+					<td>00-35-16-42</td>					
+					<td></td>
+					<td>2609170310</td>
+					<td>="2211196122111961"</td>
+					<td>09/17/2026</td>
+					<td>09/18/2026</td>
+					<td>1 days</td>
+		   		</tr>
+    			
+    				<tr>
+					<td align="center"></td>
+					<td align="center"></td>
+			    		<td align="left">
+						OBAT
+					</td>
+			    		<td align="left">CEFIXIME 200 MG KAP -JS</td>
+      					<td align="left">2</td>
+					<td>VVIP</td>
+      					<td>NON OK</td>
+      					<td></td>
+			    		<td>2248.00</td>
+					<td></td>
+					<td align="center">10.00</td>
+					<td align="center">21356.00</td>
+					<td valign="middle">09/18/2026</td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td>Karisa Kartika Sukotjo, dr. Sp. OT</td>
+					<td>DPJP</td>
+					<td>Nicola Tiso , Tn</td>
+					<td>11/22/1961</td>
+					<td>MALE</td>
+					<td>Kp Kaum Ciparigi RT.001/005</td>
+					<td></td>
+					<td>00-35-16-42</td>					
+					<td></td>
+					<td>2609170310</td>
+					<td>="2211196122111961"</td>
+					<td>09/17/2026</td>
+					<td>09/18/2026</td>
+					<td>1 days</td>
+		   		</tr>
+    			
+    				<tr>
+					<td align="center"></td>
+					<td align="center"></td>
+			    		<td align="left">
+						
+					</td>
+			    		<td align="left">CEFAZOLIN 1 GR INJ - JS</td>
+      					<td align="left">2</td>
+					<td>VVIP</td>
+      					<td>NON OK</td>
+      					<td></td>
+			    		<td></td>
+					<td></td>
+					<td align="center">-1.00</td>
+					<td align="center">-15152.00</td>
+					<td valign="middle">09/18/2026</td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td>Karisa Kartika Sukotjo, dr. Sp. OT</td>
+					<td>DPJP</td>
+					<td>Nicola Tiso , Tn</td>
+					<td>11/22/1961</td>
+					<td>MALE</td>
+					<td>Kp Kaum Ciparigi RT.001/005</td>
+					<td></td>
+					<td>00-35-16-42</td>					
+					<td></td>
+					<td>2609170310</td>
+					<td>="2211196122111961"</td>
+					<td>09/17/2026</td>
+					<td>09/18/2026</td>
+					<td>1 days</td>
+		   		</tr>
+    			
+    				<tr>
+					<td align="center"></td>
+					<td align="center"></td>
+			    		<td align="left">
+						
+					</td>
+			    		<td align="left">TRAMADOL 100 MG/2ML -JS</td>
+      					<td align="left">2</td>
+					<td>VVIP</td>
+      					<td>NON OK</td>
+      					<td></td>
+			    		<td></td>
+					<td></td>
+					<td align="center">-2.00</td>
+					<td align="center">-17797.00</td>
+					<td valign="middle">09/18/2026</td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td>Karisa Kartika Sukotjo, dr. Sp. OT</td>
+					<td>DPJP</td>
+					<td>Nicola Tiso , Tn</td>
+					<td>11/22/1961</td>
+					<td>MALE</td>
+					<td>Kp Kaum Ciparigi RT.001/005</td>
+					<td></td>
+					<td>00-35-16-42</td>					
+					<td></td>
+					<td>2609170310</td>
+					<td>="2211196122111961"</td>
+					<td>09/17/2026</td>
+					<td>09/18/2026</td>
+					<td>1 days</td>
+		   		</tr>
+    			
+    				<tr>
+					<td align="center"></td>
+					<td align="center"></td>
+			    		<td align="left">
+						
+					</td>
+			    		<td align="left">Maxigesic - IV</td>
+      					<td align="left">2</td>
+					<td>VVIP</td>
+      					<td>NON OK</td>
+      					<td></td>
+			    		<td></td>
+					<td></td>
+					<td align="center">-2.00</td>
+					<td align="center">-397546.00</td>
+					<td valign="middle">09/18/2026</td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td>Karisa Kartika Sukotjo, dr. Sp. OT</td>
+					<td>DPJP</td>
+					<td>Nicola Tiso , Tn</td>
+					<td>11/22/1961</td>
+					<td>MALE</td>
+					<td>Kp Kaum Ciparigi RT.001/005</td>
+					<td></td>
+					<td>00-35-16-42</td>					
+					<td></td>
+					<td>2609170310</td>
+					<td>="2211196122111961"</td>
+					<td>09/17/2026</td>
+					<td>09/18/2026</td>
+					<td>1 days</td>
+		   		</tr>
+    			
+    				<tr>
+					<td align="center"></td>
+					<td align="center"></td>
+			    		<td align="left">
+						
+					</td>
+			    		<td align="left">KETOROLAC INJ 30 MG -JS</td>
+      					<td align="left">2</td>
+					<td>VVIP</td>
+      					<td>NON OK</td>
+      					<td></td>
+			    		<td></td>
+					<td></td>
+					<td align="center">-3.00</td>
+					<td align="center">-6612.00</td>
+					<td valign="middle">09/18/2026</td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td>Karisa Kartika Sukotjo, dr. Sp. OT</td>
+					<td>DPJP</td>
+					<td>Nicola Tiso , Tn</td>
+					<td>11/22/1961</td>
+					<td>MALE</td>
+					<td>Kp Kaum Ciparigi RT.001/005</td>
+					<td></td>
+					<td>00-35-16-42</td>					
+					<td></td>
+					<td>2609170310</td>
+					<td>="2211196122111961"</td>
+					<td>09/17/2026</td>
+					<td>09/18/2026</td>
+					<td>1 days</td>
+		   		</tr>
+    			
+    				<tr>
+					<td align="center"></td>
+					<td align="center"></td>
+			    		<td align="left">
+						
+					</td>
+			    		<td align="left">Infusan Nacl 100 ml Sanbe</td>
+      					<td align="left">2</td>
+					<td>VVIP</td>
+      					<td>NON OK</td>
+      					<td></td>
+			    		<td></td>
+					<td></td>
+					<td align="center">-1.00</td>
+					<td align="center">-30352.00</td>
+					<td valign="middle">09/18/2026</td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td>Karisa Kartika Sukotjo, dr. Sp. OT</td>
+					<td>DPJP</td>
+					<td>Nicola Tiso , Tn</td>
+					<td>11/22/1961</td>
+					<td>MALE</td>
+					<td>Kp Kaum Ciparigi RT.001/005</td>
+					<td></td>
+					<td>00-35-16-42</td>					
+					<td></td>
+					<td>2609170310</td>
+					<td>="2211196122111961"</td>
+					<td>09/17/2026</td>
+					<td>09/18/2026</td>
+					<td>1 days</td>
+		   		</tr>
+    			
+    				<tr>
+					<td align="center"></td>
+					<td align="center"></td>
+			    		<td align="left">
+						
+					</td>
+			    		<td align="left">Infusan Nacl 100 ml Sanbe</td>
+      					<td align="left">2</td>
+					<td>VVIP</td>
+      					<td>NON OK</td>
+      					<td></td>
+			    		<td></td>
+					<td></td>
+					<td align="center">-2.00</td>
+					<td align="center">-60703.00</td>
+					<td valign="middle">09/18/2026</td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td>Karisa Kartika Sukotjo, dr. Sp. OT</td>
+					<td>DPJP</td>
+					<td>Nicola Tiso , Tn</td>
+					<td>11/22/1961</td>
+					<td>MALE</td>
+					<td>Kp Kaum Ciparigi RT.001/005</td>
+					<td></td>
+					<td>00-35-16-42</td>					
+					<td></td>
+					<td>2609170310</td>
+					<td>="2211196122111961"</td>
+					<td>09/17/2026</td>
+					<td>09/18/2026</td>
+					<td>1 days</td>
+		   		</tr>
+    			
+    				<tr>
+					<td align="center"></td>
+					<td align="center"></td>
+			    		<td align="left">
+						
+					</td>
+			    		<td align="left">Infusan NS (Cairan Nacl 500 ml) Sanbe</td>
+      					<td align="left">2</td>
+					<td>VVIP</td>
+      					<td>NON OK</td>
+      					<td></td>
+			    		<td></td>
+					<td></td>
+					<td align="center">-2.00</td>
+					<td align="center">-68501.00</td>
+					<td valign="middle">09/18/2026</td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td>Karisa Kartika Sukotjo, dr. Sp. OT</td>
+					<td>DPJP</td>
+					<td>Nicola Tiso , Tn</td>
+					<td>11/22/1961</td>
+					<td>MALE</td>
+					<td>Kp Kaum Ciparigi RT.001/005</td>
+					<td></td>
+					<td>00-35-16-42</td>					
+					<td></td>
+					<td>2609170310</td>
+					<td>="2211196122111961"</td>
+					<td>09/17/2026</td>
+					<td>09/18/2026</td>
+					<td>1 days</td>
+		   		</tr>
+    			
+    				<tr>
+					<td align="center"></td>
+					<td align="center"></td>
+			    		<td align="left">
+						
+					</td>
+			    		<td align="left">PANTOPUMP INJ</td>
+      					<td align="left">2</td>
+					<td>VVIP</td>
+      					<td>NON OK</td>
+      					<td></td>
+			    		<td></td>
+					<td></td>
+					<td align="center">-1.00</td>
+					<td align="center">-333327.00</td>
+					<td valign="middle">09/18/2026</td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td>Karisa Kartika Sukotjo, dr. Sp. OT</td>
+					<td>DPJP</td>
+					<td>Nicola Tiso , Tn</td>
+					<td>11/22/1961</td>
+					<td>MALE</td>
+					<td>Kp Kaum Ciparigi RT.001/005</td>
+					<td></td>
+					<td>00-35-16-42</td>					
+					<td></td>
+					<td>2609170310</td>
+					<td>="2211196122111961"</td>
+					<td>09/17/2026</td>
+					<td>09/18/2026</td>
+					<td>1 days</td>
+		   		</tr>
+    			
+    				<tr>
+					<td align="center"></td>
+					<td align="center"></td>
+			    		<td align="left">
+						OBAT
+					</td>
+			    		<td align="left">PANTOPRAZOLE 40 MG INJ -JS</td>
+      					<td align="left">2</td>
+					<td>VVIP</td>
+      					<td>NON OK</td>
+      					<td></td>
+			    		<td>37019.00</td>
+					<td></td>
+					<td align="center">1.00</td>
+					<td align="center">35168.00</td>
+					<td valign="middle">09/17/2026</td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td>Karisa Kartika Sukotjo, dr. Sp. OT</td>
+					<td>DPJP</td>
+					<td>Nicola Tiso , Tn</td>
+					<td>11/22/1961</td>
+					<td>MALE</td>
+					<td>Kp Kaum Ciparigi RT.001/005</td>
+					<td></td>
+					<td>00-35-16-42</td>					
+					<td></td>
+					<td>2609170310</td>
+					<td>="2211196122111961"</td>
+					<td>09/17/2026</td>
+					<td>09/18/2026</td>
+					<td>1 days</td>
+		   		</tr>
+    			
+    				<tr>
+					<td align="center"></td>
+					<td align="center"></td>
+			    		<td align="left">
+						OBAT
+					</td>
+			    		<td align="left">TRAMADOL 100 MG/2ML -JS</td>
+      					<td align="left">2</td>
+					<td>VVIP</td>
+      					<td>NON OK</td>
+      					<td></td>
+			    		<td>9367.00</td>
+					<td></td>
+					<td align="center">2.00</td>
+					<td align="center">17797.00</td>
+					<td valign="middle">09/17/2026</td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td>Karisa Kartika Sukotjo, dr. Sp. OT</td>
+					<td>DPJP</td>
+					<td>Nicola Tiso , Tn</td>
+					<td>11/22/1961</td>
+					<td>MALE</td>
+					<td>Kp Kaum Ciparigi RT.001/005</td>
+					<td></td>
+					<td>00-35-16-42</td>					
+					<td></td>
+					<td>2609170310</td>
+					<td>="2211196122111961"</td>
+					<td>09/17/2026</td>
+					<td>09/18/2026</td>
+					<td>1 days</td>
+		   		</tr>
+    			
+    				<tr>
+					<td align="center"></td>
+					<td align="center"></td>
+			    		<td align="left">
+						OBAT
+					</td>
+			    		<td align="left">PANTOPUMP INJ</td>
+      					<td align="left">2</td>
+					<td>VVIP</td>
+      					<td>NON OK</td>
+      					<td></td>
+			    		<td>350871.00</td>
+					<td></td>
+					<td align="center">1.00</td>
+					<td align="center">333327.00</td>
+					<td valign="middle">09/17/2026</td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td>Karisa Kartika Sukotjo, dr. Sp. OT</td>
+					<td>DPJP</td>
+					<td>Nicola Tiso , Tn</td>
+					<td>11/22/1961</td>
+					<td>MALE</td>
+					<td>Kp Kaum Ciparigi RT.001/005</td>
+					<td></td>
+					<td>00-35-16-42</td>					
+					<td></td>
+					<td>2609170310</td>
+					<td>="2211196122111961"</td>
+					<td>09/17/2026</td>
+					<td>09/18/2026</td>
+					<td>1 days</td>
+		   		</tr>
+    			
+    				<tr>
+					<td align="center"></td>
+					<td align="center"></td>
+			    		<td align="left">
+						OBAT
+					</td>
+			    		<td align="left">KETOROLAC INJ 30 MG -JS</td>
+      					<td align="left">2</td>
+					<td>VVIP</td>
+      					<td>NON OK</td>
+      					<td></td>
+			    		<td>2320.00</td>
+					<td></td>
+					<td align="center">3.00</td>
+					<td align="center">6612.00</td>
+					<td valign="middle">09/17/2026</td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td>Karisa Kartika Sukotjo, dr. Sp. OT</td>
+					<td>DPJP</td>
+					<td>Nicola Tiso , Tn</td>
+					<td>11/22/1961</td>
+					<td>MALE</td>
+					<td>Kp Kaum Ciparigi RT.001/005</td>
+					<td></td>
+					<td>00-35-16-42</td>					
+					<td></td>
+					<td>2609170310</td>
+					<td>="2211196122111961"</td>
+					<td>09/17/2026</td>
+					<td>09/18/2026</td>
+					<td>1 days</td>
+		   		</tr>
+    			
+    				<tr>
+					<td align="center"></td>
+					<td align="center"></td>
+			    		<td align="left">
+						OBAT
+					</td>
+			    		<td align="left">CEFAZOLIN 1 GR INJ - JS</td>
+      					<td align="left">2</td>
+					<td>VVIP</td>
+      					<td>NON OK</td>
+      					<td></td>
+			    		<td>15950.00</td>
+					<td></td>
+					<td align="center">1.00</td>
+					<td align="center">15152.00</td>
+					<td valign="middle">09/17/2026</td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td>Karisa Kartika Sukotjo, dr. Sp. OT</td>
+					<td>DPJP</td>
+					<td>Nicola Tiso , Tn</td>
+					<td>11/22/1961</td>
+					<td>MALE</td>
+					<td>Kp Kaum Ciparigi RT.001/005</td>
+					<td></td>
+					<td>00-35-16-42</td>					
+					<td></td>
+					<td>2609170310</td>
+					<td>="2211196122111961"</td>
+					<td>09/17/2026</td>
+					<td>09/18/2026</td>
+					<td>1 days</td>
+		   		</tr>
+    			
+    				<tr>
+					<td align="center"></td>
+					<td align="center"></td>
+			    		<td align="left">
+						OBAT
+					</td>
+			    		<td align="left">CEFTRIAXONE INJ -JS</td>
+      					<td align="left">2</td>
+					<td>VVIP</td>
+      					<td>NON OK</td>
+      					<td></td>
+			    		<td>7250.00</td>
+					<td></td>
+					<td align="center">2.00</td>
+					<td align="center">13775.00</td>
+					<td valign="middle">09/17/2026</td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td>Karisa Kartika Sukotjo, dr. Sp. OT</td>
+					<td>DPJP</td>
+					<td>Nicola Tiso , Tn</td>
+					<td>11/22/1961</td>
+					<td>MALE</td>
+					<td>Kp Kaum Ciparigi RT.001/005</td>
+					<td></td>
+					<td>00-35-16-42</td>					
+					<td></td>
+					<td>2609170310</td>
+					<td>="2211196122111961"</td>
+					<td>09/17/2026</td>
+					<td>09/18/2026</td>
+					<td>1 days</td>
+		   		</tr>
+    			
+    				<tr>
+					<td align="center"></td>
+					<td align="center"></td>
+			    		<td align="left">
+						OBAT
+					</td>
+			    		<td align="left">Maxigesic - IV</td>
+      					<td align="left">2</td>
+					<td>VVIP</td>
+      					<td>NON OK</td>
+      					<td></td>
+			    		<td>209235.00</td>
+					<td></td>
+					<td align="center">3.00</td>
+					<td align="center">596320.00</td>
+					<td valign="middle">09/17/2026</td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td>Karisa Kartika Sukotjo, dr. Sp. OT</td>
+					<td>DPJP</td>
+					<td>Nicola Tiso , Tn</td>
+					<td>11/22/1961</td>
+					<td>MALE</td>
+					<td>Kp Kaum Ciparigi RT.001/005</td>
+					<td></td>
+					<td>00-35-16-42</td>					
+					<td></td>
+					<td>2609170310</td>
+					<td>="2211196122111961"</td>
+					<td>09/17/2026</td>
+					<td>09/18/2026</td>
+					<td>1 days</td>
+		   		</tr>
+    			
+    				<tr>
+					<td align="center"></td>
+					<td align="center"></td>
+			    		<td align="left">
+						OBAT
+					</td>
+			    		<td align="left">Infusan NS (Cairan Nacl 500 ml) Sanbe</td>
+      					<td align="left">2</td>
+					<td>VVIP</td>
+      					<td>NON OK</td>
+      					<td></td>
+			    		<td>36053.00</td>
+					<td></td>
+					<td align="center">2.00</td>
+					<td align="center">68501.00</td>
+					<td valign="middle">09/17/2026</td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td>Karisa Kartika Sukotjo, dr. Sp. OT</td>
+					<td>DPJP</td>
+					<td>Nicola Tiso , Tn</td>
+					<td>11/22/1961</td>
+					<td>MALE</td>
+					<td>Kp Kaum Ciparigi RT.001/005</td>
+					<td></td>
+					<td>00-35-16-42</td>					
+					<td></td>
+					<td>2609170310</td>
+					<td>="2211196122111961"</td>
+					<td>09/17/2026</td>
+					<td>09/18/2026</td>
+					<td>1 days</td>
+		   		</tr>
+    			
+    				<tr>
+					<td align="center"></td>
+					<td align="center"></td>
+			    		<td align="left">
+						OBAT
+					</td>
+			    		<td align="left">Infusan Nacl 100 ml Sanbe</td>
+      					<td align="left">2</td>
+					<td>VVIP</td>
+      					<td>NON OK</td>
+      					<td></td>
+			    		<td>31949.00</td>
+					<td></td>
+					<td align="center">2.00</td>
+					<td align="center">60703.00</td>
+					<td valign="middle">09/17/2026</td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td>Karisa Kartika Sukotjo, dr. Sp. OT</td>
+					<td>DPJP</td>
+					<td>Nicola Tiso , Tn</td>
+					<td>11/22/1961</td>
+					<td>MALE</td>
+					<td>Kp Kaum Ciparigi RT.001/005</td>
+					<td></td>
+					<td>00-35-16-42</td>					
+					<td></td>
+					<td>2609170310</td>
+					<td>="2211196122111961"</td>
+					<td>09/17/2026</td>
+					<td>09/18/2026</td>
+					<td>1 days</td>
+		   		</tr>
+    			
+    				<tr>
+					<td align="center"></td>
+					<td align="center"></td>
+			    		<td align="left">
+						0
+					</td>
+			    		<td align="left">Biaya Administrasi Rawat Inap</td>
+      					<td align="left">2</td>
+					<td>VVIP</td>
+      					<td>NON OK</td>
+      					<td></td>
+			    		<td>2827310.00</td>
+					<td></td>
+					<td align="center">1.00</td>
+					<td align="center">2827310.00</td>
+					<td valign="middle">09/18/2026</td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td>Nicola Tiso , Tn</td>
+					<td>11/22/1961</td>
+					<td>MALE</td>
+					<td>Kp Kaum Ciparigi RT.001/005</td>
+					<td></td>
+					<td>00-35-16-42</td>					
+					<td></td>
+					<td>2609170310</td>
+					<td>="2211196122111961"</td>
+					<td>09/17/2026</td>
+					<td>09/18/2026</td>
+					<td>1 days</td>
+		   		</tr>
+    			
+    				<tr>
+					<td align="center"></td>
+					<td align="center"></td>
+			    		<td align="left">
+						ALAT KESEHATAN
+					</td>
+			    		<td align="left">Spinocan G 27 x 3 1/2 `` Tumpul Ujungnya 450390-2</td>
+      					<td align="left">2</td>
+					<td>VVIP</td>
+      					<td>NON OK</td>
+      					<td></td>
+			    		<td>88523.00</td>
+					<td></td>
+					<td align="center">1.00</td>
+					<td align="center">88523.00</td>
+					<td valign="middle">09/17/2026</td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td>Karisa Kartika Sukotjo, dr. Sp. OT</td>
+					<td>DPJP</td>
+					<td>Nicola Tiso , Tn</td>
+					<td>11/22/1961</td>
+					<td>MALE</td>
+					<td>Kp Kaum Ciparigi RT.001/005</td>
+					<td></td>
+					<td>00-35-16-42</td>					
+					<td></td>
+					<td>2609170310</td>
+					<td>="2211196122111961"</td>
+					<td>09/17/2026</td>
+					<td>09/18/2026</td>
+					<td>1 days</td>
+		   		</tr>
+    			
+    				<tr>
+					<td align="center"></td>
+					<td align="center"></td>
+			    		<td align="left">
+						ALAT KESEHATAN
+					</td>
+			    		<td align="left">Vicryl 2/0 W 9360</td>
+      					<td align="left">2</td>
+					<td>VVIP</td>
+      					<td>NON OK</td>
+      					<td></td>
+			    		<td>212602.00</td>
+					<td></td>
+					<td align="center">1.00</td>
+					<td align="center">212602.00</td>
+					<td valign="middle">09/17/2026</td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td>Karisa Kartika Sukotjo, dr. Sp. OT</td>
+					<td>DPJP</td>
+					<td>Nicola Tiso , Tn</td>
+					<td>11/22/1961</td>
+					<td>MALE</td>
+					<td>Kp Kaum Ciparigi RT.001/005</td>
+					<td></td>
+					<td>00-35-16-42</td>					
+					<td></td>
+					<td>2609170310</td>
+					<td>="2211196122111961"</td>
+					<td>09/17/2026</td>
+					<td>09/18/2026</td>
+					<td>1 days</td>
+		   		</tr>
+    			
+    				<tr>
+					<td align="center"></td>
+					<td align="center"></td>
+			    		<td align="left">
+						ALAT KESEHATAN
+					</td>
+			    		<td align="left">Soffband 4``</td>
+      					<td align="left">2</td>
+					<td>VVIP</td>
+      					<td>NON OK</td>
+      					<td></td>
+			    		<td>65138.00</td>
+					<td></td>
+					<td align="center">1.00</td>
+					<td align="center">65138.00</td>
+					<td valign="middle">09/17/2026</td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td>Karisa Kartika Sukotjo, dr. Sp. OT</td>
+					<td>DPJP</td>
+					<td>Nicola Tiso , Tn</td>
+					<td>11/22/1961</td>
+					<td>MALE</td>
+					<td>Kp Kaum Ciparigi RT.001/005</td>
+					<td></td>
+					<td>00-35-16-42</td>					
+					<td></td>
+					<td>2609170310</td>
+					<td>="2211196122111961"</td>
+					<td>09/17/2026</td>
+					<td>09/18/2026</td>
+					<td>1 days</td>
+		   		</tr>
+    			
+    				<tr>
+					<td align="center"></td>
+					<td align="center"></td>
+			    		<td align="left">
+						ALAT KESEHATAN
+					</td>
+			    		<td align="left">Gypsona 4`` (3.5M X 10 CM)</td>
+      					<td align="left">2</td>
+					<td>VVIP</td>
+      					<td>NON OK</td>
+      					<td></td>
+			    		<td>97053.00</td>
+					<td></td>
+					<td align="center">2.00</td>
+					<td align="center">194106.00</td>
+					<td valign="middle">09/17/2026</td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td>Karisa Kartika Sukotjo, dr. Sp. OT</td>
+					<td>DPJP</td>
+					<td>Nicola Tiso , Tn</td>
+					<td>11/22/1961</td>
+					<td>MALE</td>
+					<td>Kp Kaum Ciparigi RT.001/005</td>
+					<td></td>
+					<td>00-35-16-42</td>					
+					<td></td>
+					<td>2609170310</td>
+					<td>="2211196122111961"</td>
+					<td>09/17/2026</td>
+					<td>09/18/2026</td>
+					<td>1 days</td>
+		   		</tr>
+    			
+    				<tr>
+					<td align="center"></td>
+					<td align="center"></td>
+			    		<td align="left">
+						OBAT
+					</td>
+			    		<td align="left">Infusan Nacl 1000 ml Sanbe - JS</td>
+      					<td align="left">2</td>
+					<td>VVIP</td>
+      					<td>NON OK</td>
+      					<td></td>
+			    		<td>21727.00</td>
+					<td></td>
+					<td align="center">4.00</td>
+					<td align="center">86908.00</td>
+					<td valign="middle">09/17/2026</td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td>Karisa Kartika Sukotjo, dr. Sp. OT</td>
+					<td>DPJP</td>
+					<td>Nicola Tiso , Tn</td>
+					<td>11/22/1961</td>
+					<td>MALE</td>
+					<td>Kp Kaum Ciparigi RT.001/005</td>
+					<td></td>
+					<td>00-35-16-42</td>					
+					<td></td>
+					<td>2609170310</td>
+					<td>="2211196122111961"</td>
+					<td>09/17/2026</td>
+					<td>09/18/2026</td>
+					<td>1 days</td>
+		   		</tr>
+    			
+    				<tr>
+					<td align="center"></td>
+					<td align="center"></td>
+			    		<td align="left">
+						OBAT
+					</td>
+			    		<td align="left">Cairan Nacl 25 Ml ( otsuka ) - JS </td>
+      					<td align="left">2</td>
+					<td>VVIP</td>
+      					<td>NON OK</td>
+      					<td></td>
+			    		<td>12287.00</td>
+					<td></td>
+					<td align="center">1.00</td>
+					<td align="center">12287.00</td>
+					<td valign="middle">09/17/2026</td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td>Karisa Kartika Sukotjo, dr. Sp. OT</td>
+					<td>DPJP</td>
+					<td>Nicola Tiso , Tn</td>
+					<td>11/22/1961</td>
+					<td>MALE</td>
+					<td>Kp Kaum Ciparigi RT.001/005</td>
+					<td></td>
+					<td>00-35-16-42</td>					
+					<td></td>
+					<td>2609170310</td>
+					<td>="2211196122111961"</td>
+					<td>09/17/2026</td>
+					<td>09/18/2026</td>
+					<td>1 days</td>
+		   		</tr>
+    			
+    				<tr>
+					<td align="center"></td>
+					<td align="center"></td>
+			    		<td align="left">
+						ALAT KESEHATAN
+					</td>
+			    		<td align="left">Alcohol Swab Biru COSMOMED - JS</td>
+      					<td align="left">2</td>
+					<td>VVIP</td>
+      					<td>NON OK</td>
+      					<td></td>
+			    		<td>306.00</td>
+					<td></td>
+					<td align="center">4.00</td>
+					<td align="center">1224.00</td>
+					<td valign="middle">09/17/2026</td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td>Karisa Kartika Sukotjo, dr. Sp. OT</td>
+					<td>DPJP</td>
+					<td>Nicola Tiso , Tn</td>
+					<td>11/22/1961</td>
+					<td>MALE</td>
+					<td>Kp Kaum Ciparigi RT.001/005</td>
+					<td></td>
+					<td>00-35-16-42</td>					
+					<td></td>
+					<td>2609170310</td>
+					<td>="2211196122111961"</td>
+					<td>09/17/2026</td>
+					<td>09/18/2026</td>
+					<td>1 days</td>
+		   		</tr>
+    			
+    				<tr>
+					<td align="center"></td>
+					<td align="center"></td>
+			    		<td align="left">
+						ALAT KESEHATAN
+					</td>
+			    		<td align="left">Apron Plastik ONEMED - JS</td>
+      					<td align="left">2</td>
+					<td>VVIP</td>
+      					<td>NON OK</td>
+      					<td></td>
+			    		<td>4973.00</td>
+					<td></td>
+					<td align="center">3.00</td>
+					<td align="center">14919.00</td>
+					<td valign="middle">09/17/2026</td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td>Karisa Kartika Sukotjo, dr. Sp. OT</td>
+					<td>DPJP</td>
+					<td>Nicola Tiso , Tn</td>
+					<td>11/22/1961</td>
+					<td>MALE</td>
+					<td>Kp Kaum Ciparigi RT.001/005</td>
+					<td></td>
+					<td>00-35-16-42</td>					
+					<td></td>
+					<td>2609170310</td>
+					<td>="2211196122111961"</td>
+					<td>09/17/2026</td>
+					<td>09/18/2026</td>
+					<td>1 days</td>
+		   		</tr>
+    			
+    				<tr>
+					<td align="center"></td>
+					<td align="center"></td>
+			    		<td align="left">
+						ALAT KESEHATAN
+					</td>
+			    		<td align="left">LOCKING 3.5 SCREW NO 14</td>
+      					<td align="left">2</td>
+					<td>VVIP</td>
+      					<td>NON OK</td>
+      					<td></td>
+			    		<td>905344.00</td>
+					<td></td>
+					<td align="center">1.00</td>
+					<td align="center">905344.00</td>
+					<td valign="middle">09/18/2026</td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td>Karisa Kartika Sukotjo, dr. Sp. OT</td>
+					<td>DPJP</td>
+					<td>Nicola Tiso , Tn</td>
+					<td>11/22/1961</td>
+					<td>MALE</td>
+					<td>Kp Kaum Ciparigi RT.001/005</td>
+					<td></td>
+					<td>00-35-16-42</td>					
+					<td></td>
+					<td>2609170310</td>
+					<td>="2211196122111961"</td>
+					<td>09/17/2026</td>
+					<td>09/18/2026</td>
+					<td>1 days</td>
+		   		</tr>
+    			
+    				<tr>
+					<td align="center"></td>
+					<td align="center"></td>
+			    		<td align="left">
+						ALAT KESEHATAN
+					</td>
+			    		<td align="left">LOCKING 3.5 SCREW NO 16</td>
+      					<td align="left">2</td>
+					<td>VVIP</td>
+      					<td>NON OK</td>
+      					<td></td>
+			    		<td>905344.00</td>
+					<td></td>
+					<td align="center">4.00</td>
+					<td align="center">3621376.00</td>
+					<td valign="middle">09/18/2026</td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td>Karisa Kartika Sukotjo, dr. Sp. OT</td>
+					<td>DPJP</td>
+					<td>Nicola Tiso , Tn</td>
+					<td>11/22/1961</td>
+					<td>MALE</td>
+					<td>Kp Kaum Ciparigi RT.001/005</td>
+					<td></td>
+					<td>00-35-16-42</td>					
+					<td></td>
+					<td>2609170310</td>
+					<td>="2211196122111961"</td>
+					<td>09/17/2026</td>
+					<td>09/18/2026</td>
+					<td>1 days</td>
+		   		</tr>
+    			
+    				<tr>
+					<td align="center"></td>
+					<td align="center"></td>
+			    		<td align="left">
+						ALAT KESEHATAN
+					</td>
+			    		<td align="left">INSTRUMEN </td>
+      					<td align="left">2</td>
+					<td>VVIP</td>
+      					<td>NON OK</td>
+      					<td></td>
+			    		<td>1609500.00</td>
+					<td></td>
+					<td align="center">1.00</td>
+					<td align="center">1609500.00</td>
+					<td valign="middle">09/18/2026</td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td>Karisa Kartika Sukotjo, dr. Sp. OT</td>
+					<td>DPJP</td>
+					<td>Nicola Tiso , Tn</td>
+					<td>11/22/1961</td>
+					<td>MALE</td>
+					<td>Kp Kaum Ciparigi RT.001/005</td>
+					<td></td>
+					<td>00-35-16-42</td>					
+					<td></td>
+					<td>2609170310</td>
+					<td>="2211196122111961"</td>
+					<td>09/17/2026</td>
+					<td>09/18/2026</td>
+					<td>1 days</td>
+		   		</tr>
+    			
+    				<tr>
+					<td align="center"></td>
+					<td align="center"></td>
+			    		<td align="left">
+						ALAT KESEHATAN
+					</td>
+			    		<td align="left">CORTICAL SCREW 3.5 X 18 (OST-22104-0139)</td>
+      					<td align="left">2</td>
+					<td>VVIP</td>
+      					<td>NON OK</td>
+      					<td></td>
+			    		<td>277639.00</td>
+					<td></td>
+					<td align="center">1.00</td>
+					<td align="center">277639.00</td>
+					<td valign="middle">09/18/2026</td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td>Karisa Kartika Sukotjo, dr. Sp. OT</td>
+					<td>DPJP</td>
+					<td>Nicola Tiso , Tn</td>
+					<td>11/22/1961</td>
+					<td>MALE</td>
+					<td>Kp Kaum Ciparigi RT.001/005</td>
+					<td></td>
+					<td>00-35-16-42</td>					
+					<td></td>
+					<td>2609170310</td>
+					<td>="2211196122111961"</td>
+					<td>09/17/2026</td>
+					<td>09/18/2026</td>
+					<td>1 days</td>
+		   		</tr>
+    			
+    				<tr>
+					<td align="center"></td>
+					<td align="center"></td>
+			    		<td align="left">
+						ALAT KESEHATAN
+					</td>
+			    		<td align="left">Plate 6 Hole </td>
+      					<td align="left">2</td>
+					<td>VVIP</td>
+      					<td>NON OK</td>
+      					<td></td>
+			    		<td>7041563.00</td>
+					<td></td>
+					<td align="center">1.00</td>
+					<td align="center">7041563.00</td>
+					<td valign="middle">09/18/2026</td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td>Karisa Kartika Sukotjo, dr. Sp. OT</td>
+					<td>DPJP</td>
+					<td>Nicola Tiso , Tn</td>
+					<td>11/22/1961</td>
+					<td>MALE</td>
+					<td>Kp Kaum Ciparigi RT.001/005</td>
+					<td></td>
+					<td>00-35-16-42</td>					
+					<td></td>
+					<td>2609170310</td>
+					<td>="2211196122111961"</td>
+					<td>09/17/2026</td>
+					<td>09/18/2026</td>
+					<td>1 days</td>
+		   		</tr>
+    			
+    				<tr>
+					<td align="center"></td>
+					<td align="center"></td>
+			    		<td align="left">
+						ALAT KESEHATAN
+					</td>
+			    		<td align="left">ECG Elektroda Medico - JS </td>
+      					<td align="left">2</td>
+					<td>VVIP</td>
+      					<td>NON OK</td>
+      					<td></td>
+			    		<td>3183.00</td>
+					<td></td>
+					<td align="center">3.00</td>
+					<td align="center">9549.00</td>
+					<td valign="middle">09/17/2026</td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td>Karisa Kartika Sukotjo, dr. Sp. OT</td>
+					<td>DPJP</td>
+					<td>Nicola Tiso , Tn</td>
+					<td>11/22/1961</td>
+					<td>MALE</td>
+					<td>Kp Kaum Ciparigi RT.001/005</td>
+					<td></td>
+					<td>00-35-16-42</td>					
+					<td></td>
+					<td>2609170310</td>
+					<td>="2211196122111961"</td>
+					<td>09/17/2026</td>
+					<td>09/18/2026</td>
+					<td>1 days</td>
+		   		</tr>
+    			
+    				<tr>
+					<td align="center"></td>
+					<td align="center"></td>
+			    		<td align="left">
+						ALAT KESEHATAN
+					</td>
+			    		<td align="left">Selang Oksigen Adult HEXA CARE- JS </td>
+      					<td align="left">2</td>
+					<td>VVIP</td>
+      					<td>NON OK</td>
+      					<td></td>
+			    		<td>9174.00</td>
+					<td></td>
+					<td align="center">1.00</td>
+					<td align="center">9174.00</td>
+					<td valign="middle">09/17/2026</td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td>Karisa Kartika Sukotjo, dr. Sp. OT</td>
+					<td>DPJP</td>
+					<td>Nicola Tiso , Tn</td>
+					<td>11/22/1961</td>
+					<td>MALE</td>
+					<td>Kp Kaum Ciparigi RT.001/005</td>
+					<td></td>
+					<td>00-35-16-42</td>					
+					<td></td>
+					<td>2609170310</td>
+					<td>="2211196122111961"</td>
+					<td>09/17/2026</td>
+					<td>09/18/2026</td>
+					<td>1 days</td>
+		   		</tr>
+    			
+    				<tr>
+					<td align="center"></td>
+					<td align="center"></td>
+			    		<td align="left">
+						ALAT KESEHATAN
+					</td>
+			    		<td align="left">Underpad DR J uk 60x90cm - JS </td>
+      					<td align="left">2</td>
+					<td>VVIP</td>
+      					<td>NON OK</td>
+      					<td></td>
+			    		<td>4713.00</td>
+					<td></td>
+					<td align="center">3.00</td>
+					<td align="center">14139.00</td>
+					<td valign="middle">09/17/2026</td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td>Karisa Kartika Sukotjo, dr. Sp. OT</td>
+					<td>DPJP</td>
+					<td>Nicola Tiso , Tn</td>
+					<td>11/22/1961</td>
+					<td>MALE</td>
+					<td>Kp Kaum Ciparigi RT.001/005</td>
+					<td></td>
+					<td>00-35-16-42</td>					
+					<td></td>
+					<td>2609170310</td>
+					<td>="2211196122111961"</td>
+					<td>09/17/2026</td>
+					<td>09/18/2026</td>
+					<td>1 days</td>
+		   		</tr>
+    			
+    				<tr>
+					<td align="center"></td>
+					<td align="center"></td>
+			    		<td align="left">
+						ALAT KESEHATAN
+					</td>
+			    		<td align="left">Spuit 5 cc</td>
+      					<td align="left">2</td>
+					<td>VVIP</td>
+      					<td>NON OK</td>
+      					<td></td>
+			    		<td>13681.00</td>
+					<td></td>
+					<td align="center">2.00</td>
+					<td align="center">27362.00</td>
+					<td valign="middle">09/17/2026</td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td>Karisa Kartika Sukotjo, dr. Sp. OT</td>
+					<td>DPJP</td>
+					<td>Nicola Tiso , Tn</td>
+					<td>11/22/1961</td>
+					<td>MALE</td>
+					<td>Kp Kaum Ciparigi RT.001/005</td>
+					<td></td>
+					<td>00-35-16-42</td>					
+					<td></td>
+					<td>2609170310</td>
+					<td>="2211196122111961"</td>
+					<td>09/17/2026</td>
+					<td>09/18/2026</td>
+					<td>1 days</td>
+		   		</tr>
+    			
+    				<tr>
+					<td align="center"></td>
+					<td align="center"></td>
+			    		<td align="left">
+						ALAT KESEHATAN
+					</td>
+			    		<td align="left">Spuit 3 cc Terumo</td>
+      					<td align="left">2</td>
+					<td>VVIP</td>
+      					<td>NON OK</td>
+      					<td></td>
+			    		<td>12071.00</td>
+					<td></td>
+					<td align="center">2.00</td>
+					<td align="center">24142.00</td>
+					<td valign="middle">09/17/2026</td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td>Karisa Kartika Sukotjo, dr. Sp. OT</td>
+					<td>DPJP</td>
+					<td>Nicola Tiso , Tn</td>
+					<td>11/22/1961</td>
+					<td>MALE</td>
+					<td>Kp Kaum Ciparigi RT.001/005</td>
+					<td></td>
+					<td>00-35-16-42</td>					
+					<td></td>
+					<td>2609170310</td>
+					<td>="2211196122111961"</td>
+					<td>09/17/2026</td>
+					<td>09/18/2026</td>
+					<td>1 days</td>
+		   		</tr>
+    			
+    				<tr>
+					<td align="center"></td>
+					<td align="center"></td>
+			    		<td align="left">
+						ALAT KESEHATAN
+					</td>
+			    		<td align="left">Spuit 1 cc Tuberculin</td>
+      					<td align="left">2</td>
+					<td>VVIP</td>
+      					<td>NON OK</td>
+      					<td></td>
+			    		<td>13278.00</td>
+					<td></td>
+					<td align="center">2.00</td>
+					<td align="center">26556.00</td>
+					<td valign="middle">09/17/2026</td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td>Karisa Kartika Sukotjo, dr. Sp. OT</td>
+					<td>DPJP</td>
+					<td>Nicola Tiso , Tn</td>
+					<td>11/22/1961</td>
+					<td>MALE</td>
+					<td>Kp Kaum Ciparigi RT.001/005</td>
+					<td></td>
+					<td>00-35-16-42</td>					
+					<td></td>
+					<td>2609170310</td>
+					<td>="2211196122111961"</td>
+					<td>09/17/2026</td>
+					<td>09/18/2026</td>
+					<td>1 days</td>
+		   		</tr>
+    			
+    				<tr>
+					<td align="center"></td>
+					<td align="center"></td>
+			    		<td align="left">
+						ALAT KESEHATAN
+					</td>
+			    		<td align="left">Aesculap Pisau Bedah no.15 - JS </td>
+      					<td align="left">2</td>
+					<td>VVIP</td>
+      					<td>NON OK</td>
+      					<td></td>
+			    		<td>6760.00</td>
+					<td></td>
+					<td align="center">2.00</td>
+					<td align="center">13520.00</td>
+					<td valign="middle">09/17/2026</td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td>Karisa Kartika Sukotjo, dr. Sp. OT</td>
+					<td>DPJP</td>
+					<td>Nicola Tiso , Tn</td>
+					<td>11/22/1961</td>
+					<td>MALE</td>
+					<td>Kp Kaum Ciparigi RT.001/005</td>
+					<td></td>
+					<td>00-35-16-42</td>					
+					<td></td>
+					<td>2609170310</td>
+					<td>="2211196122111961"</td>
+					<td>09/17/2026</td>
+					<td>09/18/2026</td>
+					<td>1 days</td>
+		   		</tr>
+    			
+    				<tr>
+					<td align="center"></td>
+					<td align="center"></td>
+			    		<td align="left">
+						ALAT KESEHATAN
+					</td>
+			    		<td align="left">Aesculap Pisau Bedah no.20 - JS</td>
+      					<td align="left">2</td>
+					<td>VVIP</td>
+      					<td>NON OK</td>
+      					<td></td>
+			    		<td>6084.00</td>
+					<td></td>
+					<td align="center">1.00</td>
+					<td align="center">6084.00</td>
+					<td valign="middle">09/17/2026</td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td>Karisa Kartika Sukotjo, dr. Sp. OT</td>
+					<td>DPJP</td>
+					<td>Nicola Tiso , Tn</td>
+					<td>11/22/1961</td>
+					<td>MALE</td>
+					<td>Kp Kaum Ciparigi RT.001/005</td>
+					<td></td>
+					<td>00-35-16-42</td>					
+					<td></td>
+					<td>2609170310</td>
+					<td>="2211196122111961"</td>
+					<td>09/17/2026</td>
+					<td>09/18/2026</td>
+					<td>1 days</td>
+		   		</tr>
+    			
+    				<tr>
+					<td align="center"></td>
+					<td align="center"></td>
+			    		<td align="left">
+						ALAT KESEHATAN
+					</td>
+			    		<td align="left">Hypafix 5 X 10</td>
+      					<td align="left">2</td>
+					<td>VVIP</td>
+      					<td>NON OK</td>
+      					<td></td>
+			    		<td>560.00</td>
+					<td></td>
+					<td align="center">50.00</td>
+					<td align="center">28000.00</td>
+					<td valign="middle">09/17/2026</td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td>Karisa Kartika Sukotjo, dr. Sp. OT</td>
+					<td>DPJP</td>
+					<td>Nicola Tiso , Tn</td>
+					<td>11/22/1961</td>
+					<td>MALE</td>
+					<td>Kp Kaum Ciparigi RT.001/005</td>
+					<td></td>
+					<td>00-35-16-42</td>					
+					<td></td>
+					<td>2609170310</td>
+					<td>="2211196122111961"</td>
+					<td>09/17/2026</td>
+					<td>09/18/2026</td>
+					<td>1 days</td>
+		   		</tr>
+    			
+    				<tr>
+					<td align="center"></td>
+					<td align="center"></td>
+			    		<td align="left">
+						ALAT KESEHATAN
+					</td>
+			    		<td align="left">Termination Infus (Extension TUBEe ET1527 150 cm)</td>
+      					<td align="left">2</td>
+					<td>VVIP</td>
+      					<td>NON OK</td>
+      					<td></td>
+			    		<td>64380.00</td>
+					<td></td>
+					<td align="center">1.00</td>
+					<td align="center">64380.00</td>
+					<td valign="middle">09/17/2026</td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td>Karisa Kartika Sukotjo, dr. Sp. OT</td>
+					<td>DPJP</td>
+					<td>Nicola Tiso , Tn</td>
+					<td>11/22/1961</td>
+					<td>MALE</td>
+					<td>Kp Kaum Ciparigi RT.001/005</td>
+					<td></td>
+					<td>00-35-16-42</td>					
+					<td></td>
+					<td>2609170310</td>
+					<td>="2211196122111961"</td>
+					<td>09/17/2026</td>
+					<td>09/18/2026</td>
+					<td>1 days</td>
+		   		</tr>
+    			
+    				<tr>
+					<td align="center"></td>
+					<td align="center"></td>
+			    		<td align="left">
+						OBAT
+					</td>
+			    		<td align="left">Maxigesic - IV</td>
+      					<td align="left">2</td>
+					<td>VVIP</td>
+      					<td>NON OK</td>
+      					<td></td>
+			    		<td>209235.00</td>
+					<td></td>
+					<td align="center">1.00</td>
+					<td align="center">209235.00</td>
+					<td valign="middle">09/17/2026</td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td>Karisa Kartika Sukotjo, dr. Sp. OT</td>
+					<td>DPJP</td>
+					<td>Nicola Tiso , Tn</td>
+					<td>11/22/1961</td>
+					<td>MALE</td>
+					<td>Kp Kaum Ciparigi RT.001/005</td>
+					<td></td>
+					<td>00-35-16-42</td>					
+					<td></td>
+					<td>2609170310</td>
+					<td>="2211196122111961"</td>
+					<td>09/17/2026</td>
+					<td>09/18/2026</td>
+					<td>1 days</td>
+		   		</tr>
+    			
+    				<tr>
+					<td align="center"></td>
+					<td align="center"></td>
+			    		<td align="left">
+						OBAT
+					</td>
+			    		<td align="left">LIDOCAIN HCL AMP/IPA [ HA ]-JS</td>
+      					<td align="left">2</td>
+					<td>VVIP</td>
+      					<td>NON OK</td>
+      					<td></td>
+			    		<td>2414.00</td>
+					<td></td>
+					<td align="center">2.00</td>
+					<td align="center">4828.00</td>
+					<td valign="middle">09/17/2026</td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td>Karisa Kartika Sukotjo, dr. Sp. OT</td>
+					<td>DPJP</td>
+					<td>Nicola Tiso , Tn</td>
+					<td>11/22/1961</td>
+					<td>MALE</td>
+					<td>Kp Kaum Ciparigi RT.001/005</td>
+					<td></td>
+					<td>00-35-16-42</td>					
+					<td></td>
+					<td>2609170310</td>
+					<td>="2211196122111961"</td>
+					<td>09/17/2026</td>
+					<td>09/18/2026</td>
+					<td>1 days</td>
+		   		</tr>
+    			
+    				<tr>
+					<td align="center"></td>
+					<td align="center"></td>
+			    		<td align="left">
+						OBAT
+					</td>
+			    		<td align="left">Icunes Inj</td>
+      					<td align="left">2</td>
+					<td>VVIP</td>
+      					<td>NON OK</td>
+      					<td></td>
+			    		<td>684038.00</td>
+					<td></td>
+					<td align="center">1.00</td>
+					<td align="center">684038.00</td>
+					<td valign="middle">09/17/2026</td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td>Karisa Kartika Sukotjo, dr. Sp. OT</td>
+					<td>DPJP</td>
+					<td>Nicola Tiso , Tn</td>
+					<td>11/22/1961</td>
+					<td>MALE</td>
+					<td>Kp Kaum Ciparigi RT.001/005</td>
+					<td></td>
+					<td>00-35-16-42</td>					
+					<td></td>
+					<td>2609170310</td>
+					<td>="2211196122111961"</td>
+					<td>09/17/2026</td>
+					<td>09/18/2026</td>
+					<td>1 days</td>
+		   		</tr>
+    			
+    				<tr>
+					<td align="center"></td>
+					<td align="center"></td>
+			    		<td align="left">
+						OBAT
+					</td>
+			    		<td align="left">CORTIDEX INJ</td>
+      					<td align="left">2</td>
+					<td>VVIP</td>
+      					<td>NON OK</td>
+      					<td></td>
+			    		<td>11588.00</td>
+					<td></td>
+					<td align="center">3.00</td>
+					<td align="center">34764.00</td>
+					<td valign="middle">09/17/2026</td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td>Karisa Kartika Sukotjo, dr. Sp. OT</td>
+					<td>DPJP</td>
+					<td>Nicola Tiso , Tn</td>
+					<td>11/22/1961</td>
+					<td>MALE</td>
+					<td>Kp Kaum Ciparigi RT.001/005</td>
+					<td></td>
+					<td>00-35-16-42</td>					
+					<td></td>
+					<td>2609170310</td>
+					<td>="2211196122111961"</td>
+					<td>09/17/2026</td>
+					<td>09/18/2026</td>
+					<td>1 days</td>
+		   		</tr>
+    			
+    				<tr>
+					<td align="center"></td>
+					<td align="center"></td>
+			    		<td align="left">
+						OBAT
+					</td>
+			    		<td align="left">LEVICA INJ 50 MG(BUNASCAN INJ)</td>
+      					<td align="left">2</td>
+					<td>VVIP</td>
+      					<td>NON OK</td>
+      					<td></td>
+			    		<td>120713.00</td>
+					<td></td>
+					<td align="center">2.00</td>
+					<td align="center">241426.00</td>
+					<td valign="middle">09/17/2026</td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td>Karisa Kartika Sukotjo, dr. Sp. OT</td>
+					<td>DPJP</td>
+					<td>Nicola Tiso , Tn</td>
+					<td>11/22/1961</td>
+					<td>MALE</td>
+					<td>Kp Kaum Ciparigi RT.001/005</td>
+					<td></td>
+					<td>00-35-16-42</td>					
+					<td></td>
+					<td>2609170310</td>
+					<td>="2211196122111961"</td>
+					<td>09/17/2026</td>
+					<td>09/18/2026</td>
+					<td>1 days</td>
+		   		</tr>
+    			
+    				<tr>
+					<td align="center"></td>
+					<td align="center"></td>
+			    		<td align="left">
+						ALAT KESEHATAN
+					</td>
+			    		<td align="left">Prolene 2/0 8685 H</td>
+      					<td align="left">2</td>
+					<td>VVIP</td>
+      					<td>NON OK</td>
+      					<td></td>
+			    		<td>245704.00</td>
+					<td></td>
+					<td align="center">1.00</td>
+					<td align="center">245704.00</td>
+					<td valign="middle">09/17/2026</td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td>Karisa Kartika Sukotjo, dr. Sp. OT</td>
+					<td>DPJP</td>
+					<td>Nicola Tiso , Tn</td>
+					<td>11/22/1961</td>
+					<td>MALE</td>
+					<td>Kp Kaum Ciparigi RT.001/005</td>
+					<td></td>
+					<td>00-35-16-42</td>					
+					<td></td>
+					<td>2609170310</td>
+					<td>="2211196122111961"</td>
+					<td>09/17/2026</td>
+					<td>09/18/2026</td>
+					<td>1 days</td>
+		   		</tr>
+    			
+    				<tr>
+					<td align="center"></td>
+					<td align="center"></td>
+			    		<td align="left">
+						BARANG HABIS PAKAI
+					</td>
+			    		<td align="left">Fall Risk - Yellow ( Sticker Pasien )</td>
+      					<td align="left">2</td>
+					<td>VVIP</td>
+      					<td>NON OK</td>
+      					<td></td>
+			    		<td>1096.00</td>
+					<td></td>
+					<td align="center">1.00</td>
+					<td align="center">1096.00</td>
+					<td valign="middle">09/17/2026</td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td>Karisa Kartika Sukotjo, dr. Sp. OT</td>
+					<td>DPJP</td>
+					<td>Nicola Tiso , Tn</td>
+					<td>11/22/1961</td>
+					<td>MALE</td>
+					<td>Kp Kaum Ciparigi RT.001/005</td>
+					<td></td>
+					<td>00-35-16-42</td>					
+					<td></td>
+					<td>2609170310</td>
+					<td>="2211196122111961"</td>
+					<td>09/17/2026</td>
+					<td>09/18/2026</td>
+					<td>1 days</td>
+		   		</tr>
+    			
+    				<tr>
+					<td align="center"></td>
+					<td align="center"></td>
+			    		<td align="left">
+						ALAT KESEHATAN
+					</td>
+			    		<td align="left">Double Spike ONEMED </td>
+      					<td align="left">2</td>
+					<td>VVIP</td>
+      					<td>NON OK</td>
+      					<td></td>
+			    		<td>4855.00</td>
+					<td></td>
+					<td align="center">1.00</td>
+					<td align="center">4855.00</td>
+					<td valign="middle">09/17/2026</td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td>Karisa Kartika Sukotjo, dr. Sp. OT</td>
+					<td>DPJP</td>
+					<td>Nicola Tiso , Tn</td>
+					<td>11/22/1961</td>
+					<td>MALE</td>
+					<td>Kp Kaum Ciparigi RT.001/005</td>
+					<td></td>
+					<td>00-35-16-42</td>					
+					<td></td>
+					<td>2609170310</td>
+					<td>="2211196122111961"</td>
+					<td>09/17/2026</td>
+					<td>09/18/2026</td>
+					<td>1 days</td>
+		   		</tr>
+    			
+    				<tr>
+					<td align="center"></td>
+					<td align="center"></td>
+			    		<td align="left">
+						ALAT KESEHATAN
+					</td>
+			    		<td align="left">Spuit 10 cc</td>
+      					<td align="left">2</td>
+					<td>VVIP</td>
+      					<td>NON OK</td>
+      					<td></td>
+			    		<td>16095.00</td>
+					<td></td>
+					<td align="center">4.00</td>
+					<td align="center">64380.00</td>
+					<td valign="middle">09/17/2026</td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td>Karisa Kartika Sukotjo, dr. Sp. OT</td>
+					<td>DPJP</td>
+					<td>Nicola Tiso , Tn</td>
+					<td>11/22/1961</td>
+					<td>MALE</td>
+					<td>Kp Kaum Ciparigi RT.001/005</td>
+					<td></td>
+					<td>00-35-16-42</td>					
+					<td></td>
+					<td>2609170310</td>
+					<td>="2211196122111961"</td>
+					<td>09/17/2026</td>
+					<td>09/18/2026</td>
+					<td>1 days</td>
+		   		</tr>
+    			
+    				<tr>
+					<td align="center"></td>
+					<td align="center"></td>
+			    		<td align="left">
+						ALAT KESEHATAN
+					</td>
+			    		<td align="left">Suction Conecting TUBEe</td>
+      					<td align="left">2</td>
+					<td>VVIP</td>
+      					<td>NON OK</td>
+      					<td></td>
+			    		<td>53114.00</td>
+					<td></td>
+					<td align="center">1.00</td>
+					<td align="center">53114.00</td>
+					<td valign="middle">09/17/2026</td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td>Karisa Kartika Sukotjo, dr. Sp. OT</td>
+					<td>DPJP</td>
+					<td>Nicola Tiso , Tn</td>
+					<td>11/22/1961</td>
+					<td>MALE</td>
+					<td>Kp Kaum Ciparigi RT.001/005</td>
+					<td></td>
+					<td>00-35-16-42</td>					
+					<td></td>
+					<td>2609170310</td>
+					<td>="2211196122111961"</td>
+					<td>09/17/2026</td>
+					<td>09/18/2026</td>
+					<td>1 days</td>
+		   		</tr>
+    			
+    				<tr>
+					<td align="center"></td>
+					<td align="center"></td>
+			    		<td align="left">
+						ALAT KESEHATAN
+					</td>
+			    		<td align="left">Lomatull 10 x10 (Pengganti Bactigras 10 x 10) </td>
+      					<td align="left">2</td>
+					<td>VVIP</td>
+      					<td>NON OK</td>
+      					<td></td>
+			    		<td>26645.00</td>
+					<td></td>
+					<td align="center">1.00</td>
+					<td align="center">26645.00</td>
+					<td valign="middle">09/17/2026</td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td>Karisa Kartika Sukotjo, dr. Sp. OT</td>
+					<td>DPJP</td>
+					<td>Nicola Tiso , Tn</td>
+					<td>11/22/1961</td>
+					<td>MALE</td>
+					<td>Kp Kaum Ciparigi RT.001/005</td>
+					<td></td>
+					<td>00-35-16-42</td>					
+					<td></td>
+					<td>2609170310</td>
+					<td>="2211196122111961"</td>
+					<td>09/17/2026</td>
+					<td>09/18/2026</td>
+					<td>1 days</td>
+		   		</tr>
+    			
+    				<tr>
+					<td align="center"></td>
+					<td align="center"></td>
+			    		<td align="left">
+						ALAT KESEHATAN
+					</td>
+			    		<td align="left">Kasa Lipat 7,5 x 7,5 Tanpa X.Ray - JS</td>
+      					<td align="left">2</td>
+					<td>VVIP</td>
+      					<td>NON OK</td>
+      					<td></td>
+			    		<td>3557.00</td>
+					<td></td>
+					<td align="center">40.00</td>
+					<td align="center">142280.00</td>
+					<td valign="middle">09/17/2026</td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td>Karisa Kartika Sukotjo, dr. Sp. OT</td>
+					<td>DPJP</td>
+					<td>Nicola Tiso , Tn</td>
+					<td>11/22/1961</td>
+					<td>MALE</td>
+					<td>Kp Kaum Ciparigi RT.001/005</td>
+					<td></td>
+					<td>00-35-16-42</td>					
+					<td></td>
+					<td>2609170310</td>
+					<td>="2211196122111961"</td>
+					<td>09/17/2026</td>
+					<td>09/18/2026</td>
+					<td>1 days</td>
+		   		</tr>
+    			
+    				<tr>
+					<td align="center"></td>
+					<td align="center"></td>
+			    		<td align="left">
+						ALAT KESEHATAN
+					</td>
+			    		<td align="left">Sarung tangan maxter 8-JS</td>
+      					<td align="left">2</td>
+					<td>VVIP</td>
+      					<td>NON OK</td>
+      					<td></td>
+			    		<td>7975.00</td>
+					<td></td>
+					<td align="center">3.00</td>
+					<td align="center">23925.00</td>
+					<td valign="middle">09/17/2026</td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td>Karisa Kartika Sukotjo, dr. Sp. OT</td>
+					<td>DPJP</td>
+					<td>Nicola Tiso , Tn</td>
+					<td>11/22/1961</td>
+					<td>MALE</td>
+					<td>Kp Kaum Ciparigi RT.001/005</td>
+					<td></td>
+					<td>00-35-16-42</td>					
+					<td></td>
+					<td>2609170310</td>
+					<td>="2211196122111961"</td>
+					<td>09/17/2026</td>
+					<td>09/18/2026</td>
+					<td>1 days</td>
+		   		</tr>
+    			
+    				<tr>
+					<td align="center"></td>
+					<td align="center"></td>
+			    		<td align="left">
+						ALAT KESEHATAN
+					</td>
+			    		<td align="left">Mikro Tough 7 Gammex</td>
+      					<td align="left">2</td>
+					<td>VVIP</td>
+      					<td>NON OK</td>
+      					<td></td>
+			    		<td>40559.00</td>
+					<td></td>
+					<td align="center">2.00</td>
+					<td align="center">81118.00</td>
+					<td valign="middle">09/17/2026</td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td>Karisa Kartika Sukotjo, dr. Sp. OT</td>
+					<td>DPJP</td>
+					<td>Nicola Tiso , Tn</td>
+					<td>11/22/1961</td>
+					<td>MALE</td>
+					<td>Kp Kaum Ciparigi RT.001/005</td>
+					<td></td>
+					<td>00-35-16-42</td>					
+					<td></td>
+					<td>2609170310</td>
+					<td>="2211196122111961"</td>
+					<td>09/17/2026</td>
+					<td>09/18/2026</td>
+					<td>1 days</td>
+		   		</tr>
+    			
+    				<tr>
+					<td align="center"></td>
+					<td align="center"></td>
+			    		<td align="left">
+						ALAT KESEHATAN
+					</td>
+			    		<td align="left">Mikro Tough 6 1/2 Gammex</td>
+      					<td align="left">2</td>
+					<td>VVIP</td>
+      					<td>NON OK</td>
+      					<td></td>
+			    		<td>40559.00</td>
+					<td></td>
+					<td align="center">1.00</td>
+					<td align="center">40559.00</td>
+					<td valign="middle">09/17/2026</td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td>Karisa Kartika Sukotjo, dr. Sp. OT</td>
+					<td>DPJP</td>
+					<td>Nicola Tiso , Tn</td>
+					<td>11/22/1961</td>
+					<td>MALE</td>
+					<td>Kp Kaum Ciparigi RT.001/005</td>
+					<td></td>
+					<td>00-35-16-42</td>					
+					<td></td>
+					<td>2609170310</td>
+					<td>="2211196122111961"</td>
+					<td>09/17/2026</td>
+					<td>09/18/2026</td>
+					<td>1 days</td>
+		   		</tr>
+    			
+    				<tr>
+					<td align="center"></td>
+					<td align="center"></td>
+			    		<td align="left">
+						ALAT KESEHATAN
+					</td>
+			    		<td align="left">Tensocrepe 10 cm</td>
+      					<td align="left">2</td>
+					<td>VVIP</td>
+      					<td>NON OK</td>
+      					<td></td>
+			    		<td>155156.00</td>
+					<td></td>
+					<td align="center">1.00</td>
+					<td align="center">155156.00</td>
+					<td valign="middle">09/17/2026</td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td>Karisa Kartika Sukotjo, dr. Sp. OT</td>
+					<td>DPJP</td>
+					<td>Nicola Tiso , Tn</td>
+					<td>11/22/1961</td>
+					<td>MALE</td>
+					<td>Kp Kaum Ciparigi RT.001/005</td>
+					<td></td>
+					<td>00-35-16-42</td>					
+					<td></td>
+					<td>2609170310</td>
+					<td>="2211196122111961"</td>
+					<td>09/17/2026</td>
+					<td>09/18/2026</td>
+					<td>1 days</td>
+		   		</tr>
+    			
+    				<tr>
+					<td align="center"></td>
+					<td align="center"></td>
+			    		<td align="left">
+						OBAT
+					</td>
+			    		<td align="left">Infusan RL SP Sanbe-JS</td>
+      					<td align="left">2</td>
+					<td>VVIP</td>
+      					<td>NON OK</td>
+      					<td></td>
+			    		<td>12321.00</td>
+					<td></td>
+					<td align="center">1.00</td>
+					<td align="center">12321.00</td>
+					<td valign="middle">09/17/2026</td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td>Karisa Kartika Sukotjo, dr. Sp. OT</td>
+					<td>DPJP</td>
+					<td>Nicola Tiso , Tn</td>
+					<td>11/22/1961</td>
+					<td>MALE</td>
+					<td>Kp Kaum Ciparigi RT.001/005</td>
+					<td></td>
+					<td>00-35-16-42</td>					
+					<td></td>
+					<td>2609170310</td>
+					<td>="2211196122111961"</td>
+					<td>09/17/2026</td>
+					<td>09/18/2026</td>
+					<td>1 days</td>
+		   		</tr>
+    			
+    				<tr>
+					<td align="center"></td>
+					<td align="center"></td>
+			    		<td align="left">
+						OBAT
+					</td>
+			    		<td align="left">KALNEX INJ 500 MG</td>
+      					<td align="left">2</td>
+					<td>VVIP</td>
+      					<td>NON OK</td>
+      					<td></td>
+			    		<td>31868.00</td>
+					<td></td>
+					<td align="center">2.00</td>
+					<td align="center">63736.00</td>
+					<td valign="middle">09/17/2026</td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td>Karisa Kartika Sukotjo, dr. Sp. OT</td>
+					<td>DPJP</td>
+					<td>Nicola Tiso , Tn</td>
+					<td>11/22/1961</td>
+					<td>MALE</td>
+					<td>Kp Kaum Ciparigi RT.001/005</td>
+					<td></td>
+					<td>00-35-16-42</td>					
+					<td></td>
+					<td>2609170310</td>
+					<td>="2211196122111961"</td>
+					<td>09/17/2026</td>
+					<td>09/18/2026</td>
+					<td>1 days</td>
+		   		</tr>
+    			
+    				<tr>
+					<td align="center"></td>
+					<td align="center"></td>
+			    		<td align="left">
+						OBAT
+					</td>
+			    		<td align="left">TROVENSIS INJ 8 MG (MERK) [ LASA ]</td>
+      					<td align="left">2</td>
+					<td>VVIP</td>
+      					<td>NON OK</td>
+      					<td></td>
+			    		<td>128277.00</td>
+					<td></td>
+					<td align="center">1.00</td>
+					<td align="center">128277.00</td>
+					<td valign="middle">09/17/2026</td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td>Karisa Kartika Sukotjo, dr. Sp. OT</td>
+					<td>DPJP</td>
+					<td>Nicola Tiso , Tn</td>
+					<td>11/22/1961</td>
+					<td>MALE</td>
+					<td>Kp Kaum Ciparigi RT.001/005</td>
+					<td></td>
+					<td>00-35-16-42</td>					
+					<td></td>
+					<td>2609170310</td>
+					<td>="2211196122111961"</td>
+					<td>09/17/2026</td>
+					<td>09/18/2026</td>
+					<td>1 days</td>
+		   		</tr>
+    			
+    				<tr>
+					<td align="center"></td>
+					<td align="center"></td>
+			    		<td align="left">
+						220955
+					</td>
+			    		<td align="left">Opsite IV 3000 7x9 cm</td>
+      					<td align="left">2</td>
+					<td>VVIP</td>
+      					<td>NON OK</td>
+      					<td></td>
+			    		<td>11267.00</td>
+					<td></td>
+					<td align="center">1.00</td>
+					<td align="center">11267.00</td>
+					<td valign="middle">09/17/2026</td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td>Karisa Kartika Sukotjo, dr. Sp. OT</td>
+					<td>DPJP</td>
+					<td>Nicola Tiso , Tn</td>
+					<td>11/22/1961</td>
+					<td>MALE</td>
+					<td>Kp Kaum Ciparigi RT.001/005</td>
+					<td></td>
+					<td>00-35-16-42</td>					
+					<td></td>
+					<td>2609170310</td>
+					<td>="2211196122111961"</td>
+					<td>09/17/2026</td>
+					<td>09/18/2026</td>
+					<td>1 days</td>
+		   		</tr>
+    			
+    				<tr>
+					<td align="center"></td>
+					<td align="center"></td>
+			    		<td align="left">
+						221104
+					</td>
+			    		<td align="left">Spuit 10 cc</td>
+      					<td align="left">2</td>
+					<td>VVIP</td>
+      					<td>NON OK</td>
+      					<td></td>
+			    		<td>16095.00</td>
+					<td></td>
+					<td align="center">1.00</td>
+					<td align="center">16095.00</td>
+					<td valign="middle">09/17/2026</td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td>Karisa Kartika Sukotjo, dr. Sp. OT</td>
+					<td>DPJP</td>
+					<td>Nicola Tiso , Tn</td>
+					<td>11/22/1961</td>
+					<td>MALE</td>
+					<td>Kp Kaum Ciparigi RT.001/005</td>
+					<td></td>
+					<td>00-35-16-42</td>					
+					<td></td>
+					<td>2609170310</td>
+					<td>="2211196122111961"</td>
+					<td>09/17/2026</td>
+					<td>09/18/2026</td>
+					<td>1 days</td>
+		   		</tr>
+    			
+    				<tr>
+					<td align="center"></td>
+					<td align="center"></td>
+			    		<td align="left">
+						220783
+					</td>
+			    		<td align="left">Infus Set TI*Q300</td>
+      					<td align="left">2</td>
+					<td>VVIP</td>
+      					<td>NON OK</td>
+      					<td></td>
+			    		<td>30902.00</td>
+					<td></td>
+					<td align="center">1.00</td>
+					<td align="center">30902.00</td>
+					<td valign="middle">09/17/2026</td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td>Karisa Kartika Sukotjo, dr. Sp. OT</td>
+					<td>DPJP</td>
+					<td>Nicola Tiso , Tn</td>
+					<td>11/22/1961</td>
+					<td>MALE</td>
+					<td>Kp Kaum Ciparigi RT.001/005</td>
+					<td></td>
+					<td>00-35-16-42</td>					
+					<td></td>
+					<td>2609170310</td>
+					<td>="2211196122111961"</td>
+					<td>09/17/2026</td>
+					<td>09/18/2026</td>
+					<td>1 days</td>
+		   		</tr>
+    			
+    				<tr>
+					<td align="center"></td>
+					<td align="center"></td>
+			    		<td align="left">
+						221219
+					</td>
+			    		<td align="left">Three Way Stop Cock With Extension Tube - JS</td>
+      					<td align="left">2</td>
+					<td>VVIP</td>
+      					<td>NON OK</td>
+      					<td></td>
+			    		<td>15934.00</td>
+					<td></td>
+					<td align="center">1.00</td>
+					<td align="center">15934.00</td>
+					<td valign="middle">09/17/2026</td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td>Karisa Kartika Sukotjo, dr. Sp. OT</td>
+					<td>DPJP</td>
+					<td>Nicola Tiso , Tn</td>
+					<td>11/22/1961</td>
+					<td>MALE</td>
+					<td>Kp Kaum Ciparigi RT.001/005</td>
+					<td></td>
+					<td>00-35-16-42</td>					
+					<td></td>
+					<td>2609170310</td>
+					<td>="2211196122111961"</td>
+					<td>09/17/2026</td>
+					<td>09/18/2026</td>
+					<td>1 days</td>
+		   		</tr>
+    			
+    				<tr>
+					<td align="center"></td>
+					<td align="center"></td>
+			    		<td align="left">
+						221104
+					</td>
+			    		<td align="left">Spuit 10 cc</td>
+      					<td align="left">2</td>
+					<td>VVIP</td>
+      					<td>NON OK</td>
+      					<td></td>
+			    		<td>16095.00</td>
+					<td></td>
+					<td align="center">1.00</td>
+					<td align="center">16095.00</td>
+					<td valign="middle">09/17/2026</td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td>Karisa Kartika Sukotjo, dr. Sp. OT</td>
+					<td>DPJP</td>
+					<td>Nicola Tiso , Tn</td>
+					<td>11/22/1961</td>
+					<td>MALE</td>
+					<td>Kp Kaum Ciparigi RT.001/005</td>
+					<td></td>
+					<td>00-35-16-42</td>					
+					<td></td>
+					<td>2609170310</td>
+					<td>="2211196122111961"</td>
+					<td>09/17/2026</td>
+					<td>09/18/2026</td>
+					<td>1 days</td>
+		   		</tr>
+    			
+    				<tr>
+					<td align="center"></td>
+					<td align="center"></td>
+			    		<td align="left">
+						220933
+					</td>
+			    		<td align="left">Novo Fine</td>
+      					<td align="left">2</td>
+					<td>VVIP</td>
+      					<td>NON OK</td>
+      					<td></td>
+			    		<td>7998.00</td>
+					<td></td>
+					<td align="center">2.00</td>
+					<td align="center">7998.00</td>
+					<td valign="middle">09/17/2026</td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td>Karisa Kartika Sukotjo, dr. Sp. OT</td>
+					<td>DPJP</td>
+					<td>Nicola Tiso , Tn</td>
+					<td>11/22/1961</td>
+					<td>MALE</td>
+					<td>Kp Kaum Ciparigi RT.001/005</td>
+					<td></td>
+					<td>00-35-16-42</td>					
+					<td></td>
+					<td>2609170310</td>
+					<td>="2211196122111961"</td>
+					<td>09/17/2026</td>
+					<td>09/18/2026</td>
+					<td>1 days</td>
+		   		</tr>
+    			
+    				<tr>
+					<td align="center"></td>
+					<td align="center"></td>
+			    		<td align="left">
+						221161
+					</td>
+			    		<td align="left">Surshield Surflo II Safety No. 20`32 (TM061) </td>
+      					<td align="left">2</td>
+					<td>VVIP</td>
+      					<td>NON OK</td>
+      					<td></td>
+			    		<td>34933.00</td>
+					<td></td>
+					<td align="center">1.00</td>
+					<td align="center">34933.00</td>
+					<td valign="middle">09/17/2026</td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td>Karisa Kartika Sukotjo, dr. Sp. OT</td>
+					<td>DPJP</td>
+					<td>Nicola Tiso , Tn</td>
+					<td>11/22/1961</td>
+					<td>MALE</td>
+					<td>Kp Kaum Ciparigi RT.001/005</td>
+					<td></td>
+					<td>00-35-16-42</td>					
+					<td></td>
+					<td>2609170310</td>
+					<td>="2211196122111961"</td>
+					<td>09/17/2026</td>
+					<td>09/18/2026</td>
+					<td>1 days</td>
+		   		</tr>
+    			
+    				<tr>
+					<td align="center"></td>
+					<td align="center"></td>
+			    		<td align="left">
+						221104
+					</td>
+			    		<td align="left">Spuit 10 cc</td>
+      					<td align="left">2</td>
+					<td>VVIP</td>
+      					<td>NON OK</td>
+      					<td></td>
+			    		<td>-16095.00</td>
+					<td></td>
+					<td align="center">-1.00</td>
+					<td align="center">-16095.00</td>
+					<td valign="middle">09/18/2026</td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td>Karisa Kartika Sukotjo, dr. Sp. OT</td>
+					<td>DPJP</td>
+					<td>Nicola Tiso , Tn</td>
+					<td>11/22/1961</td>
+					<td>MALE</td>
+					<td>Kp Kaum Ciparigi RT.001/005</td>
+					<td></td>
+					<td>00-35-16-42</td>					
+					<td></td>
+					<td>2609170310</td>
+					<td>="2211196122111961"</td>
+					<td>09/17/2026</td>
+					<td>09/18/2026</td>
+					<td>1 days</td>
+		   		</tr>
+    			
+    				<tr>
+					<td align="center"></td>
+					<td align="center"></td>
+			    		<td align="left">
+						221109
+					</td>
+			    		<td align="left">Spuit 3 cc Terumo</td>
+      					<td align="left">2</td>
+					<td>VVIP</td>
+      					<td>NON OK</td>
+      					<td></td>
+			    		<td>-24142.00</td>
+					<td></td>
+					<td align="center">-2.00</td>
+					<td align="center">-24142.00</td>
+					<td valign="middle">09/18/2026</td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td>Karisa Kartika Sukotjo, dr. Sp. OT</td>
+					<td>DPJP</td>
+					<td>Nicola Tiso , Tn</td>
+					<td>11/22/1961</td>
+					<td>MALE</td>
+					<td>Kp Kaum Ciparigi RT.001/005</td>
+					<td></td>
+					<td>00-35-16-42</td>					
+					<td></td>
+					<td>2609170310</td>
+					<td>="2211196122111961"</td>
+					<td>09/17/2026</td>
+					<td>09/18/2026</td>
+					<td>1 days</td>
+		   		</tr>
+    			
+    				<tr>
+					<td align="center"></td>
+					<td align="center"></td>
+			    		<td align="left">
+						226977
+					</td>
+			    		<td align="left">Alcohol Swab Biru COSMOMED - JS</td>
+      					<td align="left">2</td>
+					<td>VVIP</td>
+      					<td>NON OK</td>
+      					<td></td>
+			    		<td>-3060.00</td>
+					<td></td>
+					<td align="center">-10.00</td>
+					<td align="center">-3060.00</td>
+					<td valign="middle">09/18/2026</td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td>Karisa Kartika Sukotjo, dr. Sp. OT</td>
+					<td>DPJP</td>
+					<td>Nicola Tiso , Tn</td>
+					<td>11/22/1961</td>
+					<td>MALE</td>
+					<td>Kp Kaum Ciparigi RT.001/005</td>
+					<td></td>
+					<td>00-35-16-42</td>					
+					<td></td>
+					<td>2609170310</td>
+					<td>="2211196122111961"</td>
+					<td>09/17/2026</td>
+					<td>09/18/2026</td>
+					<td>1 days</td>
+		   		</tr>
+    			
+    				<tr>
+					<td align="center"></td>
+					<td align="center"></td>
+			    		<td align="left">
+						226977
+					</td>
+			    		<td align="left">Alcohol Swab Biru COSMOMED - JS</td>
+      					<td align="left">2</td>
+					<td>VVIP</td>
+      					<td>NON OK</td>
+      					<td></td>
+			    		<td>3060.00</td>
+					<td></td>
+					<td align="center">10.00</td>
+					<td align="center">3060.00</td>
+					<td valign="middle">09/17/2026</td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td>Karisa Kartika Sukotjo, dr. Sp. OT</td>
+					<td>DPJP</td>
+					<td>Nicola Tiso , Tn</td>
+					<td>11/22/1961</td>
+					<td>MALE</td>
+					<td>Kp Kaum Ciparigi RT.001/005</td>
+					<td></td>
+					<td>00-35-16-42</td>					
+					<td></td>
+					<td>2609170310</td>
+					<td>="2211196122111961"</td>
+					<td>09/17/2026</td>
+					<td>09/18/2026</td>
+					<td>1 days</td>
+		   		</tr>
+    			
+    				<tr>
+					<td align="center"></td>
+					<td align="center"></td>
+			    		<td align="left">
+						226977
+					</td>
+			    		<td align="left">Alcohol Swab Biru COSMOMED - JS</td>
+      					<td align="left">2</td>
+					<td>VVIP</td>
+      					<td>NON OK</td>
+      					<td></td>
+			    		<td>1836.00</td>
+					<td></td>
+					<td align="center">6.00</td>
+					<td align="center">1836.00</td>
+					<td valign="middle">09/17/2026</td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td>Karisa Kartika Sukotjo, dr. Sp. OT</td>
+					<td>DPJP</td>
+					<td>Nicola Tiso , Tn</td>
+					<td>11/22/1961</td>
+					<td>MALE</td>
+					<td>Kp Kaum Ciparigi RT.001/005</td>
+					<td></td>
+					<td>00-35-16-42</td>					
+					<td></td>
+					<td>2609170310</td>
+					<td>="2211196122111961"</td>
+					<td>09/17/2026</td>
+					<td>09/18/2026</td>
+					<td>1 days</td>
+		   		</tr>
+    			
+    				<tr>
+					<td align="center"></td>
+					<td align="center"></td>
+			    		<td align="left">
+						221110
+					</td>
+			    		<td align="left">Spuit 5 cc</td>
+      					<td align="left">2</td>
+					<td>VVIP</td>
+      					<td>NON OK</td>
+      					<td></td>
+			    		<td>27362.00</td>
+					<td></td>
+					<td align="center">2.00</td>
+					<td align="center">27362.00</td>
+					<td valign="middle">09/17/2026</td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td>Karisa Kartika Sukotjo, dr. Sp. OT</td>
+					<td>DPJP</td>
+					<td>Nicola Tiso , Tn</td>
+					<td>11/22/1961</td>
+					<td>MALE</td>
+					<td>Kp Kaum Ciparigi RT.001/005</td>
+					<td></td>
+					<td>00-35-16-42</td>					
+					<td></td>
+					<td>2609170310</td>
+					<td>="2211196122111961"</td>
+					<td>09/17/2026</td>
+					<td>09/18/2026</td>
+					<td>1 days</td>
+		   		</tr>
+    			
+    				<tr>
+					<td align="center"></td>
+					<td align="center"></td>
+			    		<td align="left">
+						221109
+					</td>
+			    		<td align="left">Spuit 3 cc Terumo</td>
+      					<td align="left">2</td>
+					<td>VVIP</td>
+      					<td>NON OK</td>
+      					<td></td>
+			    		<td>24142.00</td>
+					<td></td>
+					<td align="center">2.00</td>
+					<td align="center">24142.00</td>
+					<td valign="middle">09/17/2026</td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td>Karisa Kartika Sukotjo, dr. Sp. OT</td>
+					<td>DPJP</td>
+					<td>Nicola Tiso , Tn</td>
+					<td>11/22/1961</td>
+					<td>MALE</td>
+					<td>Kp Kaum Ciparigi RT.001/005</td>
+					<td></td>
+					<td>00-35-16-42</td>					
+					<td></td>
+					<td>2609170310</td>
+					<td>="2211196122111961"</td>
+					<td>09/17/2026</td>
+					<td>09/18/2026</td>
+					<td>1 days</td>
+		   		</tr>
+    			
+    				<tr>
+					<td align="center"></td>
+					<td align="center"></td>
+			    		<td align="left">
+						221104
+					</td>
+			    		<td align="left">Spuit 10 cc</td>
+      					<td align="left">2</td>
+					<td>VVIP</td>
+      					<td>NON OK</td>
+      					<td></td>
+			    		<td>32190.00</td>
+					<td></td>
+					<td align="center">2.00</td>
+					<td align="center">32190.00</td>
+					<td valign="middle">09/17/2026</td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td>Karisa Kartika Sukotjo, dr. Sp. OT</td>
+					<td>DPJP</td>
+					<td>Nicola Tiso , Tn</td>
+					<td>11/22/1961</td>
+					<td>MALE</td>
+					<td>Kp Kaum Ciparigi RT.001/005</td>
+					<td></td>
+					<td>00-35-16-42</td>					
+					<td></td>
+					<td>2609170310</td>
+					<td>="2211196122111961"</td>
+					<td>09/17/2026</td>
+					<td>09/18/2026</td>
+					<td>1 days</td>
+		   		</tr>
+    			
+    				<tr>
+					<td align="center"></td>
+					<td align="center"></td>
+			    		<td align="left">
+						221110
+					</td>
+			    		<td align="left">Spuit 5 cc</td>
+      					<td align="left">2</td>
+					<td>VVIP</td>
+      					<td>NON OK</td>
+      					<td></td>
+			    		<td>-27362.00</td>
+					<td></td>
+					<td align="center">-2.00</td>
+					<td align="center">-27362.00</td>
+					<td valign="middle">09/18/2026</td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td>Karisa Kartika Sukotjo, dr. Sp. OT</td>
+					<td>DPJP</td>
+					<td>Nicola Tiso , Tn</td>
+					<td>11/22/1961</td>
+					<td>MALE</td>
+					<td>Kp Kaum Ciparigi RT.001/005</td>
+					<td></td>
+					<td>00-35-16-42</td>					
+					<td></td>
+					<td>2609170310</td>
+					<td>="2211196122111961"</td>
+					<td>09/17/2026</td>
+					<td>09/18/2026</td>
+					<td>1 days</td>
+		   		</tr>
+    			
+    				<tr>
+					<td align="center"></td>
+					<td align="center"></td>
+			    		<td align="left">
+						220454
+					</td>
+			    		<td align="left">Arm Sling XL</td>
+      					<td align="left">2</td>
+					<td>VVIP</td>
+      					<td>NON OK</td>
+      					<td></td>
+			    		<td>39433.00</td>
+					<td></td>
+					<td align="center">1.00</td>
+					<td align="center">39433.00</td>
+					<td valign="middle">09/18/2026</td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td>Karisa Kartika Sukotjo, dr. Sp. OT</td>
+					<td>DPJP</td>
+					<td>Nicola Tiso , Tn</td>
+					<td>11/22/1961</td>
+					<td>MALE</td>
+					<td>Kp Kaum Ciparigi RT.001/005</td>
+					<td></td>
+					<td>00-35-16-42</td>					
+					<td></td>
+					<td>2609170310</td>
+					<td>="2211196122111961"</td>
+					<td>09/17/2026</td>
+					<td>09/18/2026</td>
+					<td>1 days</td>
+		   		</tr>
+    					</tbody>
+	</table>
+</div>
+
+<!-- END: bridging_allianz.html -->
+
+
+
+
+</body>
+</html>
+<!-- end tpl_cetak.html -->

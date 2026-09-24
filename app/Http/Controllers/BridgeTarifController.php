@@ -24,10 +24,10 @@ class BridgeTarifController extends Controller
     public function scan(Request $request)
     {
         $validated = $request->validate(
-            ['file' => 'required|file|mimes:xlsx,xls,csv|max:20480'],
+            ['file' => 'required|file|mimes:xlsx,xls,csv,html,htm|max:20480'],
             [
                 'file.required' => 'File Excel wajib diupload.',
-                'file.mimes' => 'Format file harus .xlsx, .xls, atau .csv.',
+                'file.mimes' => 'Format file harus .xlsx, .xls, atau .csv (termasuk .xls hasil export lama).',
                 'file.max' => 'Ukuran file maksimal 20 MB.',
             ]
         );

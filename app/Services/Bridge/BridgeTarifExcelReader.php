@@ -83,6 +83,17 @@ class BridgeTarifExcelReader
      */
     public static function read(string $path): array
     {
+        // File legacy: tabel HTML berekstensi .xls (hasil export sistem lama).
+        if (BridgeTarifHtmlTable::isHtml($path)) {
+            $extracted = BridgeTarifHtmlTable::extractRows($path);
+
+            return [
+                'headers' => $extracted['headers'],
+                'map' => self::mapHeaderRow($extracted['headers']),
+                'rows' => $extracted['rows'],
+            ];
+        }
+
         $reader = \PhpOffice\PhpSpreadsheet\IOFactory::createReaderForFile($path);
         $reader->setReadDataOnly(true);
         $spreadsheet = $reader->load($path);

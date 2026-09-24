@@ -229,6 +229,69 @@ class BridgeTarifTest extends TestCase
         $response->assertSessionHas('error');
     }
 
+    protected function legacyHtmlFile(array $rows): UploadedFile
+    {
+        $cells = fn (array $r) => '<tr>'.implode('', array_map(fn ($c) => "<td>{$c}</td>", $r)).'</tr>';
+        $html = '<html><body><table>'
+            .'<tr><th>PROVID</th><th>SERVICECODE</th><th>SERVICECODE DESCRIPTION</th>'
+            .'<th>SERVICECODE KELAS</th><th>KELAS</th><th>TARIFF</th><th>NOTE</th></tr>'
+            .implode('', array_map($cells, $rows))
+            .'</table></body></html>';
+        $tmp = tempnam(sys_get_temp_dir(), 'bridge').'.xls';
+        file_put_contents($tmp, $html);
+
+        return new UploadedFile($tmp, 'lama.xls', 'text/html', null, true);
+    }
+
+    public function test_scan_accepts_legacy_html_xls(): void
+    {
+        $response = $this->actingAs($this->user)->post(route('bridge.scan'), ['file' => $this->legacyHtmlFile([
+            ['PRV1', 'OLD-MRI', 'MRI BRAIN', 'OLD-K1', 'KELAS 1', 100000, 'a'],
+            ['PRV1', 'OLD-USG', 'USG ABDOMEN', 'OLD-K1', 'VIP', 1, 'x'],
+        ])]);
+
+        $response->assertOk();
+        $response->assertSee('MATCHED');
+        $response->assertSee('NOT_FOUND');
+    }
+
+    public function test_legacy_html_generate_preserves_other_columns(): void
+    {
+        $response = $this->actingAs($this->user)->post(route('bridge.scan'), ['file' => $this->legacyHtmlFile([
+            ['PRV1', 'OLD-MRI', 'MRI BRAIN', 'OLD-K1', 'KELAS 1', 100000, 'catatan-a'],
+        ])]);
+        $response->assertOk();
+        $token = $this->extractToken($response);
+
+        $gen = $this->actingAs($this->user)->post(route('bridge.generate'), ['token' => $token]);
+        $gen->assertRedirect(route('bridge.download', $token));
+
+        $dl = $this->actingAs($this->user)->get(route('bridge.download', $token));
+        $dl->assertOk();
+
+        $out = tempnam(sys_get_temp_dir(), 'bout').'.xlsx';
+        file_put_contents($out, $dl->streamedContent() ?: $dl->getContent());
+        $sheet = IOFactory::load($out)->getActiveSheet()->toArray(null, true, true, false);
+
+        $row = array_values($sheet[1]);
+        $this->assertSame('MRI001', $row[1]);
+        $this->assertSame('MRI-K1', $row[3]);
+        $this->assertSame('PRV1', $row[0]);
+        $this->assertSame('catatan-a', $row[6]);
+    }
+
+    public function test_scan_rejects_html_without_table(): void
+    {
+        $tmp = tempnam(sys_get_temp_dir(), 'bridge').'.xls';
+        file_put_contents($tmp, '<html><body><p>bukan tabel</p></body></html>');
+        $file = new UploadedFile($tmp, 'lama.xls', 'text/html', null, true);
+
+        $response = $this->actingAs($this->user)->post(route('bridge.scan'), ['file' => $file]);
+
+        $response->assertRedirect();
+        $response->assertSessionHas('error');
+    }
+
     public function test_scan_statuses(): void
     {
         $response = $this->actingAs($this->user)->post(route('bridge.scan'), ['file' => $this->upload([

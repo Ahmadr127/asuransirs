@@ -64,6 +64,7 @@ class BridgeTarifService
     public function scanUpload(UploadedFile $file): array
     {
         $storedPath = $file->store('bridge-inputs');
+        $storedPath = $this->normalizeStored($storedPath);
         $filename = $file->getClientOriginalName();
 
         try {
@@ -84,6 +85,25 @@ class BridgeTarifService
         unset($result['decisions'], $result['headers'], $result['map']);
 
         return array_merge($result, ['token' => $token, 'filename' => $filename]);
+    }
+
+    /**
+     * File legacy berupa tabel HTML berekstensi .xls tidak bisa dibaca
+     * ulang oleh writer saat generate — konversi sekali ke .xlsx asli
+     * agar seluruh alur (scan/resolve/generate) bekerja di atasnya.
+     */
+    protected function normalizeStored(string $storedPath): string
+    {
+        $abs = Storage::path($storedPath);
+        if (! BridgeTarifHtmlTable::isHtml($abs)) {
+            return $storedPath;
+        }
+
+        $rel = (string) preg_replace('/\.[A-Za-z0-9]+$/', '', $storedPath).'.xlsx';
+        BridgeTarifHtmlTable::convertToXlsx($abs, Storage::path($rel));
+        Storage::delete($storedPath);
+
+        return $rel;
     }
 
     /** @return array{path: string, filename: string, resolutions: array} */
