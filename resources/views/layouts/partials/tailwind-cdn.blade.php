@@ -1,0 +1,130 @@
+{{-- Tailwind CDN-only (untuk hosting tanpa Node/build, mis. cPanel).
+     Pengganti resources/css/app.css + vite: token tema didefinisikan di
+     tailwind.config (format v3), component classes via @apply di blok
+     text/tailwindcss yang diproses Play CDN di browser. --}}
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+    tailwind.config = {
+        theme: {
+            extend: {
+                fontFamily: {
+                    sans: ['Nunito', 'ui-sans-serif', 'system-ui', 'sans-serif', 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji'],
+                },
+                colors: {
+                    'sp-primary': '#007774',
+                    'sp-primary-dark': '#006663',
+                    'sp-navy': '#25396f',
+                    'sp-icon': '#7c8db5',
+                    'sp-hover': 'rgba(37, 57, 111, 0.05)',
+                    'sp-submenu-hover': '#f0f1f5',
+                },
+                boxShadow: {
+                    'sp-active': '0 4px 12px rgba(0, 119, 116, 0.2)',
+                },
+            },
+        },
+    };
+</script>
+<style type="text/tailwindcss">
+    @layer base {
+        /* Compact scale yang sama dengan sidebar Simmutu (1rem = 12px) */
+        html {
+            font-size: 75%;
+        }
+        [x-cloak] {
+            display: none !important;
+        }
+    }
+
+    @layer components {
+        /* Brand (Simmutu header font) */
+        .sidebar-brand-text {
+            @apply text-[1.7rem] font-bold text-sp-navy;
+        }
+
+        /* Group titles (Simmutu: 1rem, 1.5rem/1rem margins) */
+        .sidebar-title {
+            @apply px-4 mt-6 mb-4 text-[1rem] font-semibold text-sp-navy;
+        }
+
+        /* Main links & dropdown buttons (Simmutu: 0.75rem 1rem, 0.95rem) */
+        .sidebar-link,
+        .sidebar-btn {
+            @apply flex items-center gap-3 py-3 px-4 text-sp-navy text-[0.95rem] font-semibold rounded-lg transition-all duration-150;
+        }
+
+        .sidebar-btn {
+            @apply font-sans text-left;
+        }
+
+        /* Icon box (Simmutu: 24px box, 1.2rem glyph) */
+        .sidebar-icon {
+            width: 1.5rem;
+            height: 1.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+
+        .sidebar-link i,
+        .sidebar-btn i {
+            @apply text-sp-icon text-[1.2rem] leading-none transition-all duration-150;
+        }
+
+        .sidebar-link:hover,
+        .sidebar-btn:hover {
+            @apply bg-sp-hover text-sp-primary;
+        }
+
+        .sidebar-link:hover i,
+        .sidebar-btn:hover i {
+            @apply text-sp-primary scale-110;
+        }
+
+        .sidebar-link.active,
+        .sidebar-btn.active {
+            @apply bg-sp-primary text-white shadow-sp-active;
+        }
+
+        .sidebar-link.active i,
+        .sidebar-btn.active i {
+            @apply text-white;
+        }
+
+        /* Submenu (Simmutu: 0.6rem 1.7rem, 0.85rem) */
+        .sidebar-submenu a {
+            @apply flex items-center gap-3 px-[1.7rem] py-[0.6rem] my-[0.2rem] text-sp-navy text-[0.85rem] font-semibold tracking-wide rounded-lg transition-all duration-200;
+        }
+
+        .sidebar-submenu a i {
+            @apply text-sp-icon text-[1rem] transition-colors duration-200;
+        }
+
+        .sidebar-submenu a:hover {
+            @apply bg-sp-submenu-hover text-sp-primary;
+        }
+
+        .sidebar-submenu a:hover i {
+            @apply text-sp-primary;
+        }
+
+        .sidebar-submenu a.active {
+            @apply bg-sp-primary text-white;
+        }
+
+        .sidebar-submenu a.active i {
+            @apply text-white;
+        }
+
+        /* Chevron indicator */
+        .sidebar-chevron {
+            @apply text-[0.7rem] text-sp-icon;
+        }
+
+        .sidebar-link:hover .sidebar-chevron,
+        .sidebar-btn:hover .sidebar-chevron {
+            @apply text-sp-primary;
+        }
+    }
+</style>
