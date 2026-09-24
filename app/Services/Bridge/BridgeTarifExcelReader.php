@@ -16,6 +16,10 @@ class BridgeTarifExcelReader
 
     public const FIELD_CLASS_NAME = 'CLASSNAME';
 
+    public const FIELD_PROVIDER_CODE = 'PROVIDERCODE';
+
+    public const FIELD_PROVIDER_NAME = 'PROVIDERNAME';
+
     /**
      * Normalisasi nama header: trim, lowercase, buang non-alfanumerik.
      * "SERVICECODE DESCRIPTION" / "ServiceCode_Description" -> "servicecodedescription".
@@ -44,11 +48,18 @@ class BridgeTarifExcelReader
                 continue;
             }
 
+            $hasProvider = str_contains($norm, 'provid');
+            $hasProviderName = $hasProvider && (str_contains($norm, 'name') || str_contains($norm, 'nama'));
+
             $hasServiceCode = str_contains($norm, 'servicecode');
             $hasDesc = str_contains($norm, 'desc');
             $hasKelas = str_contains($norm, 'kelas') || str_contains($norm, 'class') || str_contains($norm, 'kode');
 
-            if ($hasServiceCode && $hasKelas && ! isset($map[self::FIELD_SERVICE_CLASS_CODE])) {
+            if ($hasProvider && $hasProviderName && ! isset($map[self::FIELD_PROVIDER_NAME])) {
+                $map[self::FIELD_PROVIDER_NAME] = $index;
+            } elseif ($hasProvider && ! isset($map[self::FIELD_PROVIDER_CODE])) {
+                $map[self::FIELD_PROVIDER_CODE] = $index;
+            } elseif ($hasServiceCode && $hasKelas && ! isset($map[self::FIELD_SERVICE_CLASS_CODE])) {
                 $map[self::FIELD_SERVICE_CLASS_CODE] = $index;
             } elseif ($hasServiceCode && $hasDesc && ! isset($map[self::FIELD_SERVICE_DESCRIPTION])) {
                 $map[self::FIELD_SERVICE_DESCRIPTION] = $index;

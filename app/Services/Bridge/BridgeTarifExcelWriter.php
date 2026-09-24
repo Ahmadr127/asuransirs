@@ -7,6 +7,8 @@ use PhpOffice\PhpSpreadsheet\IOFactory;
 /**
  * Menulis Excel hasil Bridge: struktur + data original dipertahankan,
  * hanya SERVICECODE dan SERVICECODE KELAS yang diganti sesuai mapping.
+ * Kolom PROVID / PROVIDER_NAME yang kosong diisi provider default
+ * (config bridge); sel yang sudah terisi tidak diubah.
  */
 class BridgeTarifExcelWriter
 {
@@ -21,6 +23,10 @@ class BridgeTarifExcelWriter
             $sheet = $spreadsheet->getActiveSheet();
             $codeCol = $map[BridgeTarifExcelReader::FIELD_SERVICE_CODE];
             $classCol = $map[BridgeTarifExcelReader::FIELD_SERVICE_CLASS_CODE];
+            $providerCodeCol = $map[BridgeTarifExcelReader::FIELD_PROVIDER_CODE] ?? null;
+            $providerNameCol = $map[BridgeTarifExcelReader::FIELD_PROVIDER_NAME] ?? null;
+            $defaultProviderCode = trim((string) config('bridge.provider_code'));
+            $defaultProviderName = trim((string) config('bridge.provider_name'));
 
             foreach ($decisions as $excelRow => $decision) {
                 // SERVICECODE hanya diganti untuk row MATCHED; SERVICECODE
@@ -33,6 +39,17 @@ class BridgeTarifExcelWriter
                 }
                 if ($decision['new_class_code'] !== null) {
                     $sheet->setCellValue([$classCol + 1, $excelRow], $decision['new_class_code']);
+                }
+                // PROVID / PROVIDER_NAME kosong -> isi default.
+                if ($providerCodeCol !== null && $defaultProviderCode !== ''
+                    && trim((string) $sheet->getCell([$providerCodeCol + 1, $excelRow])->getValue()) === ''
+                ) {
+                    $sheet->setCellValue([$providerCodeCol + 1, $excelRow], $defaultProviderCode);
+                }
+                if ($providerNameCol !== null && $defaultProviderName !== ''
+                    && trim((string) $sheet->getCell([$providerNameCol + 1, $excelRow])->getValue()) === ''
+                ) {
+                    $sheet->setCellValue([$providerNameCol + 1, $excelRow], $defaultProviderName);
                 }
             }
 

@@ -576,6 +576,40 @@ class BridgeTarifTest extends TestCase
         $this->assertSame('VIP-1', array_values($sheet[2])[3]);
     }
 
+    public function test_generate_fills_empty_provider_columns_with_defaults(): void
+    {
+        $spreadsheet = new Spreadsheet;
+        $spreadsheet->getActiveSheet()->fromArray([
+            ['PROVID', 'PROVIDER_NAME', 'SERVICECODE', 'SERVICECODE DESCRIPTION', 'SERVICECODE KELAS', 'KELAS', 'TARIFF', 'NOTE'],
+            ['', '', 'OLD-MRI', 'MRI BRAIN', 'OLD-K1', 'KELAS 1', 100000, 'a'],
+            ['KEEPME', 'Keep Name', 'OLD-USG', 'USG ABDOMEN', 'OLD-K1', 'VIP', 1, 'x'],
+        ], null, 'A1');
+        $tmp = tempnam(sys_get_temp_dir(), 'bridge').'.xlsx';
+        (new Xlsx($spreadsheet))->save($tmp);
+        $spreadsheet->disconnectWorksheets();
+        $file = new UploadedFile($tmp, 'lama.xlsx', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', null, true);
+
+        $response = $this->actingAs($this->user)->post(route('bridge.scan'), ['file' => $file]);
+        $response->assertRedirect();
+        $token = $this->extractToken($response);
+
+        $gen = $this->actingAs($this->user)->post(route('bridge.generate'), ['token' => $token]);
+        $gen->assertRedirect();
+        $dl = $this->actingAs($this->user)->get(route('bridge.download', $token));
+
+        $out = tempnam(sys_get_temp_dir(), 'bout').'.xlsx';
+        file_put_contents($out, $dl->streamedContent() ?: $dl->getContent());
+        $sheet = IOFactory::load($out)->getActiveSheet()->toArray(null, true, true, false);
+
+        // Kosong -> diisi default; mapping service tetap jalan.
+        $this->assertSame('OAZRA0-000', array_values($sheet[1])[0]);
+        $this->assertSame('RS AZRA', array_values($sheet[1])[1]);
+        $this->assertSame('MRI001', array_values($sheet[1])[2]);
+        // Sudah terisi -> tidak ditimpa.
+        $this->assertSame('KEEPME', array_values($sheet[2])[0]);
+        $this->assertSame('Keep Name', array_values($sheet[2])[1]);
+    }
+
     public function test_search_services_endpoint(): void
     {
         // Satu kata: cocok per kata (kode "MRI001" memuat kata "mri").
