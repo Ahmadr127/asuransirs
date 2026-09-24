@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="csrf-token" content="{{ csrf_token() }}">
-    <title>@yield('title', 'Sistem')</title>
+    <title>@yield('title', 'Bridging Asuransi')</title>
     @vite(['resources/css/app.css', 'resources/js/app.js'])
     <link rel="icon" type="image/x-icon" href="{{ asset('images/logo.png') }}">
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -47,7 +47,7 @@
                 <div class="flex items-center gap-2 overflow-hidden">
                     <img src="{{ asset('images/logo.png') }}" alt="Logo" class="sidebar-brand-logo h-[1.875rem] w-auto object-contain flex-shrink-0">
                     {{-- Use CSS-driven visibility instead of x-show --}}
-                    <span class="sidebar-text sidebar-brand-text truncate">Sistem</span>
+                    <span class="sidebar-text sidebar-brand-text truncate">Bridging Asuransi</span>
                 </div>
             </div>
 
@@ -73,7 +73,7 @@
                 @foreach($menuGroups as $group)
                     @php $visible = array_values(array_filter($group['menus'], $canAccess)); @endphp
                     @if(count($visible) > 0)
-                        <p class="sidebar-title">{{ $group['title'] }}</p>
+                        {{-- <p class="sidebar-title">{{ $group['title'] }}</p> --}}
 
                         @foreach($visible as $item)
                             @if(isset($item['children']))
@@ -145,7 +145,7 @@
                         
                         <div class="hidden sm:block">
                             <h2 class="text-xl font-extrabold text-sp-navy">@yield('title', 'Dashboard')</h2>
-                            <p class="text-sm text-gray-500">Sistem</p>
+                            <p class="text-sm text-gray-500">Bridging Asuransi</p>
                         </div>
                         
                         <!-- Mobile Title -->

@@ -1,6 +1,6 @@
 @extends('layouts.auth')
 
-@section('title', 'Login - Sistem')
+@section('title', 'Login - Bridging A')
 
 @section('content')
 <div class="min-h-screen w-full flex">
@@ -12,8 +12,8 @@
                 <div class="rounded-2xl border border-green-200 bg-white shadow-md p-4 mb-3">
                     <img src="{{ asset('images/logo.png') }}" alt="Logo" class="h-16 object-contain" />
                 </div>
-                <h2 class="text-2xl font-bold text-gray-800">Sistem</h2>
-                <p class="text-sm text-gray-600">Sistem Starterpack</p>
+                <h2 class="text-2xl font-bold text-gray-800">Bridging Asuransi</h2>
+                <p class="text-sm text-gray-600">Bridging Asuransi</p>
             </div>
 
             <!-- Login Card -->
@@ -107,7 +107,7 @@
 
                 <!-- Footer -->
                 <div class="mt-6 text-center text-sm text-gray-500">
-                    <p>© {{ date('Y') }} Sistem. All rights reserved.</p>
+                    <p>© {{ date('Y') }} Bridging Asuransi. All rights reserved.</p>
                 </div>
             </div>
         </div>
@@ -129,10 +129,10 @@
             </div>
 
             <!-- App Name -->
-            <h1 class="text-5xl font-bold mb-4 text-center">Sistem</h1>
-            <p class="text-xl text-green-100 text-center max-w-md">
-                Sistem Starterpack
-            </p>
+            <h1 class="text-5xl font-bold mb-4 text-center">Bridging Asuransi</h1>
+            {{-- <p class="text-xl text-green-100 text-center max-w-md">
+                Bridging Asuransi Starterpack
+            </p> --}}
         </div>
     </div>
 </div>

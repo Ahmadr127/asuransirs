@@ -8,13 +8,13 @@ namespace App\Services\Bridge;
  */
 class BridgeTarifExcelReader
 {
-    public const FIELD_SERVICE_CODE = 'service_code';
+    public const FIELD_SERVICE_CODE = 'SERVICECODE';
 
-    public const FIELD_SERVICE_DESCRIPTION = 'service_description';
+    public const FIELD_SERVICE_DESCRIPTION = 'SERVICEDESCRIPTION';
 
-    public const FIELD_SERVICE_CLASS_CODE = 'service_class_code';
+    public const FIELD_SERVICE_CLASS_CODE = 'SERVICECLASSCODE';
 
-    public const FIELD_CLASS_NAME = 'class_name';
+    public const FIELD_CLASS_NAME = 'CLASSNAME';
 
     /**
      * Normalisasi nama header: trim, lowercase, buang non-alfanumerik.

@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Services\Bridge\BridgeTarifService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 /**
@@ -34,6 +35,7 @@ class BridgeTarifController extends Controller
         try {
             $result = $this->service->scanUpload($validated['file']);
         } catch (\Throwable $e) {
+            Log::warning('Bridge scan gagal: '.$e->getMessage(), ['file' => $validated['file']->getClientOriginalName()]);
             return back()->with('error', 'Scan gagal: '.$e->getMessage())->withInput();
         }
 

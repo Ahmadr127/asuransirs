@@ -18,7 +18,7 @@
 
 return [
     [
-        'title' => 'Menu Utama',
+        // 'title' => 'Menu Utama',
         'menus' => [
             [
                 'label' => 'Dashboard',
@@ -30,7 +30,7 @@ return [
         ],
     ],
     [
-        'title' => 'Pengaturan',
+        // 'title' => 'Pengaturan',
         'menus' => [
             [
                 'label' => 'Pengguna & Akses',
@@ -63,7 +63,7 @@ return [
         ],
     ],
     [
-        'title' => 'Organisasi',
+        // 'title' => 'Organisasi',
         'menus' => [
             [
                 'label' => 'Organisasi',
@@ -89,7 +89,7 @@ return [
         ],
     ],
     [
-        'title' => 'Management Tarif',
+        // 'title' => 'Management Tarif',
         'menus' => [
             [
                 'label' => 'Buku Tarif',
@@ -150,7 +150,7 @@ return [
         ],
     ],
     [
-        'title' => 'Laporan',
+        // 'title' => 'Laporan',
         'menus' => [
             [
                 'label' => 'Audit Log',
