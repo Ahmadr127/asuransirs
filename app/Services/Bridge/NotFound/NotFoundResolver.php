@@ -33,27 +33,12 @@ final class NotFoundResolver
         ?float $effectiveTariff = null,
         int $limit = 20,
     ): array {
-        
-        
-        $core = (string) preg_replace('/\([^)]*\)/u', ' ', $description);
-        $core = trim((string) preg_replace(
-            '/\b(anasthesy|anestesi|anastesi|anesthesi|anasthesi|narkose|sedasi|bius|dokter|operator|bidan|spesialis|dpjp|konsulen)\b.*/ius',
-            '',
-            $core
-        ));
-        if (str_contains($core, ' - ')) {
-            $parts = explode(' - ', $core);
-            $tail = trim((string) end($parts));
-            if ($tail !== '') {
-                $core = $tail;
-            }
-        }
-        $coreMains = array_values(array_filter(
-            BridgeServiceSearch::words($core),
-            fn ($t) => mb_strlen($t) > 2
-        ));
-        // Fallback aman: inti tak dapat ditentukan -> description mentah.
-        $searchDesc = count($coreMains) >= 2 ? $core : $description;
+        // Pola visite + nama dokter ditulis ulang menjadi frasa kanonis
+        // ("VISITE DOKTER SPESIALIS/UMUM") dan dipakai langsung — tanpa
+        // lewat ekstraksi inti (kata "spesialis" sendiri noise di sana).
+        // Bukan pola visite -> ekstraksi inti tindakan seperti semula.
+        $searchDesc = VisiteQueryRule::rewrite($description)
+            ?? $this->coreAction($description);
 
         $services = BridgeServiceSearch::similar($searchDesc, $query, $limit * 2);
         if ($services === [] && $searchDesc !== $description) {
@@ -98,13 +83,17 @@ final class NotFoundResolver
                     === BridgeServiceSearch::normalize($className)
                 ? 1 : 0;
             $tariffDiff = $this->ranker->bestTariffDiff($effectiveTariff, $pair['tariffs'] ?? null);
-            [$descTier, $descMatched, $descExact] = BridgeServiceSearch::rank(
-                $descTokens, (string) ($service['service_description'] ?? '')
+            [$descTier, $descMatched, $descExact] = BridgeServiceSearch::rankCandidate(
+                $descTokens, $searchDesc,
+                (string) ($service['service_code'] ?? ''), $service['service_name'] ?? null,
+                (string) ($service['service_description'] ?? '')
             );
             [$qTier, $qMatched, $qExact] = $queryTokens === []
                 ? [0, 0, false]
-                : BridgeServiceSearch::rank(
-                    $queryTokens, (string) ($service['service_description'] ?? '')
+                : BridgeServiceSearch::rankCandidate(
+                    $queryTokens, (string) $query,
+                    (string) ($service['service_code'] ?? ''), $service['service_name'] ?? null,
+                    (string) ($service['service_description'] ?? '')
                 );
             $ranked[] = [
                 'service_code' => $service['service_code'],
@@ -132,13 +121,17 @@ final class NotFoundResolver
             if (isset($pairedCodes[$key])) {
                 continue;
             }
-            [$descTier, $descMatched, $descExact] = BridgeServiceSearch::rank(
-                $descTokens, (string) ($service['service_description'] ?? '')
+            [$descTier, $descMatched, $descExact] = BridgeServiceSearch::rankCandidate(
+                $descTokens, $searchDesc,
+                (string) ($service['service_code'] ?? ''), $service['service_name'] ?? null,
+                (string) ($service['service_description'] ?? '')
             );
             [$qTier, $qMatched, $qExact] = $queryTokens === []
                 ? [0, 0, false]
-                : BridgeServiceSearch::rank(
-                    $queryTokens, (string) ($service['service_description'] ?? '')
+                : BridgeServiceSearch::rankCandidate(
+                    $queryTokens, (string) $query,
+                    (string) ($service['service_code'] ?? ''), $service['service_name'] ?? null,
+                    (string) ($service['service_description'] ?? '')
                 );
             $ranked[] = [
                 'service_code' => $service['service_code'],
@@ -183,6 +176,36 @@ final class NotFoundResolver
 
             return $row;
         }, array_slice($ranked, 0, $limit));
+    }
+
+    /**
+     * Ekstraksi inti tindakan (logika existing, dipindah utuh dari
+     * suggest() agar bisa dipakai berdampingan dengan aturan visite):
+     * buang (...) nama dokter, potong sejak kata-noise, buang prefix
+     * kategori. Fallback aman: inti tak dapat ditentukan (< 2 token
+     * utama) -> description mentah.
+     */
+    protected function coreAction(string $description): string
+    {
+        $core = (string) preg_replace('/\([^)]*\)/u', ' ', $description);
+        $core = trim((string) preg_replace(
+            '/\b(anasthesy|anestesi|anastesi|anesthesi|anasthesi|narkose|sedasi|bius|dokter|operator|bidan|spesialis|dpjp|konsulen)\b.*/ius',
+            '',
+            $core
+        ));
+        if (str_contains($core, ' - ')) {
+            $parts = explode(' - ', $core);
+            $tail = trim((string) end($parts));
+            if ($tail !== '') {
+                $core = $tail;
+            }
+        }
+        $coreMains = array_values(array_filter(
+            BridgeServiceSearch::words($core),
+            fn ($t) => mb_strlen($t) > 2
+        ));
+
+        return count($coreMains) >= 2 ? $core : $description;
     }
 
 

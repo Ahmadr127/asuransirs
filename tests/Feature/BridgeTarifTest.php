@@ -1204,6 +1204,129 @@ class BridgeTarifTest extends TestCase
         $this->assertEquals(277639, $outRow[5]);
     }
 
+    public function test_search_services_suggest_exact_description_beats_closer_tariff(): void
+    {
+        // ANTEBRACHI: exact description (RAD043, tarif 330rb) harus di atas
+        // partial (RAD044, tarif 430rb) walau presentase tarifnya lebih
+        // rendah (91,25% vs 96,51%) — skor tidak dimanipulasi.
+        $provider = Provider::firstOrCreate(['code' => 'PRV1'], ['name' => 'Provider Satu', 'status' => 'active']);
+        $vvip = ServiceClass::firstOrCreate(['code' => 'KLV2'], ['name' => 'VVIP', 'status' => 'active']);
+        $seed = function (string $code, string $desc, float $tariff) use ($provider, $vvip) {
+            $service = Service::create(['code' => $code, 'name' => $desc, 'description' => $desc, 'status' => 'active']);
+            Tarif::create([
+                'jenis_tarif_id' => $this->jenis->id,
+                'provider_id' => $provider->id,
+                'service_id' => $service->id,
+                'class_id' => $vvip->id,
+                'surgery_type' => null, 'helper' => null, 'tariff' => $tariff,
+                'valid_date_from' => '2024-01-01', 'end_date_to' => '2029-12-31',
+            ]);
+        };
+        $seed('RAD043', 'ANTEBRACHI DEXTRA', 330000);
+        $seed('RAD044', 'ANTEBRACHI DEXTRA / SINISTRA', 430000);
+
+        $res = $this->actingAs($this->user)->getJson(route('bridge.search-services', [
+            'description' => 'ANTEBRACHI DEXTRA [ dokter ]',
+            'class' => 'VVIP',
+            'tariff' => 400000,
+        ]));
+        $res->assertOk();
+        $codes = array_column($res->json('data'), 'service_code');
+
+        $this->assertSame(['RAD043', 'RAD044'], $codes);
+    }
+
+    protected function seedOrtopediCase(): void
+    {
+        $provider = Provider::firstOrCreate(['code' => 'PRV1'], ['name' => 'Provider Satu', 'status' => 'active']);
+        $vvip = ServiceClass::firstOrCreate(['code' => 'KLV2'], ['name' => 'VVIP', 'status' => 'active']);
+        foreach ([
+            ['OKORT-AN', 'Tindakan Reposisi Fraktur', 'Golongan Khusus 1 - Tindakan Medis Bedah Orthopedi - Reposisi Terbuka Dan Fiksasi Interna Fraktur Tulang Panjang - Dokter Anestesi', 6100000],
+            ['OKORT-OP', 'Tindakan Reposisi Fraktur', 'Golongan Khusus 1 - Tindakan Medis Bedah Orthopedi - Reposisi Terbuka Dan Fiksasi Interna Fraktur Tulang Panjang - Dokter Operator', 6000000],
+            ['SPL01', 'Sphincterotomi', 'Golongan Besar Khusus I - Tindakan Medis Operasi Bedah Anak - Sphincterotomi Internal - Dokter Anestesi', 5680000],
+        ] as [$code, $name, $desc, $tariff]) {
+            $service = Service::create(['code' => $code, 'name' => $name, 'description' => $desc, 'status' => 'active']);
+            Tarif::create([
+                'jenis_tarif_id' => $this->jenis->id,
+                'provider_id' => $provider->id,
+                'service_id' => $service->id,
+                'class_id' => $vvip->id,
+                'surgery_type' => null, 'helper' => null, 'tariff' => $tariff,
+                'valid_date_from' => '2024-01-01', 'end_date_to' => '2029-12-31',
+            ]);
+        }
+    }
+
+    public function test_search_services_suggest_doctor_in_parens_pattern(): void
+    {
+        // Varian pola: info dokter dalam (...) bukan [...], tanpa kata
+        // anasthesy — inti tindakan harus tetap ketemu.
+        $this->seedOrtopediCase();
+
+        $res = $this->actingAs($this->user)->getJson(route('bridge.search-services', [
+            'description' => 'BEDAH TULANG / ORTOHOPEDI - Reposisi Terbuka Dan Fiksasi Interna Fraktur Tulang Panjang (Karisa Kartika Sukotjo, dr. Sp. OT)',
+            'class' => 'VVIP',
+            'tariff' => 5600000,
+        ]));
+        $res->assertOk();
+        $codes = array_column($res->json('data'), 'service_code');
+
+        $this->assertSame('OKORT-OP', $codes[0]);
+        $this->assertContains('OKORT-AN', $codes);
+        $this->assertNotContains('SPL01', $codes);
+    }
+
+    public function test_search_services_suggest_visite_rule_by_title_after_dr(): void
+    {
+        // Pola visite + nama dokter ditulis ulang menjadi frasa kanonis:
+        // ada gelar spesialis -> VISITE DOKTER SPESIALIS, tanpa gelar ->
+        // VISITE DOKTER UMUM. Bukan pola visite -> null (logika normal).
+        $this->assertSame(
+            'VISITE DOKTER SPESIALIS',
+            \App\Services\Bridge\NotFound\VisiteQueryRule::rewrite('Visite Puja Laksana Maqbul, dr., Sp.An., FIPM')
+        );
+        $this->assertSame(
+            'VISITE DOKTER UMUM',
+            \App\Services\Bridge\NotFound\VisiteQueryRule::rewrite('Visite Ahmad Yani, dr.')
+        );
+        $this->assertNull(
+            \App\Services\Bridge\NotFound\VisiteQueryRule::rewrite('Infusan NS 500 ml Sanbe')
+        );
+
+        $provider = Provider::firstOrCreate(['code' => 'PRV1'], ['name' => 'Provider Satu', 'status' => 'active']);
+        $vvip = ServiceClass::firstOrCreate(['code' => 'KLV2'], ['name' => 'VVIP', 'status' => 'active']);
+        foreach ([
+            ['VIS-SP', 'Visite Dokter Spesialis'],
+            ['VIS-UM', 'Visite Dokter Umum'],
+        ] as [$code, $desc]) {
+            $service = Service::create(['code' => $code, 'name' => $desc, 'description' => $desc, 'status' => 'active']);
+            Tarif::create([
+                'jenis_tarif_id' => $this->jenis->id,
+                'provider_id' => $provider->id,
+                'service_id' => $service->id,
+                'class_id' => $vvip->id,
+                'surgery_type' => null, 'helper' => null, 'tariff' => 300000,
+                'valid_date_from' => '2024-01-01', 'end_date_to' => '2029-12-31',
+            ]);
+        }
+
+        $sp = $this->actingAs($this->user)->getJson(route('bridge.search-services', [
+            'description' => 'Visite Puja Laksana Maqbul, dr., Sp.An., FIPM',
+            'class' => 'VVIP',
+            'tariff' => 300000,
+        ]));
+        $sp->assertOk();
+        $this->assertSame('VIS-SP', array_column($sp->json('data'), 'service_code')[0]);
+
+        $um = $this->actingAs($this->user)->getJson(route('bridge.search-services', [
+            'description' => 'Visite Ahmad Yani, dr.',
+            'class' => 'VVIP',
+            'tariff' => 300000,
+        ]));
+        $um->assertOk();
+        $this->assertSame('VIS-UM', array_column($um->json('data'), 'service_code')[0]);
+    }
+
     public function test_similar_rejects_midword_substring_despite_like_recall(): void
     {
         // LIKE %operasi% mengenai "Praoperasional", tetapi rank kata = 0
@@ -1390,6 +1513,25 @@ class BridgeTarifTest extends TestCase
         $this->assertSame('AMBIGUOUS', $row['status']);
         $this->assertSame('CT001', $row['suggested']['service_code'] ?? null);
         $this->assertSame('CT001', $row['new_service_code']);
+    }
+
+    public function test_ambiguous_equal_tariff_suggests_top_ranked(): void
+    {
+        // Tarif seri (dua-duanya 100000, tanggal pun sama): saran =
+        // peringkat teratas ranking (CT001), bukan tanggal master.
+        $service = app(BridgeTarifService::class);
+        $path = Storage::path($this->storeRaw([
+            ['PRV1', 'OLD-CT', 'CT SCAN HEAD', 'OLD-K1', 'KELAS 1', 100000, 'b'],
+        ]));
+
+        $result = $service->scanFile($path);
+        $row = $result['preview'][0];
+
+        $this->assertSame('AMBIGUOUS', $row['status']);
+        $this->assertSame('CT001', $row['candidates'][0]['service_code']);
+        $this->assertSame('CT001', $row['suggested']['service_code'] ?? null);
+        $this->assertSame('CT001', $row['new_service_code']);
+        $this->assertStringContainsString('teratas', $row['analysis']);
     }
 
     public function test_ambiguous_without_clear_winner_has_analysis_but_no_suggestion(): void

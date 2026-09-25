@@ -88,15 +88,14 @@ final class AmbiguousRanker
 
     /**
      * Konservatif: saran hanya bila tarif Excel ada, kandidat terbaik
-     * nyaris sama persis (<= 1%) DAN runner-up jelas lebih jauh, serta
-     * tidak menabrak sinyal kelas (best.class >= runner-up.class).
+     * nyaris sama persis (<= 1%), serta tidak menabrak sinyal kelas
+     * (best.class >= runner-up.class).
      * Gap yang dituntut berlapis: cocok PERSIS 0% cukup gap >= 1pp
      * (sinyal penentu, kecuali kandidat lain juga dalam 1%), sedangkan
      * yang hanya dekat (<= 1%) tetap butuh gap >= 5pp.
-     * Seri tarif (selisih sama persis): penentu = tanggal master terbaru
-     * (valid_from maksimal per pair); bila tanggal juga seri/tak ada ->
-     * null = tetap AMBIGUOUS tanpa saran.
-     * Hasil: rekomendasi saja (status scan selalu tetap AMBIGUOUS).
+     * Seri tarif (runner-up juga dalam toleransi 1%): saran = peringkat
+     * TERATAS ranking (deterministik: skor, selisih, kode), bukan tanggal
+     * master. Status scan selalu tetap AMBIGUOUS — saran hanya rekomendasi.
      *
      * @param  array<int, array<string, mixed>>  $ranked  hasil rank()
      * @param  array<string, mixed>  $normalized
@@ -126,47 +125,14 @@ final class AmbiguousRanker
             return $best;
         }
 
-        return $this->newestByMasterDate($ranked, $bestDiff);
-    }
+        // Seri tarif: runner-up juga dalam toleransi -> ambil teratas.
+        if ($secondDiff !== null && $secondDiff <= self::TARIFF_EXACT_TOLERANCE) {
+            $best['_decided_by'] = 'top_rank';
 
-    /**
-     * Tie-break seri tarif: di antara kandidat yang selisih tarifnya SAMA
-     * PERSIS dengan yang terbaik (dan dalam toleransi), pilih SATU yang
-     * tanggal master-nya (valid_from) paling baru. null bila tanggal tak
-     * ada/seri, atau sinyal kelas bertentangan.
-     *
-     * @param  array<int, array<string, mixed>>  $ranked  hasil rank()
-     */
-    protected function newestByMasterDate(array $ranked, float $bestDiff): ?array
-    {
-        $contenders = [];
-        foreach ($ranked as $candidate) {
-            $diff = $candidate['_tariff_diff'] ?? null;
-            if ($diff === null || abs($diff - $bestDiff) > 1e-9) {
-                continue;
-            }
-            $date = trim((string) ($candidate['valid_from'] ?? ''));
-            if ($date === '') {
-                return null;
-            }
-            $contenders[] = $candidate + ['_valid_from' => $date];
+            return $best;
         }
-        if (count($contenders) < 2) {
-            return null;
-        }
-        usort($contenders, fn ($a, $b) => $b['_valid_from'] <=> $a['_valid_from']);
-        if ($contenders[0]['_valid_from'] === $contenders[1]['_valid_from']) {
-            return null;
-        }
-        $winner = $contenders[0];
-        foreach ($contenders as $other) {
-            if (($winner['_class_match'] ?? 0) < ($other['_class_match'] ?? 0)) {
-                return null;
-            }
-        }
-        $winner['_decided_by'] = 'master_date';
 
-        return $winner;
+        return null;
     }
 
     /**
@@ -198,10 +164,8 @@ final class AmbiguousRanker
             $diff = $suggested['_tariff_diff'] ?? null;
             $pct = $diff === null ? '?' : number_format($diff * 100, 2, ',', '.').'%';
             $reason = "selisih tarif {$pct} terhadap tarif efektif Rp ".number_format($excelTariff, 0, ',', '.')." sumber {$sourceLabel}, paling dekat dan gap jelas dari kandidat lain";
-            if (($suggested['_decided_by'] ?? null) === 'master_date') {
-                $date = trim((string) ($suggested['valid_from'] ?? $suggested['_valid_from'] ?? ''));
-                $reason = "tarif seri dengan kandidat lain (selisih {$pct}), dipilih yang periode master terbaru"
-                    .($date !== '' ? " (berlaku sejak {$date})" : '');
+            if (($suggested['_decided_by'] ?? null) === 'top_rank') {
+                $reason = "tarif seri dalam toleransi (selisih {$pct}), diambil peringkat teratas ranking";
             }
 
             return $base."Rekomendasi: {$code} ({$reason}). Rekomendasi ini langsung masuk ke New Code, tetapi status tetap AMBIGUOUS — periksa dan timpa via manual bila tidak setuju.";
