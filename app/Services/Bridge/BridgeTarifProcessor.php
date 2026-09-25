@@ -148,6 +148,33 @@ class BridgeTarifProcessor
             $groups[$key]['tariff_ref'] = $this->summarizeGroupTariffs($groupTariffs[$key] ?? []);
         }
 
+        // Saran NOT_FOUND per grup (sekali per grup, bukan per row):
+        // kandidat mirip description (BridgeServiceSearch) disusun ulang
+        // memakai kelas + tarif efektif grup. 2 query ringan per grup
+        // (recall similarity + pairs tarif); tanpa grup NOT_FOUND maka
+        // tanpa query tambahan sama sekali.
+        foreach ($groups as $key => $group) {
+            if (! ($group['manual'] ?? false)) {
+                continue;
+            }
+            $tariff = $groups[$key]['tariff_ref']['tariff'] ?? null;
+            $kelas = trim((string) ($group['kelas'] ?? ''));
+            $groups[$key]['suggestions'] = $this->resolver->notFound()->suggest(
+                (string) $group['description'],
+                null,
+                $kelas !== '' ? $kelas : null,
+                is_numeric($tariff) ? (float) $tariff : null,
+                10,
+            );
+        }
+
+        // Tempelkan saran grup ke preview row NOT_FOUND untuk modal analisa.
+        foreach ($preview as $i => $row) {
+            if (($row['status'] ?? '') === TarifBridgeResolver::STATUS_NOT_FOUND) {
+                $preview[$i]['suggestions'] = $groups[$row['mapping_key']]['suggestions'] ?? [];
+            }
+        }
+
         // Tandai grup yang sudah dipilih user.
         foreach ($groups as $key => $group) {
             if (isset($resolutions[$key])

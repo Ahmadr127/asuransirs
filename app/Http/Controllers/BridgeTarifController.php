@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Services\Bridge\BridgeServiceSearch;
 use App\Services\Bridge\BridgeTarifService;
+use App\Services\Bridge\NotFound\NotFoundResolver;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
@@ -15,7 +16,10 @@ use Symfony\Component\HttpFoundation\BinaryFileResponse;
  */
 class BridgeTarifController extends Controller
 {
-    public function __construct(protected BridgeTarifService $service) {}
+    public function __construct(
+        protected BridgeTarifService $service,
+        protected NotFoundResolver $notFound,
+    ) {}
 
     public function index()
     {
@@ -156,6 +160,10 @@ class BridgeTarifController extends Controller
      * Cari master service untuk pemetaan manual NOT_FOUND (JSON).
      * Bila description diisi: daftar terurut paling mirip dengan
      * description baris Excel; ketikan user (q) ikut menyaring.
+     * Bila konteks kelas/tarif ikut dikirim (opsional), urutan
+     * disusun ulang oleh NotFoundResolver memakai skor kelas + tarif
+     * dari tabel tarifs — tanpa konteks, perilaku lama dipertahankan
+     * persis (dropdown existing tidak mengirim param ini).
      * Tanpa description: mirip dengan ketikan saja.
      */
     public function searchServices(Request $request): \Illuminate\Http\JsonResponse
@@ -163,11 +171,26 @@ class BridgeTarifController extends Controller
         $validated = $request->validate([
             'q' => 'nullable|string|max:100',
             'description' => 'nullable|string|max:255',
+            'class' => 'nullable|string|max:100',
+            'tariff' => 'nullable|numeric|min:0',
         ]);
         $q = trim((string) ($validated['q'] ?? ''));
         $description = trim((string) ($validated['description'] ?? ''));
+        $class = trim((string) ($validated['class'] ?? ''));
+        $tariff = isset($validated['tariff']) && is_numeric($validated['tariff'])
+            ? (float) $validated['tariff']
+            : null;
 
         if ($description !== '') {
+            if ($class !== '' || $tariff !== null) {
+                return response()->json(['data' => $this->notFound->suggest(
+                    $description,
+                    $q !== '' ? $q : null,
+                    $class !== '' ? $class : null,
+                    $tariff,
+                )]);
+            }
+
             return response()->json(['data' => BridgeServiceSearch::similar($description, $q !== '' ? $q : null)]);
         }
         if (mb_strlen($q) < 2) {

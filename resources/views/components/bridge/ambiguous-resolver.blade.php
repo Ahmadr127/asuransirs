@@ -11,7 +11,8 @@
             <p class="mt-1 text-xs text-gray-500">Terurut relevansi (kelas + tarif Excel).</p>
             <select name="candidate" class="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-sp-primary/20 focus:border-sp-primary transition-colors" required>
                 @foreach($group['candidates'] as $candidate)
-                    <option value="{{ $candidate['service_code'] }}|{{ $candidate['class_code'] }}">{{ $candidate['service_code'] }} | {{ $candidate['service_name'] ?? $candidate['service_code'] }} | {{ $candidate['class_code'] }}@if(!empty($candidate['tariff'])) | Rp {{ number_format((float) $candidate['tariff'], 0, ',', '.') }}@endif</option>
+                    @php $hideName = \App\Services\Bridge\BridgeTarifRowNormalizer::normalizeKey($candidate['service_name'] ?? '') === \App\Services\Bridge\BridgeTarifRowNormalizer::normalizeKey($group['description']); @endphp
+                    <option value="{{ $candidate['service_code'] }}|{{ $candidate['class_code'] }}">{{ $candidate['service_code'] }}@if(!$hideName) | {{ $candidate['service_name'] ?? $candidate['service_code'] }}@endif | {{ $candidate['class_code'] }}@if(!empty($candidate['tariff'])) | Rp {{ number_format((float) $candidate['tariff'], 0, ',', '.') }}@endif</option>
                 @endforeach
             </select>
         </div>

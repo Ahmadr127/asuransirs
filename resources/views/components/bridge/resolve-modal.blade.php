@@ -42,8 +42,12 @@
                                         class="mt-2 w-full px-3 py-1.5 text-sm border border-gray-300 rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-sp-primary/20 focus:border-sp-primary transition-colors">
                                         <option value="">— belum dipilih —</option>
                                         @foreach($group['candidates'] as $candidate)
+                                            {{-- Nama service yang sama persis dengan description grup tidak
+                                                 diulang (sudah tampil sekali di header); hanya nama yang
+                                                 beda yang ditampilkan agar kandidat tetap bisa dibedakan. --}}
+                                            @php $hideName = \App\Services\Bridge\BridgeTarifRowNormalizer::normalizeKey($candidate['service_name'] ?? '') === \App\Services\Bridge\BridgeTarifRowNormalizer::normalizeKey($group['description']); @endphp
                                             <option value="{{ $candidate['service_code'] }}|{{ $candidate['class_code'] }}"
-                                                @selected(!empty($group['resolved']) && $group['resolved']['service_code'] === $candidate['service_code'] && $group['resolved']['class_code'] === $candidate['class_code'])>{{ $candidate['service_code'] }} | {{ $candidate['service_name'] ?? $candidate['service_code'] }} | {{ $candidate['class_code'] }}@if(!empty($candidate['tariff'])) | Rp {{ number_format((float) $candidate['tariff'], 0, ',', '.') }}@endif</option>
+                                                @selected(!empty($group['resolved']) && $group['resolved']['service_code'] === $candidate['service_code'] && $group['resolved']['class_code'] === $candidate['class_code'])>{{ $candidate['service_code'] }}@if(!$hideName) | {{ $candidate['service_name'] ?? $candidate['service_code'] }}@endif | {{ $candidate['class_code'] }}@if(!empty($candidate['tariff'])) | Rp {{ number_format((float) $candidate['tariff'], 0, ',', '.') }}@endif</option>
                                         @endforeach
                                     </select>
                                 </div>
@@ -66,6 +70,17 @@
                                         <p class="mt-1 text-xs text-gray-600"><i class="bi bi-calculator"></i> Tarif efektif (pembanding): <span class="font-mono font-semibold">{{ $group['tariff_ref']['label'] }}</span></p>
                                     @else
                                         <p class="mt-1 text-xs text-gray-400"><i class="bi bi-calculator"></i> Tanpa referensi tarif efektif.</p>
+                                    @endif
+                                    @if(!empty($group['suggestions']))
+                                        <div class="mt-2 border border-gray-200 rounded-md bg-white overflow-hidden">
+                                            <p class="px-2.5 py-1 text-[11px] font-semibold text-gray-500 bg-gray-50 border-b border-gray-200">Saran (klik untuk memilih):</p>
+                                            @foreach(array_slice($group['suggestions'], 0, 10) as $sug)
+                                                <button type="button" data-rm-item
+                                                    data-code="{{ $sug['service_code'] }}"
+                                                    data-name="{{ $sug['service_description'] ?? $sug['service_name'] ?? $sug['service_code'] }}"
+                                                    class="block w-full text-left px-2.5 py-1.5 text-xs hover:bg-blue-50 focus:bg-blue-50 focus:outline-none border-b border-gray-100 last:border-0">{{ $sug['service_code'] }} | {{ $sug['service_description'] ?? $sug['service_name'] ?? $sug['service_code'] }}@if(!empty($sug['class_name'] ?? $sug['class_code'] ?? null)) <span class="text-gray-400">({{ $sug['class_name'] ?? $sug['class_code'] }}@if(!empty($sug['tariff'])) • Rp {{ number_format((float) $sug['tariff'], 0, ',', '.') }}@endif)</span>@endif</button>
+                                            @endforeach
+                                        </div>
                                     @endif
                                     <input type="hidden" name="rows[{{ $rowIndex }}][key]" value="{{ $key }}">
                                     <input type="hidden" name="rows[{{ $rowIndex }}][candidate]" value="{{ $resolvedCode !== '' ? $resolvedCode.'|' : '' }}" data-rm-candidate>
@@ -161,9 +176,9 @@
                     b.type = 'button';
                     b.className = 'block w-full text-left px-3 py-1.5 text-sm hover:bg-blue-50 focus:bg-blue-50 focus:outline-none';
                     b.dataset.code = it.service_code;
-                    b.dataset.name = it.service_name || '';
-                    const descText = it.service_description ? ' — ' + it.service_description : '';
-                    b.textContent = it.service_code + ' | ' + (it.service_name || it.service_code) + descText;
+                    // Hanya DESCRIPTION (service_name sering duplikat).
+                    b.dataset.name = it.service_description || it.service_name || '';
+                    b.textContent = it.service_code + ' | ' + (it.service_description || it.service_name || it.service_code);
                     b.setAttribute('data-rm-item', '');
                     list.appendChild(b);
                 });
@@ -178,7 +193,13 @@
     }
 
     // Klik/fokus: langsung tampilkan kandidat paling mirip description.
+    // Pindah fokus ke input/select lain menutup dulu daftar saran yang
+    // masih terbuka di grup lain.
     document.addEventListener('focusin', e => {
+        const here = e.target.closest ? e.target.closest('[data-rm-root]') : null;
+        document.querySelectorAll('[data-rm-list]').forEach(l => {
+            if (!here || !here.contains(l)) l.classList.add('hidden');
+        });
         const input = e.target.closest('[data-rm-input]');
         if (!input) return;
         const root = input.closest('[data-rm-root]');

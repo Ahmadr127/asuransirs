@@ -38,6 +38,13 @@
             'tariff_source_label' => \App\Services\Bridge\BridgeTarifEffectiveTariff::sourceLabel($effSource),
             'total_billed' => isset($row['total_billed']) && is_numeric($row['total_billed']) ? (float) $row['total_billed'] : null,
             'quantity' => isset($row['quantity']) && is_numeric($row['quantity']) ? (float) $row['quantity'] : null,
+            'suggestions' => array_map(fn ($s) => [
+                'service_code' => $s['service_code'] ?? '-',
+                'service_description' => $s['service_description'] ?? $s['service_name'] ?? null,
+                'class_code' => $s['class_code'] ?? null,
+                'class_name' => $s['class_name'] ?? null,
+                'tariff' => isset($s['tariff']) && is_numeric($s['tariff']) ? (float) $s['tariff'] : null,
+            ], array_slice($row['suggestions'] ?? [], 0, 10)),
             'mapping_key' => $row['mapping_key'] ?? '',
             'new_class_code' => $row['new_class_code'] ?? null,
             'analysis' => $row['analysis'] ?? null,
@@ -174,6 +181,16 @@
                 + renderCompares(d.candidates, d.suggested) + '</div>';
         } else if (d.status === 'NOT_FOUND') {
             html += '<div class="text-xs bg-red-50 border border-red-200 rounded-md p-2.5">Kode kelas master untuk baris ini: <span class="font-mono font-bold">' + esc(d.new_class_code || '(tidak dikenali — ikut bawaan Excel)') + '</span>. Cari service yang benar lewat “Petakan Manual” (ketik ≥ 2 huruf untuk menyaring, klik untuk saran paling mirip description) dan gunakan tarif efektif <span class="font-mono font-bold">' + esc(effectiveLabel(d)) + '</span> sebagai pembanding.</div>';
+            if (d.suggestions && d.suggestions.length) {
+                html += '<div><p class="text-xs font-semibold text-gray-600 mb-1">Rekomendasi (' + d.suggestions.length + ')</p><div class="border border-gray-200 rounded-md overflow-hidden">';
+                d.suggestions.forEach(function (s) {
+                    html += '<div class="px-2.5 py-1.5 text-xs border-b border-gray-100 last:border-0">'
+                        + '<span class="font-mono font-semibold">' + esc(s.service_code) + '</span> | ' + esc(s.service_description || s.service_code)
+                        + ((s.class_name || s.class_code) ? ' <span class="text-gray-400">(' + esc(s.class_name || s.class_code) + (s.tariff !== null && s.tariff !== undefined ? ' • ' + esc(rupiah(s.tariff)) : '') + ')</span>' : '')
+                        + '</div>';
+                });
+                html += '</div><p class="mt-1 text-[11px] text-gray-500">Pilih salah satunya di “Petakan Manual” bila setuju.</p></div>';
+            }
         }
         return html + '</div>';
     }

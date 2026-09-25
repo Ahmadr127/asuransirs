@@ -20,9 +20,9 @@ use App\Models\Service;
  *   operasi%'") dan tidak menentukan urutan. Pipeline:
  *   description -> hapus [...] -> normalize -> tokenize ->
  *   SQL broad recall -> rank PHP -> filter threshold -> sort -> LIMIT.
- * - Ranking (relevance) dihitung di PHP per kandidat:
- *     5 = exact: salah satu field (kode/nama/deskripsi) sama persis
- *         dengan query setelah normalisasi
+ * - Ranking (relevance) dihitung di PHP per kandidat, HANYA terhadap
+ *   DESCRIPTION master (nama tidak ikut; kode hanya data hasil):
+ *     5 = exact: description sama persis dengan query setelah normalisasi
  *     4 = frasa query muncul persis berurutan, atau semua token
  *         ditemukan dan berurutan (query 1 kata yang cocok = tier ini)
  *     3 = semua token ditemukan tetapi tidak berurutan
@@ -38,7 +38,11 @@ use App\Models\Service;
  *   sekunder.
  * - Cocok per token = sama persis atau prefix (salah satu mengawali
  *   yang lain, mis. "mri" ~ "mri001"). Substring tengah ("tas" di
- *   "instalasi", "antebrachi" vs "anestesi") TIDAK dihitung.
+ *   "instalasi", "antebrachi" vs "anestesi") TIDAK dihitung. Kata
+ *   1 huruf di sisi data diabaikan; bila query memuat token utama
+ *   (> 2 huruf), kandidat wajib cocok minimal satu token utama —
+ *   token pendek ("II") hanya bonus, dan dikeluarkan dari recall
+ *   LIKE bila ada token utama.
  *
  * Catatan performa (PostgreSQL, 13rb+ service): prefilter hanya
  * mengambil max 500 kandidat dalam SATU query (bukan per token/
@@ -119,7 +123,15 @@ class BridgeServiceSearch
         }
 
         $normHay = self::normalize($haystack);
-        $hayWords = $normHay === '' ? [] : explode(' ', $normHay);
+        // Kata 1 huruf di sisi data diabaikan (simetris dengan words()
+        // yang membuang token 1 huruf di sisi query): artefak seperti
+        // "s" dari "Ladd's" tidak boleh mem-prefix-match semua token.
+        $hayWords = $normHay === ''
+            ? []
+            : array_values(array_filter(
+                explode(' ', $normHay),
+                fn ($w) => mb_strlen($w) >= 2
+            ));
         $total = count($queryTokens);
 
         // Frasa query muncul persis berurutan dengan batas kata.
@@ -135,6 +147,7 @@ class BridgeServiceSearch
         $matched = 0;
         $hasExact = false;
         $positions = [];
+        $matchedTokens = [];
         foreach ($queryTokens as $token) {
             $foundAt = null;
             foreach ($hayWords as $i => $word) {
@@ -151,10 +164,33 @@ class BridgeServiceSearch
                 continue;
             }
             $matched++;
+            $matchedTokens[] = $token;
             $positions[] = $foundAt;
         }
 
         if ($matched === 0) {
+            return [0, 0, false];
+        }
+
+        // Token pendek (<= 2 huruf, mis. "II") hanya bonus: bila query
+        // memuat token utama (> 2 huruf, mis. SURSHIELD/SURFLO/SAFETY),
+        // kandidat wajib cocok minimal satu token utama. Tanpa ini,
+        // "SURSHIELD SURFLO II SAFETY" menampilkan baris yang hanya
+        // cocok "II" ~ "III". Bila seluruh token pendek (mis. query
+        // "AB 12"), aturan ini dilewati seperti behavior lama.
+        $hasMainMatch = false;
+        $hasMainToken = false;
+        foreach ($queryTokens as $token) {
+            if (mb_strlen($token) <= 2) {
+                continue;
+            }
+            $hasMainToken = true;
+            if (in_array($token, $matchedTokens, true)) {
+                $hasMainMatch = true;
+                break;
+            }
+        }
+        if ($hasMainToken && ! $hasMainMatch) {
             return [0, 0, false];
         }
 
@@ -175,8 +211,13 @@ class BridgeServiceSearch
     }
 
     /**
-     * Rank satu kandidat (kode/nama/deskripsi) terhadap query mentah.
-     * Tier 5 bila salah satu field sama persis dengan query setelah
+     * Rank satu kandidat terhadap query mentah, HANYA berdasarkan
+     * DESCRIPTION master (mode NOT_FOUND). service_name tidak dipakai
+     * agar nama generik ("... III") tidak mengangkat kandidat tak
+     * relevan; code hanya data hasil (tetap dikembalikan, tidak
+     * diranking). $code/$name dipertahankan di signature untuk
+     * kompatibilitas pemanggil.
+     * Tier 5 bila description sama persis dengan query setelah
      * normalisasi (mis. description "Steri Green S-22 75x75" vs master
      * "Steri Green S 22 75x75" — keduanya ternormalisasi identik).
      *
@@ -186,15 +227,11 @@ class BridgeServiceSearch
     public static function rankCandidate(array $queryTokens, string $queryRaw, string $code, ?string $name, ?string $description): array
     {
         $normQuery = self::normalize($queryRaw);
-        if ($normQuery !== '') {
-            foreach ([$code, (string) $name, (string) $description] as $field) {
-                if (self::normalize($field) === $normQuery) {
-                    return [self::TIER_EXACT, count($queryTokens), true];
-                }
-            }
+        if ($normQuery !== '' && self::normalize((string) $description) === $normQuery) {
+            return [self::TIER_EXACT, count($queryTokens), true];
         }
 
-        return self::rank($queryTokens, $code.' '.($name ?? '').' '.($description ?? ''));
+        return self::rank($queryTokens, (string) $description);
     }
 
     /**
@@ -315,6 +352,9 @@ class BridgeServiceSearch
      * Recall pool: baris yang mengandung SALAH SATU token (OR) — hanya
      * untuk recall, urutan ditentukan rank(). Bila $andTokens diisi,
      * kandidat juga wajib mengandung salah satu tokennya.
+     * Token pendek (<= 2 huruf, mis. "II") dikeluarkan dari recall bila
+     * ada token utama: LIKE '%ii%' mengenai ribuan baris dan bisa
+     * mendesak kandidat relevan keluar dari pool 500.
      *
      * @param  array<int, string>  $orTokens
      * @param  array<int, string>|null  $andTokens
@@ -322,6 +362,17 @@ class BridgeServiceSearch
      */
     protected static function prefilter(array $orTokens, ?array $andTokens = null)
     {
+        $long = array_values(array_filter($orTokens, fn ($t) => mb_strlen($t) > 2));
+        if ($long !== []) {
+            $orTokens = $long;
+        }
+        if ($andTokens !== null) {
+            $longAnd = array_values(array_filter($andTokens, fn ($t) => mb_strlen($t) > 2));
+            if ($longAnd !== []) {
+                $andTokens = $longAnd;
+            }
+        }
+
         $query = Service::query();
         $query->where(function ($w) use ($orTokens) {
             foreach (array_slice($orTokens, 0, 6) as $token) {

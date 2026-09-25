@@ -866,6 +866,291 @@ class BridgeTarifTest extends TestCase
         $this->assertSame(['ANT01'], $codes);
     }
 
+    public function test_similar_surshield_case_insensitive_and_rejects_short_token_noise(): void
+    {
+        // Kasus laporan: description Excel vs kandidat Surshield + noise
+        // "III" (nama) dan "Ladd's Procedure" (artefak 1-huruf "s").
+        foreach ([
+            ['SUR20', 'Surshield Surflo II Safety', 'Surshield Surflo II Safety No. 20 Depot (Abocat 20) - JS'],
+            ['SUR18', 'Surshield Surflo II Safety', 'Surshield Surflo II Safety No. 18 (Abocat 18)'],
+            ['SUR22', 'Surshield Surflo II Safety', "Surshield Surflo II Safety No. 22'25 (Abocat 22)"],
+            ['OKANK-A-043-016', 'Golongan Besar Khusus III', 'Tindakan Medis Operasi Bedah Anak'],
+            ['LADD01', "Ladd's Procedure", "Ladd's Procedure"],
+        ] as [$code, $name, $desc]) {
+            Service::create(['code' => $code, 'name' => $name, 'description' => $desc, 'status' => 'active']);
+        }
+        $excelDesc = "Surshield Surflo II Safety No. 20'32 (TM061)";
+
+        // Mode default (klik tanpa mengetik): kandidat relevan terurut,
+        // noise tidak tampil.
+        $res = $this->actingAs($this->user)->getJson(route('bridge.search-services', [
+            'description' => $excelDesc,
+        ]));
+        $res->assertOk();
+        $this->assertSame(
+            ['SUR20', 'SUR18', 'SUR22'],
+            array_column($res->json('data'), 'service_code')
+        );
+
+        // Case variants pada q HARUS menghasilkan hasil identik.
+        $lists = [];
+        foreach ([
+            'surshield surflo safety',
+            'SURSHIELD SURFLO SAFETY',
+            'Surshield Surflo Safety',
+            'SuRsHiElD SuRfLo SaFeTy',
+        ] as $q) {
+            $r = $this->actingAs($this->user)->getJson(route('bridge.search-services', [
+                'description' => $excelDesc,
+                'q' => $q,
+            ]));
+            $r->assertOk();
+            $lists[$q] = array_column($r->json('data'), 'service_code');
+        }
+        $this->assertSame(
+            ['SUR20', 'SUR18', 'SUR22'],
+            $lists['surshield surflo safety']
+        );
+        $this->assertSame($lists['surshield surflo safety'], $lists['SURSHIELD SURFLO SAFETY']);
+        $this->assertSame($lists['surshield surflo safety'], $lists['Surshield Surflo Safety']);
+        $this->assertSame($lists['surshield surflo safety'], $lists['SuRsHiElD SuRfLo SaFeTy']);
+
+        // Query lengkap dengan "II": kandidat II/III-only tidak ikut.
+        $full = $this->actingAs($this->user)->getJson(route('bridge.search-services', [
+            'description' => $excelDesc,
+            'q' => 'SURSHIELD SURFLO II SAFETY',
+        ]));
+        $full->assertOk();
+        $fullCodes = array_column($full->json('data'), 'service_code');
+        $this->assertContains('SUR20', $fullCodes);
+        $this->assertContains('SUR18', $fullCodes);
+        $this->assertContains('SUR22', $fullCodes);
+        $this->assertNotContains('OKANK-A-043-016', $fullCodes);
+        $this->assertNotContains('LADD01', $fullCodes);
+    }
+
+    public function test_search_services_suggest_ranks_by_class_and_tariff(): void
+    {
+        $provider = Provider::firstOrCreate(['code' => 'PRV1'], ['name' => 'Provider Satu', 'status' => 'active']);
+        $makeService = fn (string $code, string $name, string $desc) => Service::create([
+            'code' => $code, 'name' => $name, 'description' => $desc, 'status' => 'active',
+        ]);
+        $makeClass = fn (string $code, string $name) => ServiceClass::firstOrCreate(
+            ['code' => $code], ['name' => $name, 'status' => 'active']
+        );
+        $makeTarif = function ($service, $class, float $amount) use ($provider) {
+            return Tarif::create([
+                'jenis_tarif_id' => $this->jenis->id,
+                'provider_id' => $provider->id,
+                'service_id' => $service->id,
+                'class_id' => $class->id,
+                'surgery_type' => null, 'helper' => null, 'tariff' => $amount,
+                'valid_date_from' => '2024-01-01', 'end_date_to' => '2029-12-31',
+            ]);
+        };
+
+        $sug1 = $makeService('SUG1', 'Infusan NS', 'Infusan NS 500 ml Sanbe');
+        $sug2 = $makeService('SUG2', 'Infusan NS', 'Infusan NS 500 ml Otsuka');
+        $vvip = $makeClass('KLV2', 'VVIP');
+        $kelas3 = $makeClass('KLS3', 'KELAS 3');
+        $makeTarif($sug1, $vvip, 36053);
+        $makeTarif($sug1, $kelas3, 30000);
+        $makeTarif($sug2, $vvip, 50000);
+
+        // Konteks VVIP + 36053: pasangan kelas cocok + tarif persis teratas.
+        $res = $this->actingAs($this->user)->getJson(route('bridge.search-services', [
+            'description' => 'Infusan NS 500 ml',
+            'class' => 'VVIP',
+            'tariff' => 36053,
+        ]));
+        $res->assertOk();
+        $data = $res->json('data');
+        $this->assertNotEmpty($data);
+        $this->assertSame('SUG1', $data[0]['service_code']);
+        $this->assertSame('KLV2', $data[0]['class_code']);
+        $this->assertEquals(36053, $data[0]['tariff']);
+        $this->assertSame('SUG2', $data[1]['service_code']);
+
+        // Konteks KELAS 3 + 30000: pasangan kelas lain naik ke teratas.
+        $res2 = $this->actingAs($this->user)->getJson(route('bridge.search-services', [
+            'description' => 'Infusan NS 500 ml',
+            'class' => 'KELAS 3',
+            'tariff' => 30000,
+        ]));
+        $res2->assertOk();
+        $data2 = $res2->json('data');
+        $this->assertSame('SUG1', $data2[0]['service_code']);
+        $this->assertSame('KLS3', $data2[0]['class_code']);
+
+        // Tanpa konteks: perilaku lama persis (urutan similar, tanpa
+        // field kelas/tarif).
+        $plain = $this->actingAs($this->user)->getJson(route('bridge.search-services', [
+            'description' => 'Infusan NS 500 ml',
+        ]));
+        $plain->assertOk();
+        $plainData = $plain->json('data');
+        $this->assertSame(['SUG1', 'SUG2'], array_column($plainData, 'service_code'));
+        $this->assertArrayNotHasKey('tariff', $plainData[0]);
+        $this->assertArrayNotHasKey('class_code', $plainData[0]);
+    }
+
+    public function test_notfound_group_carries_suggestions_to_modal_and_manual(): void
+    {
+        $provider = Provider::firstOrCreate(['code' => 'PRV1'], ['name' => 'Provider Satu', 'status' => 'active']);
+        $sug1 = Service::create(['code' => 'SUG1', 'name' => 'Infusan NS', 'description' => 'Infusan NS 500 ml Sanbe', 'status' => 'active']);
+        $sug2 = Service::create(['code' => 'SUG2', 'name' => 'Infusan NS', 'description' => 'Infusan NS 500 ml Otsuka', 'status' => 'active']);
+        $vvip = ServiceClass::firstOrCreate(['code' => 'KLV2'], ['name' => 'VVIP', 'status' => 'active']);
+        $kelas3 = ServiceClass::firstOrCreate(['code' => 'KLS3'], ['name' => 'KELAS 3', 'status' => 'active']);
+        foreach ([[$sug1, $vvip, 36053], [$sug1, $kelas3, 30000], [$sug2, $vvip, 50000]] as [$svc, $cls, $amount]) {
+            Tarif::create([
+                'jenis_tarif_id' => $this->jenis->id,
+                'provider_id' => $provider->id,
+                'service_id' => $svc->id,
+                'class_id' => $cls->id,
+                'surgery_type' => null, 'helper' => null, 'tariff' => $amount,
+                'valid_date_from' => '2024-01-01', 'end_date_to' => '2029-12-31',
+            ]);
+        }
+
+        $result = $this->scanRows([
+            ['PRV1', 'OLD-A', 'Infusan NS 500 ml', 'OLD-K1', 'VVIP', '', 36053, 1, 'a'],
+        ], $this->headerExt());
+
+        $this->assertSame(1, $result['summary']['not_found']);
+        $group = $result['groups']['INFUSAN NS 500 ML|VVIP'];
+        $this->assertTrue($group['manual']);
+        $this->assertNotEmpty($group['suggestions']);
+        $this->assertLessThanOrEqual(10, count($group['suggestions']));
+        $this->assertSame('SUG1', $group['suggestions'][0]['service_code']);
+        $this->assertSame('KLV2', $group['suggestions'][0]['class_code']);
+        // Preview row membawa saran yang sama untuk modal analisa.
+        $this->assertSame('NOT_FOUND', $result['preview'][0]['status']);
+        $this->assertSame('SUG1', $result['preview'][0]['suggestions'][0]['service_code']);
+
+        // Petakan Manual menampilkan saran yang bisa diklik.
+        $token = $this->scanOk([
+            ['PRV1', 'OLD-A', 'Infusan NS 500 ml', 'OLD-K1', 'VVIP', '', 36053, 1, 'a'],
+        ], $this->headerExt());
+        $page = $this->actingAs($this->user)->get(route('bridge.result', $token));
+        $page->assertOk();
+        $page->assertSee('Saran (klik untuk memilih):', false);
+        $page->assertSee('SUG1 | Infusan NS 500 ml Sanbe', false);
+        $page->assertSee('(VVIP • Rp 36.053', false);
+        $page->assertDontSee('(KLV2 • Rp 36.053', false);
+    }
+
+    public function test_search_services_suggest_prefers_relevant_description_over_closer_tariff(): void
+    {
+        // ROW 31: Bedah Tulang vs Splenectomy/Drainase yang tarifnya
+        // justru lebih dekat — description relevan harus tetap di atas.
+        $provider = Provider::firstOrCreate(['code' => 'PRV1'], ['name' => 'Provider Satu', 'status' => 'active']);
+        $vvip = ServiceClass::firstOrCreate(['code' => 'KLV2'], ['name' => 'VVIP', 'status' => 'active']);
+        $seed = function (string $code, string $name, string $desc, float $tariff) use ($provider, $vvip) {
+            $service = Service::create(['code' => $code, 'name' => $name, 'description' => $desc, 'status' => 'active']);
+            Tarif::create([
+                'jenis_tarif_id' => $this->jenis->id,
+                'provider_id' => $provider->id,
+                'service_id' => $service->id,
+                'class_id' => $vvip->id,
+                'surgery_type' => null, 'helper' => null, 'tariff' => $tariff,
+                'valid_date_from' => '2024-01-01', 'end_date_to' => '2029-12-31',
+            ]);
+        };
+        $seed('BEDAH01', 'Tindakan Reposisi Fraktur', 'Reposisi Terbuka Fiksasi Interna Fraktur Tulang', 5900000);
+        $seed('SPL01', 'Splenectomy', 'Splenectomy Bedah Minor', 5680000);
+        $seed('DRA01', 'Drainase Abses', 'Drainase Abses Bedah Skrotum', 5700000);
+
+        $res = $this->actingAs($this->user)->getJson(route('bridge.search-services', [
+            'description' => 'Bedah Tulang Ortohopedi Reposisi Terbuka Fiksasi Interna Fraktur Panjang',
+            'class' => 'VVIP',
+            'tariff' => 5600000,
+        ]));
+        $res->assertOk();
+        $codes = array_column($res->json('data'), 'service_code');
+
+        $this->assertContains('BEDAH01', $codes);
+        $this->assertContains('SPL01', $codes);
+        $this->assertContains('DRA01', $codes);
+        // Walau SPL01/DRA01 tarifnya lebih dekat (1,4%/1,8% vs 5,1%),
+        // BEDAH01 yang description-nya relevan harus teratas.
+        $this->assertSame('BEDAH01', $codes[0]);
+    }
+
+    public function test_search_services_suggest_row31_action_core_beats_closer_tariff(): void
+    {
+        // ROW 31: inti tindakan "Reposisi ... Fraktur Tulang Panjang"
+        // harus menang atas Sphincterotomi yang tarifnya justru lebih
+        // dekat (1,4% vs 6,7%/8,2%).
+        $provider = Provider::firstOrCreate(['code' => 'PRV1'], ['name' => 'Provider Satu', 'status' => 'active']);
+        $vvip = ServiceClass::firstOrCreate(['code' => 'KLV2'], ['name' => 'VVIP', 'status' => 'active']);
+        $seed = function (string $code, string $name, string $desc, float $tariff) use ($provider, $vvip) {
+            $service = Service::create(['code' => $code, 'name' => $name, 'description' => $desc, 'status' => 'active']);
+            Tarif::create([
+                'jenis_tarif_id' => $this->jenis->id,
+                'provider_id' => $provider->id,
+                'service_id' => $service->id,
+                'class_id' => $vvip->id,
+                'surgery_type' => null, 'helper' => null, 'tariff' => $tariff,
+                'valid_date_from' => '2024-01-01', 'end_date_to' => '2029-12-31',
+            ]);
+        };
+        $seed('OKORT-AN', 'Tindakan Reposisi Fraktur', 'Golongan Khusus 1 - Tindakan Medis Bedah Orthopedi - Reposisi Terbuka Dan Fiksasi Interna Fraktur Tulang Panjang - Dokter Anestesi', 6100000);
+        $seed('OKORT-OP', 'Tindakan Reposisi Fraktur', 'Golongan Khusus 1 - Tindakan Medis Bedah Orthopedi - Reposisi Terbuka Dan Fiksasi Interna Fraktur Tulang Panjang - Dokter Operator', 6000000);
+        $seed('SPL01', 'Sphincterotomi', 'Golongan Besar Khusus I - Tindakan Medis Operasi Bedah Anak - Sphincterotomi Internal - Dokter Anestesi', 5680000);
+
+        $res = $this->actingAs($this->user)->getJson(route('bridge.search-services', [
+            'description' => 'BEDAH TULANG / ORTOHOPEDI - Reposisi Terbuka Dan Fiksasi Interna Fraktur Tulang Panjang, anasthesy, (Puja Laksana Maqbul, dr., Sp.An., FIPM)',
+            'class' => 'VVIP',
+            'tariff' => 5600000,
+        ]));
+        $res->assertOk();
+        $codes = array_column($res->json('data'), 'service_code');
+
+        $this->assertContains('OKORT-AN', $codes);
+        $this->assertContains('OKORT-OP', $codes);
+        $this->assertNotContains('SPL01', $codes);
+        // Di antara yang relevan, tarif terdekat (operator, 6jt) teratas.
+        $this->assertSame('OKORT-OP', $codes[0]);
+        $this->assertSame('OKORT-AN', $codes[1]);
+    }
+
+    public function test_search_services_suggest_noise_keywords_share_same_core(): void
+    {
+        // Varian noise (sedasi/operator/narkose dalam parens) harus
+        // bermuara ke inti tindakan yang sama: OKORT teratas, SPL01 hilang.
+        $provider = Provider::firstOrCreate(['code' => 'PRV1'], ['name' => 'Provider Satu', 'status' => 'active']);
+        $vvip = ServiceClass::firstOrCreate(['code' => 'KLV2'], ['name' => 'VVIP', 'status' => 'active']);
+        $seed = function (string $code, string $name, string $desc, float $tariff) use ($provider, $vvip) {
+            $service = Service::create(['code' => $code, 'name' => $name, 'description' => $desc, 'status' => 'active']);
+            Tarif::create([
+                'jenis_tarif_id' => $this->jenis->id,
+                'provider_id' => $provider->id,
+                'service_id' => $service->id,
+                'class_id' => $vvip->id,
+                'surgery_type' => null, 'helper' => null, 'tariff' => $tariff,
+                'valid_date_from' => '2024-01-01', 'end_date_to' => '2029-12-31',
+            ]);
+        };
+        $seed('OKORT-OP', 'Tindakan Reposisi Fraktur', 'Golongan Khusus 1 - Tindakan Medis Bedah Orthopedi - Reposisi Terbuka Dan Fiksasi Interna Fraktur Tulang Panjang - Dokter Operator', 6000000);
+        $seed('SPL01', 'Sphincterotomi', 'Golongan Besar Khusus I - Tindakan Medis Operasi Bedah Anak - Sphincterotomi Internal - Dokter Anestesi', 5680000);
+
+        foreach ([
+            'Reposisi Terbuka Fiksasi Interna Fraktur Tulang dengan sedasi',
+            'Bedah Tulang - Reposisi Terbuka Fiksasi Interna Fraktur, Operator',
+            'Reposisi Terbuka Fiksasi Interna Fraktur Tulang (narkose)',
+        ] as $desc) {
+            $res = $this->actingAs($this->user)->getJson(route('bridge.search-services', [
+                'description' => $desc,
+                'class' => 'VVIP',
+                'tariff' => 5600000,
+            ]));
+            $res->assertOk();
+            $codes = array_column($res->json('data'), 'service_code');
+            $this->assertSame('OKORT-OP', $codes[0], "Gagal untuk description: $desc");
+            $this->assertNotContains('SPL01', $codes, "Noise lolos untuk description: $desc");
+        }
+    }
+
     public function test_similar_rejects_midword_substring_despite_like_recall(): void
     {
         // LIKE %operasi% mengenai "Praoperasional", tetapi rank kata = 0
@@ -877,6 +1162,23 @@ class BridgeTarifTest extends TestCase
         ]));
         $res->assertOk();
         $res->assertExactJson(['data' => []]);
+    }
+
+    public function test_ambiguous_options_hide_name_duplicated_from_group_description(): void
+    {
+        // CT003: nama persis == description grup -> nama tidak diulang.
+        // CT001: nama beda -> nama tetap ditampilkan pembeda.
+        $this->createMaster('CT003', 'CT Kepala', 'CT Scan Kepala X', 'CT-K1', 'KELAS 1');
+
+        $token = $this->scanOk([
+            ['PRV1', 'OLD-CT', 'CT Kepala', 'OLD-K1', 'KELAS 1', 100000, 'b'],
+        ]);
+
+        $page = $this->actingAs($this->user)->get(route('bridge.result', $token));
+        $page->assertOk();
+        $page->assertSee('CT003 | CT-K1 | Rp 100.000', false);
+        $page->assertDontSee('CT003 | CT Kepala', false);
+        $page->assertSee('CT001 | CT SCAN HEAD | CT-K1 | Rp 100.000', false);
     }
 
     public function test_resolve_batch_applies_multiple_groups_at_once(): void
