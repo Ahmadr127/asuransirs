@@ -3,14 +3,15 @@
 namespace App\Services\Bridge\Ambiguous;
 
 /**
- * Application layer AMBIGUOUS: orkestrasi rank -> putuskan.
+ * Application layer AMBIGUOUS: orkestrasi rank -> rekomendasi.
  *
  * Dipakai TarifBridgeResolver saat kandidat > 1:
  *  - rank() selalu dijalankan agar daftar manual terurut paling relevan
  *    (skor kelas + tarif) — bukan lagi urutan kode mentah.
- *  - shouldAutoMatch() konservatif: hanya menang bila tarif Excel cocok
- *    nyaris persis dengan SATU kandidat dan gap jelas. Selebihnya tetap
- *    AMBIGUOUS untuk dipilih manual (tidak ada tebak-tebakan berisiko).
+ *  - shouldAutoMatch() dipakai sebagai REKOMENDASI (suggested), bukan
+ *    keputusan: status scan selalu tetap AMBIGUOUS. Pemenang hanya
+ *    ditampilkan di modal detail analisa + urutan teratas.
+ *  - explain() menghasilkan kalimat analisa untuk modal per baris.
  */
 final class AmbiguousResolver
 {
@@ -39,12 +40,10 @@ final class AmbiguousResolver
         }
 
         $ranked = $this->ranker->rank(array_values($candidates), $normalized);
-        $winner = $this->ranker->shouldAutoMatch($ranked, $normalized);
+        // Rekomendasi saja — tidak pernah mengubah status menjadi MATCHED.
+        $suggested = $this->ranker->shouldAutoMatch($ranked, $normalized);
+        $reason = $this->ranker->explain($ranked, $normalized, $suggested);
 
-        if ($winner !== null) {
-            return AmbiguousResult::autoMatched($winner, $ranked);
-        }
-
-        return AmbiguousResult::stillAmbiguous($ranked);
+        return AmbiguousResult::stillAmbiguous($ranked, $suggested, $reason);
     }
 }

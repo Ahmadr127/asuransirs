@@ -24,7 +24,7 @@ class BridgeTarifProcessor
      */
     public function process(array $rows, array $map, array $resolutions = []): array
     {
-        $summary = ['total' => 0, 'matched' => 0, 'ambiguous' => 0, 'not_found' => 0, 'invalid' => 0];
+        $summary = ['total' => 0, 'matched' => 0, 'ambiguous' => 0, 'not_found' => 0, 'invalid' => 0, 'suggested' => 0];
         /** @var array<string, array{description: string, kelas: string, candidates: array, rows: array<int>, resolved: ?array}> $groups */
         $groups = [];
         $preview = [];
@@ -74,6 +74,11 @@ class BridgeTarifProcessor
                 TarifBridgeResolver::STATUS_NOT_FOUND => $summary['not_found']++,
                 default => $summary['invalid']++,
             };
+            if ($resolved['status'] === TarifBridgeResolver::STATUS_AMBIGUOUS
+                && ! empty($resolved['suggested_applied'])
+            ) {
+                $summary['suggested']++;
+            }
 
             if ($resolved['status'] === TarifBridgeResolver::STATUS_AMBIGUOUS
                 || $resolved['status'] === TarifBridgeResolver::STATUS_NOT_FOUND
@@ -94,6 +99,7 @@ class BridgeTarifProcessor
                 'status' => $resolved['status'],
                 'new_service_code' => $resolved['new_service_code'],
                 'new_class_code' => $resolved['new_class_code'],
+                'suggested_applied' => $resolved['suggested_applied'] ?? false,
             ];
 
             if (count($preview) < self::PREVIEW_LIMIT) {
@@ -101,6 +107,12 @@ class BridgeTarifProcessor
                     'status' => $resolved['status'],
                     'new_service_code' => $resolved['new_service_code'],
                     'new_class_code' => $resolved['new_class_code'],
+                    // Detail analisa per baris untuk modal UI (hanya
+                    // AMBIGUOUS/NOT_FOUND/INVALID yang memakainya).
+                    'candidates' => $resolved['candidates'] ?? [],
+                    'suggested' => $resolved['suggested'] ?? null,
+                    'suggested_applied' => $resolved['suggested_applied'] ?? false,
+                    'analysis' => $resolved['analysis'] ?? null,
                 ]);
             }
         }

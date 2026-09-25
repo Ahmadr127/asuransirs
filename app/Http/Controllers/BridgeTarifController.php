@@ -134,7 +134,7 @@ class BridgeTarifController extends Controller
 
         if ($generated['unresolved'] > 0) {
             return redirect()->route('bridge.download', $generated['download_token'])
-                ->with('info', 'Masih terdapat '.$generated['unresolved'].' row yang belum memiliki mapping service — row tersebut tetap memakai SERVICECODE dari Excel original (kolom kelas mengikuti master bila ditemukan).');
+                ->with('info', 'Masih terdapat '.$generated['unresolved'].' row yang belum memiliki mapping manual — row AMBIGUOUS yang ada sarannya sudah memakai kode saran, sisanya tetap memakai SERVICECODE dari Excel original (kolom kelas mengikuti master bila ditemukan).');
         }
 
         return redirect()->route('bridge.download', $generated['download_token'])

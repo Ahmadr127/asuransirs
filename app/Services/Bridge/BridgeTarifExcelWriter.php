@@ -7,13 +7,15 @@ use PhpOffice\PhpSpreadsheet\IOFactory;
 /**
  * Menulis Excel hasil Bridge: struktur + data original dipertahankan,
  * hanya SERVICECODE dan SERVICECODE KELAS yang diganti sesuai mapping.
- * Kolom PROVID / PROVIDER_NAME yang kosong diisi provider default
- * (config bridge); sel yang sudah terisi tidak diubah.
+ * SERVICECODE diganti untuk row MATCHED + row AMBIGUOUS yang sarannya
+ * langsung dimasukkan (suggested_applied). Kolom PROVID / PROVIDER_NAME
+ * yang kosong diisi provider default (config bridge); sel yang sudah
+ * terisi tidak diubah.
  */
 class BridgeTarifExcelWriter
 {
     /**
-     * @param  array<int, array{status: string, new_service_code: ?string, new_class_code: ?string}>  $decisions  excel_row => keputusan
+     * @param  array<int, array{status: string, new_service_code: ?string, new_class_code: ?string, suggested_applied?: bool}>  $decisions  excel_row => keputusan
      * @param  array<string, int>  $map  field => index kolom
      */
     public static function write(string $inputPath, string $outputPath, array $decisions, array $map): void
@@ -29,10 +31,12 @@ class BridgeTarifExcelWriter
             $defaultProviderName = trim((string) config('bridge.provider_name'));
 
             foreach ($decisions as $excelRow => $decision) {
-                // SERVICECODE hanya diganti untuk row MATCHED; SERVICECODE
-                // KELAS diganti kapan pun kode master-nya ketemu (termasuk
-                // row yang service-nya masih AMBIGUOUS/NOT_FOUND).
-                if ($decision['status'] === TarifBridgeResolver::STATUS_MATCHED
+                // SERVICECODE diganti untuk row MATCHED + row AMBIGUOUS
+                // yang sarannya langsung dimasukkan; SERVICECODE KELAS
+                // diganti kapan pun kode master-nya ketemu (termasuk row
+                // yang service-nya masih AMBIGUOUS/NOT_FOUND).
+                if (($decision['status'] === TarifBridgeResolver::STATUS_MATCHED
+                        || ! empty($decision['suggested_applied']))
                     && $decision['new_service_code'] !== null
                 ) {
                     $sheet->setCellValue([$codeCol + 1, $excelRow], $decision['new_service_code']);

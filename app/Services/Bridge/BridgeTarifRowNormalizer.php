@@ -41,8 +41,17 @@ class BridgeTarifRowNormalizer
         if ($clean === '' || $clean === '-' || $clean === '.' || $clean === ',') {
             return null;
         }
-        if (str_contains($clean, ',')) {
-            // Format Indonesia: titik = ribuan, koma = desimal.
+        if (str_contains($clean, ',') && str_contains($clean, '.')) {
+            // Kedua pemisah ada: yang paling kanan = desimal.
+            // "1,250,000.00" -> desimal titik; "1.250.000,50" -> desimal koma.
+            if (strrpos($clean, '.') > strrpos($clean, ',')) {
+                $clean = str_replace(',', '', $clean);
+            } else {
+                $clean = str_replace('.', '', $clean);
+                $clean = str_replace(',', '.', $clean);
+            }
+        } elseif (str_contains($clean, ',')) {
+            // Hanya koma: format Indonesia (titik ribuan tak ada).
             $clean = str_replace('.', '', $clean);
             $clean = str_replace(',', '.', $clean);
         } else {

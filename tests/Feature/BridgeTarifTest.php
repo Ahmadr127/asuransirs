@@ -946,6 +946,134 @@ class BridgeTarifTest extends TestCase
         $this->assertLessThanOrEqual(5, $count);
     }
 
+    public function test_ambiguous_stays_ambiguous_with_suggestion_and_analysis(): void
+    {
+        // Bedakan tarif kedua master ambigu agar ada pemenang tarif.
+        $ct2 = Service::where('code', 'CT002')->firstOrFail();
+        Tarif::where('service_id', $ct2->id)->update(['tariff' => 250000]);
+
+        $service = app(BridgeTarifService::class);
+        $path = Storage::path($this->storeRaw([
+            ['PRV1', 'OLD-CT', 'CT SCAN HEAD', 'OLD-K1', 'KELAS 1', 250000, 'b'],
+        ]));
+
+        $result = $service->scanFile($path);
+
+        $this->assertSame(1, $result['summary']['ambiguous']);
+        $this->assertSame(0, $result['summary']['matched']);
+
+        $row = $result['preview'][0];
+        $this->assertSame('AMBIGUOUS', $row['status']);
+        // Kandidat terurut: pemenang tarif di urutan pertama.
+        $this->assertSame('CT002', $row['candidates'][0]['service_code']);
+        // Rekomendasi ada tapi status TETAP ambiguous (tidak auto-matched).
+        $this->assertSame('CT002', $row['suggested']['service_code'] ?? null);
+        // Saran langsung masuk ke new code.
+        $this->assertTrue($row['suggested_applied']);
+        $this->assertSame('CT002', $row['new_service_code']);
+        $this->assertSame('CT-K1', $row['new_class_code']);
+        $this->assertSame(1, $result['summary']['suggested']);
+        $this->assertNotEmpty($row['analysis']);
+        $this->assertStringContainsString('AMBIGUOUS', $row['analysis']);
+    }
+
+    public function test_generate_applies_ambiguous_suggestion_to_output(): void
+    {
+        $ct2 = Service::where('code', 'CT002')->firstOrFail();
+        Tarif::where('service_id', $ct2->id)->update(['tariff' => 250000]);
+
+        $token = $this->scanOk([
+            ['PRV1', 'OLD-CT', 'CT SCAN HEAD', 'OLD-K1', 'KELAS 1', 250000, 'b'],
+        ]);
+
+        $gen = $this->actingAs($this->user)->post(route('bridge.generate'), ['token' => $token]);
+        $gen->assertRedirect(route('bridge.download', $token));
+
+        $dl = $this->actingAs($this->user)->get(route('bridge.download', $token));
+        $dl->assertOk();
+
+        $out = tempnam(sys_get_temp_dir(), 'bout').'.xlsx';
+        file_put_contents($out, $dl->streamedContent() ?: $dl->getContent());
+        $sheet = IOFactory::load($out)->getActiveSheet()->toArray(null, true, true, false);
+        $row = array_values($sheet[1]);
+        $this->assertSame('CT002', $row[1]);
+        $this->assertSame('CT-K1', $row[3]);
+    }
+
+    public function test_ambiguous_exact_tariff_match_suggests_despite_narrow_gap(): void
+    {
+        // Kasus nyata: best cocok persis 0% (36053), runner-up hanya
+        // 4,91pp di belakang (34282) — di bawah gap normal 5pp, tapi
+        // cocok persis cukup dengan gap >= 1pp sehingga ada saran.
+        $ct1 = Service::where('code', 'CT001')->firstOrFail();
+        $ct2 = Service::where('code', 'CT002')->firstOrFail();
+        Tarif::where('service_id', $ct1->id)->update(['tariff' => 36053]);
+        Tarif::where('service_id', $ct2->id)->update(['tariff' => 34282]);
+
+        $service = app(BridgeTarifService::class);
+        $path = Storage::path($this->storeRaw([
+            ['PRV1', 'OLD-CT', 'CT SCAN HEAD', 'OLD-K1', 'KELAS 1', 36053, 'b'],
+        ]));
+
+        $result = $service->scanFile($path);
+        $row = $result['preview'][0];
+
+        $this->assertSame('AMBIGUOUS', $row['status']);
+        $this->assertSame('CT001', $row['suggested']['service_code'] ?? null);
+        $this->assertSame('CT001', $row['new_service_code']);
+    }
+
+    public function test_ambiguous_without_clear_winner_has_analysis_but_no_suggestion(): void
+    {
+        // Kedua master CT bertarif sama (100000) -> seri, tanpa saran.
+        $service = app(BridgeTarifService::class);
+        $path = Storage::path($this->storeRaw([
+            ['PRV1', 'OLD-CT', 'CT SCAN HEAD', 'OLD-K1', 'KELAS 1', 200000, 'b'],
+        ]));
+
+        $result = $service->scanFile($path);
+        $row = $result['preview'][0];
+
+        $this->assertSame('AMBIGUOUS', $row['status']);
+        $this->assertCount(2, $row['candidates']);
+        $this->assertNull($row['suggested']);
+        $this->assertNotEmpty($row['analysis']);
+    }
+
+    public function test_notfound_preview_has_analysis(): void
+    {
+        $service = app(BridgeTarifService::class);
+        $path = Storage::path($this->storeRaw([
+            ['PRV1', 'OLD-USG', 'USG ABDOMEN', 'OLD-K1', 'KELAS 1', 50000, 'c'],
+        ]));
+
+        $result = $service->scanFile($path);
+        $row = $result['preview'][0];
+
+        $this->assertSame('NOT_FOUND', $row['status']);
+        $this->assertSame([], $row['candidates']);
+        $this->assertNotEmpty($row['analysis']);
+        $this->assertStringContainsString('NOT_FOUND', $row['analysis']);
+    }
+
+    public function test_result_page_shows_analysis_buttons(): void
+    {
+        $token = $this->scanOk([
+            ['PRV1', 'OLD-CT', 'CT SCAN HEAD', 'OLD-K1', 'KELAS 1', 200000, 'b'],
+            ['PRV1', 'OLD-USG', 'USG ABDOMEN', 'OLD-K1', 'KELAS 1', 50000, 'c'],
+        ]);
+
+        $page = $this->actingAs($this->user)->get(route('bridge.result', $token));
+        $page->assertOk();
+        $page->assertSee('data-ba-open', false);
+        $page->assertSee('Klik baris berstatus', false);
+        $page->assertSee('data-ba-store', false);
+        $page->assertSee('Perbandingan Kandidat', false);
+        // Tarif Excel terbawa ke store modal analisa.
+        $page->assertSee('200000', false);
+        $page->assertSee('Tarif Excel', false);
+    }
+
     protected function storeRaw(array $rows): string
     {
         $filename = 'bridge-inputs/'.uniqid('raw', true).'.xlsx';

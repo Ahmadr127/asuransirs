@@ -14,8 +14,8 @@
         <x-slot name="title">Hasil Mapping</x-slot>
         <x-slot name="subtitle">{{ $result['filename'] ?? '' }}</x-slot>
         <x-slot name="actions">
-            @if(($result['summary']['matched'] ?? 0) > 0)
-                <form action="{{ route('bridge.generate') }}" method="POST" onsubmit="return confirm('Generate Excel baru? SERVICECODE berubah untuk row MATCHED; SERVICECODE KELAS mengikuti master bila ditemukan.');">
+            @if(($result['summary']['matched'] ?? 0) > 0 || ($result['summary']['suggested'] ?? 0) > 0)
+                <form action="{{ route('bridge.generate') }}" method="POST" onsubmit="return confirm('Generate Excel baru? SERVICECODE berubah untuk row MATCHED + row AMBIGUOUS yang ada sarannya; SERVICECODE KELAS mengikuti master bila ditemukan.');">
                     @csrf
                     <input type="hidden" name="token" value="{{ $result['token'] }}">
                     <button type="submit" class="inline-flex items-center gap-1.5 px-4 py-1.5 text-sm font-semibold text-white rounded-md bg-green-600 hover:bg-green-700 transition-colors">

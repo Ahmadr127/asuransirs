@@ -40,7 +40,7 @@
                                         <option value="">— belum dipilih —</option>
                                         @foreach($group['candidates'] as $candidate)
                                             <option value="{{ $candidate['service_code'] }}|{{ $candidate['class_code'] }}"
-                                                @selected(!empty($group['resolved']) && $group['resolved']['service_code'] === $candidate['service_code'] && $group['resolved']['class_code'] === $candidate['class_code'])>{{ $candidate['service_code'] }} | {{ $candidate['service_name'] ?? $candidate['service_code'] }} | {{ $candidate['class_code'] }} | {{ $candidate['class_name'] ?? $candidate['class_code'] }}</option>
+                                                @selected(!empty($group['resolved']) && $group['resolved']['service_code'] === $candidate['service_code'] && $group['resolved']['class_code'] === $candidate['class_code'])>{{ $candidate['service_code'] }} | {{ $candidate['service_name'] ?? $candidate['service_code'] }} | {{ $candidate['class_code'] }}@if(!empty($candidate['tariff'])) | Rp {{ number_format((float) $candidate['tariff'], 0, ',', '.') }}@endif</option>
                                         @endforeach
                                     </select>
                                 </div>

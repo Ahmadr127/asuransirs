@@ -25,8 +25,15 @@ final class AmbiguousRanker
     /** Toleransi dianggap "sama persis" untuk auto-match (1%). */
     public const TARIFF_EXACT_TOLERANCE = 0.01;
 
-    /** Gap minimal best vs runner-up agar berani auto-match (5pp). */
+    /** Gap minimal best vs runner-up agar berani memberi saran (5pp). */
     public const TARIFF_MIN_GAP = 0.05;
+
+    /**
+     * Gap minimal yang dilonggarkan bila best cocok PERSIS 0% dengan tarif
+     * Excel (1pp): cocok persis adalah sinyal penentu, kecuali kandidat
+     * lain juga berada dalam toleransi 1%.
+     */
+    public const TARIFF_MIN_GAP_WHEN_EXACT = 0.01;
 
     /**
      * Beri skor + metadata (_score, _class_match, _tariff_diff) lalu urutkan.
@@ -78,9 +85,12 @@ final class AmbiguousRanker
     }
 
     /**
-     * Konservatif: auto-match hanya bila tarif Excel ada, kandidat terbaik
-     * nyaris sama persis (<= 1%) DAN runner-up jelas lebih jauh (gap >= 5pp),
-     * serta tidak menabrak sinyal kelas (best.class >= runner-up.class).
+     * Konservatif: saran hanya bila tarif Excel ada, kandidat terbaik
+     * nyaris sama persis (<= 1%) DAN runner-up jelas lebih jauh, serta
+     * tidak menabrak sinyal kelas (best.class >= runner-up.class).
+     * Gap yang dituntut berlapis: cocok PERSIS 0% cukup gap >= 1pp
+     * (sinyal penentu, kecuali kandidat lain juga dalam 1%), sedangkan
+     * yang hanya dekat (<= 1%) tetap butuh gap >= 5pp.
      * Seri (mis. dua master tarif sama) -> null = tetap AMBIGUOUS.
      *
      * @param  array<int, array<string, mixed>>  $ranked  hasil rank()
@@ -105,11 +115,62 @@ final class AmbiguousRanker
         if (($best['_class_match'] ?? 0) < ($second['_class_match'] ?? 0)) {
             return null;
         }
-        if ($secondDiff !== null && ($secondDiff - $bestDiff) < self::TARIFF_MIN_GAP) {
+        $requiredGap = $bestDiff <= 1e-9 ? self::TARIFF_MIN_GAP_WHEN_EXACT : self::TARIFF_MIN_GAP;
+        if ($secondDiff !== null && ($secondDiff - $bestDiff) < $requiredGap) {
             return null;
         }
 
         return $best;
+    }
+
+    /**
+     * Penjelasan analisa (Indonesia) untuk modal detail per baris.
+     * Menyebut jumlah kandidat, sinyal yang dipakai (kelas + tarif),
+     * dan alasan ada/tidaknya rekomendasi.
+     *
+     * @param  array<int, array<string, mixed>>  $ranked  hasil rank()
+     * @param  array<string, mixed>  $normalized
+     * @param  array<string, mixed>|null  $suggested  hasil shouldAutoMatch()
+     */
+    public function explain(array $ranked, array $normalized, ?array $suggested): string
+    {
+        $n = count($ranked);
+        $excelTariff = isset($normalized['tariff']) && is_numeric($normalized['tariff'])
+            ? (float) $normalized['tariff']
+            : null;
+        $base = "Ditemukan {$n} kandidat master dengan description + kelas yang sama setelah normalisasi, sehingga baris ini berstatus AMBIGUOUS dan tidak otomatis dipetakan. ";
+        $base .= 'Kandidat diurutkan berdasarkan kecocokan kode kelas lama Excel (bobot 1,0) dan kedekatan tarif Excel vs tarif master (bobot 2,0). ';
+
+        if ($excelTariff === null || $excelTariff <= 0) {
+            return $base.'Kolom TARIFF pada baris Excel kosong/tidak terbaca, sehingga penimbang tarif tidak dipakai — urutan hanya mengandalkan kecocokan kelas lalu kode service. Isi tarif atau pilih manual.';
+        }
+
+        if ($suggested !== null) {
+            $code = $suggested['service_code'] ?? '-';
+            $diff = $suggested['_tariff_diff'] ?? null;
+            $pct = $diff === null ? '?' : number_format($diff * 100, 2, ',', '.').'%';
+
+            return $base."Rekomendasi: {$code} (selisih tarif {$pct}, paling dekat dan gap jelas dari kandidat lain). Rekomendasi ini tidak otomatis diterapkan — tetap pilih manual.";
+        }
+
+        $best = $ranked[0] ?? null;
+        $second = $ranked[1] ?? null;
+        if ($best !== null && $second !== null) {
+            $bd = $best['_tariff_diff'] ?? null;
+            $sd = $second['_tariff_diff'] ?? null;
+            if ($bd !== null && $bd <= self::TARIFF_EXACT_TOLERANCE) {
+                $need = $bd <= 1e-9 ? self::TARIFF_MIN_GAP_WHEN_EXACT : self::TARIFF_MIN_GAP;
+                $needPct = rtrim(rtrim(number_format($need * 100, 2, ',', '.'), '0'), ',');
+                if ($sd !== null && ($sd - $bd) < $need) {
+                    return $base."Belum ada rekomendasi: dua kandidat teratas selisih tarifnya terlalu dekat (gap < {$needPct}pp), sehingga tidak ada pemenang yang jelas. Bandingkan tabel di bawah lalu pilih manual.";
+                }
+            }
+            if ($bd !== null && $bd > self::TARIFF_EXACT_TOLERANCE) {
+                return $base.'Belum ada rekomendasi: tarif Excel tidak cocok dekat (<= 1%) dengan kandidat mana pun. Periksa kemungkinan tarif berubah / beda periode, lalu pilih manual.';
+            }
+        }
+
+        return $base.'Belum ada rekomendasi yang cukup yakin. Bandingkan tabel di bawah lalu pilih manual.';
     }
 
     /**
