@@ -39,6 +39,7 @@ class TarifBridgeRepository
                 's.description as service_description',
                 'c.code as class_code',
                 'c.name as class_name',
+                'tarifs.tariff as tariff',
             ])
             ->orderBy('tarifs.id')
             ->chunk(5000, function ($rows) {
@@ -53,18 +54,45 @@ class TarifBridgeRepository
                     }
 
                     $pairKey = mb_strtoupper(trim((string) $row->service_code)).'|'.mb_strtoupper(trim((string) $row->class_code));
-                    $pair = [
-                        'service_code' => mb_strtoupper(trim((string) $row->service_code)),
-                        'service_name' => $row->service_name,
-                        'class_code' => mb_strtoupper(trim((string) $row->class_code)),
-                        'class_name' => $row->class_name,
-                    ];
+                    $tariff = is_numeric($row->tariff) ? (float) $row->tariff : null;
+                    if ($tariff !== null && $tariff <= 0) {
+                        $tariff = null;
+                    }
 
                     foreach ($serviceKeys as $serviceKey) {
-                        $this->map[$serviceKey.'|'.$classKey][$pairKey] = $pair;
+                        $mapKey = $serviceKey.'|'.$classKey;
+                        if (! isset($this->map[$mapKey][$pairKey])) {
+                            $this->map[$mapKey][$pairKey] = [
+                                'service_code' => mb_strtoupper(trim((string) $row->service_code)),
+                                'service_name' => $row->service_name,
+                                'class_code' => mb_strtoupper(trim((string) $row->class_code)),
+                                'class_name' => $row->class_name,
+                                // Satu pair bisa punya banyak tarif (beda
+                                // provider/jenis/periode): kumpulkan semua,
+                                // representative = nilai tengah (median)
+                                // agar stabil terhadap outlier.
+                                'tariffs' => [],
+                                'tariff' => null,
+                            ];
+                        }
+                        if ($tariff !== null && ! in_array($tariff, $this->map[$mapKey][$pairKey]['tariffs'], true)) {
+                            $this->map[$mapKey][$pairKey]['tariffs'][] = $tariff;
+                        }
                     }
                 }
             });
+
+        // Hitung representative (median) per pair setelah chunk selesai.
+        foreach ($this->map as $mapKey => $pairs) {
+            foreach ($pairs as $pairKey => $pair) {
+                $tariffs = $pair['tariffs'];
+                sort($tariffs);
+                $n = count($tariffs);
+                $this->map[$mapKey][$pairKey]['tariff'] = $n === 0
+                    ? null
+                    : $tariffs[(int) floor(($n - 1) / 2)];
+            }
+        }
 
         $this->loaded = true;
 
@@ -75,7 +103,7 @@ class TarifBridgeRepository
      * Kandidat (pasangan service+class unik) untuk satu mapping key,
      * terurut deterministik. [] bila tidak ada.
      *
-     * @return array<int, array{service_code: string, service_name: string, class_code: string, class_name: string}>
+     * @return array<int, array{service_code: string, service_name: string, class_code: string, class_name: string, tariff: ?float, tariffs: array<int, float>}>
      */
     public function candidatesFor(string $mappingKey): array
     {

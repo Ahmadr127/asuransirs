@@ -21,6 +21,46 @@ class BridgeTarifRowNormalizer
     }
 
     /**
+     * Parse nilai tarif Excel ke float. Mendukung angka mentah,
+     * format "Rp 1.250.000", "1,250,000.00", maupun "1250000,50".
+     * null bila kosong / tidak bisa diparsing / <= 0.
+     */
+    public static function parseTariff(mixed $value): ?float
+    {
+        if (is_int($value) || is_float($value)) {
+            $num = (float) $value;
+
+            return $num > 0 ? $num : null;
+        }
+        $text = trim((string) $value);
+        if ($text === '') {
+            return null;
+        }
+        // Buang simbol non-angka penting: Rp, spasi, dll.
+        $clean = (string) preg_replace('/[^0-9,.\-]/', '', $text);
+        if ($clean === '' || $clean === '-' || $clean === '.' || $clean === ',') {
+            return null;
+        }
+        if (str_contains($clean, ',')) {
+            // Format Indonesia: titik = ribuan, koma = desimal.
+            $clean = str_replace('.', '', $clean);
+            $clean = str_replace(',', '.', $clean);
+        } else {
+            // Tanpa koma: koma ribuan AS ("1,250,000" sudah tertangani di
+            // atas); titik ganda berarti ribuan ("1.250.000").
+            if (substr_count($clean, '.') > 1) {
+                $clean = str_replace('.', '', $clean);
+            }
+        }
+        if (! is_numeric($clean)) {
+            return null;
+        }
+        $num = (float) $clean;
+
+        return $num > 0 ? $num : null;
+    }
+
+    /**
      * @param  array<int, mixed>  $row  baris mentah (array numerik)
      * @param  array<string, int>  $map  field => index kolom
      * @param  int  $excelRow  nomor baris di Excel (1-indexed)
@@ -34,6 +74,9 @@ class BridgeTarifRowNormalizer
         $description = $cell(BridgeTarifExcelReader::FIELD_SERVICE_DESCRIPTION);
         $classCode = $cell(BridgeTarifExcelReader::FIELD_SERVICE_CLASS_CODE);
         $className = $cell(BridgeTarifExcelReader::FIELD_CLASS_NAME);
+        $tariffRaw = isset($map[BridgeTarifExcelReader::FIELD_TARIFF])
+            ? (string) ($values[$map[BridgeTarifExcelReader::FIELD_TARIFF]] ?? '')
+            : '';
 
         $descriptionKey = self::normalizeKey($description);
         $classKey = self::normalizeKey($className);
@@ -44,6 +87,8 @@ class BridgeTarifRowNormalizer
             'service_description' => $description,
             'service_class_code' => $classCode,
             'class_name' => $className,
+            'tariff_raw' => trim($tariffRaw),
+            'tariff' => self::parseTariff($tariffRaw),
             'description_key' => $descriptionKey,
             'class_key' => $classKey,
             'mapping_key' => $descriptionKey.'|'.$classKey,

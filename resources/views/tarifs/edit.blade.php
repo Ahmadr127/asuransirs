@@ -20,7 +20,7 @@
                 <x-searchable-dropdown
                     name="jenis_tarif_id"
                     label="Jenis Tarif"
-                    :options="$jenisTarifs->map(fn($j) => (object)['id' => $j->id, 'label' => $j->code . ' — ' . $j->name])"
+                    :options="$jenisTarifs->map(fn($j) => (object)['id' => $j['id'], 'label' => $j['code'] . ' — ' . $j['name']])"
                     label-field="label"
                     :selected="$tarif->jenis_tarif_id"
                     placeholder="Pilih Jenis Tarif..."
@@ -42,7 +42,7 @@
                 <x-searchable-dropdown
                     name="provider_id"
                     label="Provider"
-                    :options="$providers->map(fn($p) => (object)['id' => $p->id, 'label' => $p->code . ' — ' . $p->name])"
+                    :options="$providers->map(fn($p) => (object)['id' => $p['id'], 'label' => $p['code'] . ' — ' . $p['name']])"
                     label-field="label"
                     :selected="$tarif->provider_id"
                     placeholder="Pilih Provider..."
@@ -52,7 +52,7 @@
                 <x-searchable-dropdown
                     name="service_id"
                     label="Service"
-                    :options="$services->map(fn($s) => (object)['id' => $s->id, 'label' => $s->code . ' — ' . $s->name])"
+                    :options="$services->map(fn($s) => (object)['id' => $s['id'], 'label' => $s['code'] . ' — ' . $s['name']])"
                     label-field="label"
                     :selected="$tarif->service_id"
                     placeholder="Pilih Service..."
@@ -62,7 +62,7 @@
                 <x-searchable-dropdown
                     name="class_id"
                     label="Kelas"
-                    :options="$classes->map(fn($c) => (object)['id' => $c->id, 'label' => $c->code . ' — ' . $c->name])"
+                    :options="$classes->map(fn($c) => (object)['id' => $c['id'], 'label' => $c['code'] . ' — ' . $c['name']])"
                     label-field="label"
                     :selected="$tarif->class_id"
                     placeholder="Pilih Kelas..."

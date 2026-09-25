@@ -13,21 +13,24 @@ class TarifService
     public function applyFilters($query, array $filters = [])
     {
         if (!empty($filters['search'])) {
-            $search = $filters['search'];
-            $query->where(function ($q) use ($search) {
-                $q->where('helper', 'like', "%{$search}%")
-                  ->orWhereHas('service', function ($sq) use ($search) {
-                      $sq->where('code', 'like', "%{$search}%")
-                         ->orWhere('name', 'like', "%{$search}%")
-                         ->orWhere('description', 'like', "%{$search}%");
+            // Case-insensitive via LOWER() agar konsisten di PostgreSQL
+            // (LIKE di PG case-sensitive) sekaligus memakai index trigram GIN
+            // (LOWER(col) gin_trgm_ops). Escape % _ \ agar input user literal.
+            $like = '%'.addcslashes(mb_strtolower($filters['search']), '%_\\').'%';
+            $query->where(function ($q) use ($like) {
+                $q->whereRaw('LOWER(helper) LIKE ?', [$like])
+                  ->orWhereHas('service', function ($sq) use ($like) {
+                      $sq->whereRaw('LOWER(code) LIKE ?', [$like])
+                         ->orWhereRaw('LOWER(name) LIKE ?', [$like])
+                         ->orWhereRaw('LOWER(description) LIKE ?', [$like]);
                   })
-                  ->orWhereHas('provider', function ($pq) use ($search) {
-                      $pq->where('code', 'like', "%{$search}%")
-                         ->orWhere('name', 'like', "%{$search}%");
+                  ->orWhereHas('provider', function ($pq) use ($like) {
+                      $pq->whereRaw('LOWER(code) LIKE ?', [$like])
+                         ->orWhereRaw('LOWER(name) LIKE ?', [$like]);
                   })
-                  ->orWhereHas('serviceClass', function ($cq) use ($search) {
-                      $cq->where('code', 'like', "%{$search}%")
-                         ->orWhere('name', 'like', "%{$search}%");
+                  ->orWhereHas('serviceClass', function ($cq) use ($like) {
+                      $cq->whereRaw('LOWER(code) LIKE ?', [$like])
+                         ->orWhereRaw('LOWER(name) LIKE ?', [$like]);
                   });
             });
         }
@@ -42,6 +45,13 @@ class TarifService
 
         if (!empty($filters['service_id'])) {
             $query->where('service_id', $filters['service_id']);
+        }
+
+        // Filter kode service tepat (case-insensitive). Dipakai halaman index
+        // sebagai pengganti dropdown 13rb opsi; memakai index services_code_upper.
+        if (!empty($filters['service_code'])) {
+            $code = mb_strtoupper(trim($filters['service_code']));
+            $query->whereHas('service', fn ($sq) => $sq->whereRaw('UPPER(TRIM(code)) = ?', [$code]));
         }
 
         if (!empty($filters['class_id'])) {

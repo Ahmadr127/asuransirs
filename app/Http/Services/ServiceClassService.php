@@ -4,6 +4,7 @@ namespace App\Http\Services;
 
 use App\Models\ServiceClass;
 use App\Services\ActivityLogService;
+use Illuminate\Support\Facades\Cache;
 
 class ServiceClassService
 {
@@ -14,10 +15,10 @@ class ServiceClassService
         $query = ServiceClass::query();
 
         if (!empty($filters['search'])) {
-            $search = $filters['search'];
-            $query->where(function ($q) use ($search) {
-                $q->where('code', 'like', "%{$search}%")
-                  ->orWhere('name', 'like', "%{$search}%");
+            $like = '%'.addcslashes(mb_strtolower($filters['search']), '%_\\').'%';
+            $query->where(function ($q) use ($like) {
+                $q->whereRaw('LOWER(code) LIKE ?', [$like])
+                  ->orWhereRaw('LOWER(name) LIKE ?', [$like]);
             });
         }
 
@@ -36,7 +37,10 @@ class ServiceClassService
 
     public function createClass(array $data)
     {
-        return ServiceClass::create($data);
+        $class = ServiceClass::create($data);
+        Cache::forget('filter_classes');
+
+        return $class;
     }
 
     public function updateClass(ServiceClass $class, array $data)
@@ -47,6 +51,7 @@ class ServiceClassService
         $newData = $class->toArray();
 
         $this->activityLogger->logUpdated($class, $oldData, $newData);
+        Cache::forget('filter_classes');
 
         return $class;
     }
@@ -58,6 +63,9 @@ class ServiceClassService
         }
 
         $this->activityLogger->logDeleted($class);
-        return $class->delete();
+        $deleted = $class->delete();
+        Cache::forget('filter_classes');
+
+        return $deleted;
     }
 }

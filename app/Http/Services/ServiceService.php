@@ -4,6 +4,7 @@ namespace App\Http\Services;
 
 use App\Models\Service;
 use App\Services\ActivityLogService;
+use Illuminate\Support\Facades\Cache;
 
 class ServiceService
 {
@@ -14,11 +15,11 @@ class ServiceService
         $query = Service::query();
 
         if (!empty($filters['search'])) {
-            $search = $filters['search'];
-            $query->where(function ($q) use ($search) {
-                $q->where('code', 'like', "%{$search}%")
-                  ->orWhere('name', 'like', "%{$search}%")
-                  ->orWhere('description', 'like', "%{$search}%");
+            $like = '%'.addcslashes(mb_strtolower($filters['search']), '%_\\').'%';
+            $query->where(function ($q) use ($like) {
+                $q->whereRaw('LOWER(code) LIKE ?', [$like])
+                  ->orWhereRaw('LOWER(name) LIKE ?', [$like])
+                  ->orWhereRaw('LOWER(description) LIKE ?', [$like]);
             });
         }
 
@@ -37,7 +38,10 @@ class ServiceService
 
     public function createService(array $data)
     {
-        return Service::create($data);
+        $service = Service::create($data);
+        Cache::forget('filter_services');
+
+        return $service;
     }
 
     public function updateService(Service $service, array $data)
@@ -48,6 +52,7 @@ class ServiceService
         $newData = $service->toArray();
 
         $this->activityLogger->logUpdated($service, $oldData, $newData);
+        Cache::forget('filter_services');
 
         return $service;
     }
@@ -59,6 +64,9 @@ class ServiceService
         }
 
         $this->activityLogger->logDeleted($service);
-        return $service->delete();
+        $deleted = $service->delete();
+        Cache::forget('filter_services');
+
+        return $deleted;
     }
 }

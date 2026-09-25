@@ -12,6 +12,7 @@ use App\Models\Service;
 use App\Models\ServiceClass;
 use App\Models\Tarif;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class TarifController extends Controller
@@ -21,24 +22,20 @@ class TarifController extends Controller
     public function index(Request $request)
     {
         $tarifs = $this->tarifService->getTarifs($request->only([
-            'search', 'jenis_tarif_id', 'provider_id', 'service_id', 'class_id',
+            'search', 'jenis_tarif_id', 'provider_id', 'service_id', 'service_code', 'class_id',
             'surgery_type', 'status', 'date_from', 'date_to', 'sort', 'direction', 'per_page',
         ]));
 
-        $jenisTarifs = JenisTarif::where('status', 'active')->orderBy('name')->get();
-        $providers = Provider::where('status', 'active')->orderBy('name')->get();
-        $services = Service::where('status', 'active')->orderBy('name')->get();
-        $classes = ServiceClass::where('status', 'active')->orderBy('name')->get();
+        // $services/$providers sengaja tidak dikirim ke view index (filter service
+        // pakai input service_code, filter provider dihapus).
+        ['jenisTarifs' => $jenisTarifs, 'classes' => $classes] = $this->filterMasters();
 
-        return view('tarifs.index', compact('tarifs', 'jenisTarifs', 'providers', 'services', 'classes'));
+        return view('tarifs.index', compact('tarifs', 'jenisTarifs', 'classes'));
     }
 
     public function create()
     {
-        $jenisTarifs = JenisTarif::where('status', 'active')->orderBy('name')->get();
-        $providers = Provider::where('status', 'active')->orderBy('name')->get();
-        $services = Service::where('status', 'active')->orderBy('name')->get();
-        $classes = ServiceClass::where('status', 'active')->orderBy('name')->get();
+        ['jenisTarifs' => $jenisTarifs, 'providers' => $providers, 'services' => $services, 'classes' => $classes] = $this->filterMasters();
 
         return view('tarifs.create', compact('jenisTarifs', 'providers', 'services', 'classes'));
     }
@@ -59,10 +56,7 @@ class TarifController extends Controller
 
     public function edit(Tarif $tarif)
     {
-        $jenisTarifs = JenisTarif::where('status', 'active')->orderBy('name')->get();
-        $providers = Provider::where('status', 'active')->orderBy('name')->get();
-        $services = Service::where('status', 'active')->orderBy('name')->get();
-        $classes = ServiceClass::where('status', 'active')->orderBy('name')->get();
+        ['jenisTarifs' => $jenisTarifs, 'providers' => $providers, 'services' => $services, 'classes' => $classes] = $this->filterMasters();
 
         return view('tarifs.edit', compact('tarif', 'jenisTarifs', 'providers', 'services', 'classes'));
     }
@@ -82,13 +76,35 @@ class TarifController extends Controller
     }
 
     /**
+     * Master untuk dropdown filter/form. Di-cache forever sebagai array polos
+     * (di-forget saat master berubah di Service masing-masing) agar halaman
+     * tidak menghidrasi 13rb+ model Service setiap load (terukur: 230ms ->
+     * 16ms). Hanya kolom yang dipakai view. Dibungkus collect() agar Blade
+     * tetap bisa memakai ->map().
+     *
+     * @return array{jenisTarifs: \Illuminate\Support\Collection, providers: \Illuminate\Support\Collection, services: \Illuminate\Support\Collection, classes: \Illuminate\Support\Collection}
+     */
+    protected function filterMasters(): array
+    {
+        $cached = fn (string $key, string $model) => collect(Cache::rememberForever($key, fn () =>
+            $model::where('status', 'active')->orderBy('name')->get(['id', 'code', 'name'])->toArray()));
+
+        return [
+            'jenisTarifs' => $cached('filter_jenis_tarifs', JenisTarif::class),
+            'providers' => $cached('filter_providers', Provider::class),
+            'services' => $cached('filter_services', Service::class),
+            'classes' => $cached('filter_classes', ServiceClass::class),
+        ];
+    }
+
+    /**
      * Export CSV mengikuti filter yang sedang aktif
      * (semua data / filter aktif / per jenis tarif).
      */
     public function export(Request $request): StreamedResponse
     {
         return $this->exportService->exportCsv($request->only([
-            'search', 'jenis_tarif_id', 'provider_id', 'service_id', 'class_id',
+            'search', 'jenis_tarif_id', 'provider_id', 'service_id', 'service_code', 'class_id',
             'surgery_type', 'status', 'date_from', 'date_to',
         ]));
     }

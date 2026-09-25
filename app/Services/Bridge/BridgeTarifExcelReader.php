@@ -20,6 +20,8 @@ class BridgeTarifExcelReader
 
     public const FIELD_PROVIDER_NAME = 'PROVIDERNAME';
 
+    public const FIELD_TARIFF = 'TARIFF';
+
     /**
      * Normalisasi nama header: trim, lowercase, buang non-alfanumerik.
      * "SERVICECODE DESCRIPTION" / "ServiceCode_Description" -> "servicecodedescription".
@@ -54,8 +56,14 @@ class BridgeTarifExcelReader
             $hasServiceCode = str_contains($norm, 'servicecode');
             $hasDesc = str_contains($norm, 'desc');
             $hasKelas = str_contains($norm, 'kelas') || str_contains($norm, 'class') || str_contains($norm, 'kode');
+            // Kolom tarif opsional (dipakai penimbang AMBIGUOUS): TARIFF /
+            // TARIF / HARGA / PRICE. Kolom "jenis tarif" tidak ikut.
+            $hasTariff = (str_contains($norm, 'tarif') || str_contains($norm, 'tariff') || str_contains($norm, 'harga') || str_contains($norm, 'price'))
+                && ! str_contains($norm, 'jenis');
 
-            if ($hasProvider && $hasProviderName && ! isset($map[self::FIELD_PROVIDER_NAME])) {
+            if ($hasTariff && ! isset($map[self::FIELD_TARIFF])) {
+                $map[self::FIELD_TARIFF] = $index;
+            } elseif ($hasProvider && $hasProviderName && ! isset($map[self::FIELD_PROVIDER_NAME])) {
                 $map[self::FIELD_PROVIDER_NAME] = $index;
             } elseif ($hasProvider && ! isset($map[self::FIELD_PROVIDER_CODE])) {
                 $map[self::FIELD_PROVIDER_CODE] = $index;

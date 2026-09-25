@@ -4,6 +4,7 @@ namespace App\Http\Services;
 
 use App\Models\JenisTarif;
 use App\Services\ActivityLogService;
+use Illuminate\Support\Facades\Cache;
 
 class JenisTarifService
 {
@@ -14,10 +15,10 @@ class JenisTarifService
         $query = JenisTarif::query();
 
         if (!empty($filters['search'])) {
-            $search = $filters['search'];
-            $query->where(function ($q) use ($search) {
-                $q->where('code', 'like', "%{$search}%")
-                  ->orWhere('name', 'like', "%{$search}%");
+            $like = '%'.addcslashes(mb_strtolower($filters['search']), '%_\\').'%';
+            $query->where(function ($q) use ($like) {
+                $q->whereRaw('LOWER(code) LIKE ?', [$like])
+                  ->orWhereRaw('LOWER(name) LIKE ?', [$like]);
             });
         }
 
@@ -36,7 +37,10 @@ class JenisTarifService
 
     public function createJenisTarif(array $data)
     {
-        return JenisTarif::create($data);
+        $jenis = JenisTarif::create($data);
+        Cache::forget('filter_jenis_tarifs');
+
+        return $jenis;
     }
 
     public function updateJenisTarif(JenisTarif $jenisTarif, array $data)
@@ -47,6 +51,7 @@ class JenisTarifService
         $newData = $jenisTarif->toArray();
 
         $this->activityLogger->logUpdated($jenisTarif, $oldData, $newData);
+        Cache::forget('filter_jenis_tarifs');
 
         return $jenisTarif;
     }
@@ -58,6 +63,9 @@ class JenisTarifService
         }
 
         $this->activityLogger->logDeleted($jenisTarif);
-        return $jenisTarif->delete();
+        $deleted = $jenisTarif->delete();
+        Cache::forget('filter_jenis_tarifs');
+
+        return $deleted;
     }
 }

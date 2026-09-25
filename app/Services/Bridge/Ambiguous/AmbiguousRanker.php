@@ -1,0 +1,146 @@
+<?php
+
+namespace App\Services\Bridge\Ambiguous;
+
+/**
+ * Domain layer AMBIGUOUS: penskoran murni (tanpa DB, tanpa I/O).
+ *
+ * Sinyal penimbang untuk "pencarian service code" saat kandidat > 1:
+ *  1. KELAS — kode kelas Excel (SERVICECODE KELAS, kode lama) vs kode
+ *     kelas master kandidat. Exact match = +1.0. Sinyal kuat tapi jarang
+ *     kena (kode lama umumnya beda dengan kode master).
+ *  2. TARIF — tarif Excel (kolom TARIFF, opsional) vs daftar tarif master
+ *     per pair. Skor = (1 - selisih relatif terkecil) x 2.0. Ini sinyal
+ *     utama saat deskripsi+kelas sama persis (mis. CT001 vs CT002).
+ *
+ * Total = kelas*1.0 + tarif*2.0. Sort: total desc, selisih tarif asc
+ * (null paling belakang), lalu service_code asc agar deterministik.
+ */
+final class AmbiguousRanker
+{
+    public const WEIGHT_CLASS = 1.0;
+
+    public const WEIGHT_TARIFF = 2.0;
+
+    /** Toleransi dianggap "sama persis" untuk auto-match (1%). */
+    public const TARIFF_EXACT_TOLERANCE = 0.01;
+
+    /** Gap minimal best vs runner-up agar berani auto-match (5pp). */
+    public const TARIFF_MIN_GAP = 0.05;
+
+    /**
+     * Beri skor + metadata (_score, _class_match, _tariff_diff) lalu urutkan.
+     *
+     * @param  array<int, array<string, mixed>>  $candidates  dari repository
+     * @param  array<string, mixed>  $normalized  hasil RowNormalizer
+     * @return array<int, array<string, mixed>>
+     */
+    public function rank(array $candidates, array $normalized): array
+    {
+        $excelClass = mb_strtoupper(trim((string) ($normalized['service_class_code'] ?? '')));
+        $excelTariff = isset($normalized['tariff']) && is_numeric($normalized['tariff'])
+            ? (float) $normalized['tariff']
+            : null;
+        if ($excelTariff !== null && $excelTariff <= 0) {
+            $excelTariff = null;
+        }
+
+        $ranked = [];
+        foreach ($candidates as $candidate) {
+            $candidateClass = mb_strtoupper(trim((string) ($candidate['class_code'] ?? '')));
+            $classMatch = ($excelClass !== '' && $candidateClass !== '' && $excelClass === $candidateClass) ? 1 : 0;
+
+            $tariffDiff = $this->bestTariffDiff($excelTariff, $candidate['tariffs'] ?? ($candidate['tariff'] ?? null));
+            $tariffScore = $tariffDiff === null ? 0.0 : 1.0 - $tariffDiff;
+
+            $ranked[] = array_merge($candidate, [
+                '_class_match' => $classMatch,
+                '_tariff_diff' => $tariffDiff,
+                '_score' => $classMatch * self::WEIGHT_CLASS + $tariffScore * self::WEIGHT_TARIFF,
+            ]);
+        }
+
+        usort($ranked, function ($a, $b) {
+            if ($a['_score'] !== $b['_score']) {
+                return $b['_score'] <=> $a['_score'];
+            }
+            // Selisih tarif kecil dulu; null (tanpa sinyal) paling belakang.
+            $da = $a['_tariff_diff'] ?? PHP_FLOAT_MAX;
+            $db = $b['_tariff_diff'] ?? PHP_FLOAT_MAX;
+            if ($da !== $db) {
+                return $da <=> $db;
+            }
+
+            return [$a['service_code'], $a['class_code']] <=> [$b['service_code'], $b['class_code']];
+        });
+
+        return $ranked;
+    }
+
+    /**
+     * Konservatif: auto-match hanya bila tarif Excel ada, kandidat terbaik
+     * nyaris sama persis (<= 1%) DAN runner-up jelas lebih jauh (gap >= 5pp),
+     * serta tidak menabrak sinyal kelas (best.class >= runner-up.class).
+     * Seri (mis. dua master tarif sama) -> null = tetap AMBIGUOUS.
+     *
+     * @param  array<int, array<string, mixed>>  $ranked  hasil rank()
+     * @param  array<string, mixed>  $normalized
+     */
+    public function shouldAutoMatch(array $ranked, array $normalized): ?array
+    {
+        $excelTariff = isset($normalized['tariff']) && is_numeric($normalized['tariff'])
+            ? (float) $normalized['tariff']
+            : null;
+        if ($excelTariff === null || $excelTariff <= 0 || count($ranked) < 2) {
+            return null;
+        }
+
+        $best = $ranked[0];
+        $second = $ranked[1];
+        $bestDiff = $best['_tariff_diff'] ?? null;
+        $secondDiff = $second['_tariff_diff'] ?? null;
+        if ($bestDiff === null || $bestDiff > self::TARIFF_EXACT_TOLERANCE) {
+            return null;
+        }
+        if (($best['_class_match'] ?? 0) < ($second['_class_match'] ?? 0)) {
+            return null;
+        }
+        if ($secondDiff !== null && ($secondDiff - $bestDiff) < self::TARIFF_MIN_GAP) {
+            return null;
+        }
+
+        return $best;
+    }
+
+    /**
+     * Selisih relatif terkecil Excel vs daftar tarif master:
+     * |excel - master| / max(excel, master). null bila tak ada sinyal.
+     *
+     * @param  array<int, float>|float|null  $masterTariffs
+     */
+    public function bestTariffDiff(?float $excelTariff, mixed $masterTariffs): ?float
+    {
+        if ($excelTariff === null || $excelTariff <= 0) {
+            return null;
+        }
+        $list = is_array($masterTariffs) ? $masterTariffs : [$masterTariffs];
+        $list = array_values(array_filter(
+            $list,
+            fn ($t) => is_numeric($t) && (float) $t > 0
+        ));
+        if ($list === []) {
+            return null;
+        }
+
+        $best = null;
+        foreach ($list as $master) {
+            $master = (float) $master;
+            $diff = abs($excelTariff - $master) / max($excelTariff, $master);
+            if ($best === null || $diff < $best) {
+                $best = $diff;
+            }
+        }
+
+        return $best;
+    }
+}

@@ -4,6 +4,7 @@ namespace App\Http\Services;
 
 use App\Models\Provider;
 use App\Services\ActivityLogService;
+use Illuminate\Support\Facades\Cache;
 
 class ProviderService
 {
@@ -14,10 +15,10 @@ class ProviderService
         $query = Provider::query();
 
         if (!empty($filters['search'])) {
-            $search = $filters['search'];
-            $query->where(function ($q) use ($search) {
-                $q->where('code', 'like', "%{$search}%")
-                  ->orWhere('name', 'like', "%{$search}%");
+            $like = '%'.addcslashes(mb_strtolower($filters['search']), '%_\\').'%';
+            $query->where(function ($q) use ($like) {
+                $q->whereRaw('LOWER(code) LIKE ?', [$like])
+                  ->orWhereRaw('LOWER(name) LIKE ?', [$like]);
             });
         }
 
@@ -36,7 +37,10 @@ class ProviderService
 
     public function createProvider(array $data)
     {
-        return Provider::create($data);
+        $provider = Provider::create($data);
+        Cache::forget('filter_providers');
+
+        return $provider;
     }
 
     public function updateProvider(Provider $provider, array $data)
@@ -47,6 +51,7 @@ class ProviderService
         $newData = $provider->toArray();
 
         $this->activityLogger->logUpdated($provider, $oldData, $newData);
+        Cache::forget('filter_providers');
 
         return $provider;
     }
@@ -58,6 +63,9 @@ class ProviderService
         }
 
         $this->activityLogger->logDeleted($provider);
-        return $provider->delete();
+        $deleted = $provider->delete();
+        Cache::forget('filter_providers');
+
+        return $deleted;
     }
 }
