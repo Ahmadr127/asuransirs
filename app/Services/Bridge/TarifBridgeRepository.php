@@ -40,6 +40,7 @@ class TarifBridgeRepository
                 'c.code as class_code',
                 'c.name as class_name',
                 'tarifs.tariff as tariff',
+                'tarifs.valid_date_from as valid_from',
             ])
             ->orderBy('tarifs.id')
             ->chunk(5000, function ($rows) {
@@ -73,10 +74,19 @@ class TarifBridgeRepository
                                 // agar stabil terhadap outlier.
                                 'tariffs' => [],
                                 'tariff' => null,
+                                // Periode master terbaru pair ini (untuk
+                                // tie-break AMBIGUOUS saat tarif seri).
+                                'valid_from' => null,
                             ];
                         }
                         if ($tariff !== null && ! in_array($tariff, $this->map[$mapKey][$pairKey]['tariffs'], true)) {
                             $this->map[$mapKey][$pairKey]['tariffs'][] = $tariff;
+                        }
+                        $validFrom = trim((string) ($row->valid_from ?? ''));
+                        if ($validFrom !== '' && (($this->map[$mapKey][$pairKey]['valid_from'] ?? null) === null
+                            || $validFrom > $this->map[$mapKey][$pairKey]['valid_from'])
+                        ) {
+                            $this->map[$mapKey][$pairKey]['valid_from'] = $validFrom;
                         }
                     }
                 }

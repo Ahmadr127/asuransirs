@@ -93,7 +93,10 @@ final class AmbiguousRanker
      * Gap yang dituntut berlapis: cocok PERSIS 0% cukup gap >= 1pp
      * (sinyal penentu, kecuali kandidat lain juga dalam 1%), sedangkan
      * yang hanya dekat (<= 1%) tetap butuh gap >= 5pp.
-     * Seri (mis. dua master tarif sama) -> null = tetap AMBIGUOUS.
+     * Seri tarif (selisih sama persis): penentu = tanggal master terbaru
+     * (valid_from maksimal per pair); bila tanggal juga seri/tak ada ->
+     * null = tetap AMBIGUOUS tanpa saran.
+     * Hasil: rekomendasi saja (status scan selalu tetap AMBIGUOUS).
      *
      * @param  array<int, array<string, mixed>>  $ranked  hasil rank()
      * @param  array<string, mixed>  $normalized
@@ -117,11 +120,53 @@ final class AmbiguousRanker
             return null;
         }
         $requiredGap = $bestDiff <= 1e-9 ? self::TARIFF_MIN_GAP_WHEN_EXACT : self::TARIFF_MIN_GAP;
-        if ($secondDiff !== null && ($secondDiff - $bestDiff) < $requiredGap) {
-            return null;
+        if ($secondDiff === null || ($secondDiff - $bestDiff) >= $requiredGap) {
+            $best['_decided_by'] = 'tariff';
+
+            return $best;
         }
 
-        return $best;
+        return $this->newestByMasterDate($ranked, $bestDiff);
+    }
+
+    /**
+     * Tie-break seri tarif: di antara kandidat yang selisih tarifnya SAMA
+     * PERSIS dengan yang terbaik (dan dalam toleransi), pilih SATU yang
+     * tanggal master-nya (valid_from) paling baru. null bila tanggal tak
+     * ada/seri, atau sinyal kelas bertentangan.
+     *
+     * @param  array<int, array<string, mixed>>  $ranked  hasil rank()
+     */
+    protected function newestByMasterDate(array $ranked, float $bestDiff): ?array
+    {
+        $contenders = [];
+        foreach ($ranked as $candidate) {
+            $diff = $candidate['_tariff_diff'] ?? null;
+            if ($diff === null || abs($diff - $bestDiff) > 1e-9) {
+                continue;
+            }
+            $date = trim((string) ($candidate['valid_from'] ?? ''));
+            if ($date === '') {
+                return null;
+            }
+            $contenders[] = $candidate + ['_valid_from' => $date];
+        }
+        if (count($contenders) < 2) {
+            return null;
+        }
+        usort($contenders, fn ($a, $b) => $b['_valid_from'] <=> $a['_valid_from']);
+        if ($contenders[0]['_valid_from'] === $contenders[1]['_valid_from']) {
+            return null;
+        }
+        $winner = $contenders[0];
+        foreach ($contenders as $other) {
+            if (($winner['_class_match'] ?? 0) < ($other['_class_match'] ?? 0)) {
+                return null;
+            }
+        }
+        $winner['_decided_by'] = 'master_date';
+
+        return $winner;
     }
 
     /**
@@ -152,8 +197,14 @@ final class AmbiguousRanker
             $code = $suggested['service_code'] ?? '-';
             $diff = $suggested['_tariff_diff'] ?? null;
             $pct = $diff === null ? '?' : number_format($diff * 100, 2, ',', '.').'%';
+            $reason = "selisih tarif {$pct} terhadap tarif efektif Rp ".number_format($excelTariff, 0, ',', '.')." sumber {$sourceLabel}, paling dekat dan gap jelas dari kandidat lain";
+            if (($suggested['_decided_by'] ?? null) === 'master_date') {
+                $date = trim((string) ($suggested['valid_from'] ?? $suggested['_valid_from'] ?? ''));
+                $reason = "tarif seri dengan kandidat lain (selisih {$pct}), dipilih yang periode master terbaru"
+                    .($date !== '' ? " (berlaku sejak {$date})" : '');
+            }
 
-            return $base."Rekomendasi: {$code} (selisih tarif {$pct} terhadap tarif efektif Rp ".number_format($excelTariff, 0, ',', '.')." sumber {$sourceLabel}, paling dekat dan gap jelas dari kandidat lain). Rekomendasi ini langsung masuk ke New Code, tetapi status tetap AMBIGUOUS — periksa dan timpa via manual bila tidak setuju.";
+            return $base."Rekomendasi: {$code} ({$reason}). Rekomendasi ini langsung masuk ke New Code, tetapi status tetap AMBIGUOUS — periksa dan timpa via manual bila tidak setuju.";
         }
 
         $best = $ranked[0] ?? null;

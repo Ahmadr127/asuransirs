@@ -168,10 +168,70 @@ class BridgeTarifProcessor
             );
         }
 
+        // Saran NOT_FOUND teratas (presentase tertinggi) langsung masuk
+        // New Code — status tetap NOT_FOUND dan bisa ditimpa manual,
+        // kecuali KONSENSUS (seluruh saran berkode sama): status menjadi
+        // MATCHED/valid, tetapi grup Petakan Manual + modal analisa tetap
+        // dipertahankan agar bisa diperiksa/diubah. Berlaku untuk preview
+        // + decisions (generate).
+        foreach ($groups as $key => $group) {
+            if (! ($group['manual'] ?? false) || empty($group['suggestions'])) {
+                continue;
+            }
+            $top = $group['suggestions'][0];
+            $code = trim((string) ($top['service_code'] ?? ''));
+            if ($code === '') {
+                continue;
+            }
+            $groups[$key]['top_service'] = $top['service_code'];
+            $codes = array_values(array_filter(array_unique(array_map(
+                fn ($s) => mb_strtoupper(trim((string) ($s['service_code'] ?? ''))),
+                $group['suggestions']
+            ))));
+            $consensus = count($codes) === 1;
+            if ($consensus) {
+                $groups[$key]['consensus'] = true;
+            }
+            $topClass = trim((string) ($top['class_code'] ?? ''));
+            foreach ($group['rows'] as $excelRow) {
+                if (isset($decisions[$excelRow])) {
+                    $decisions[$excelRow]['new_service_code'] = $top['service_code'];
+                    $decisions[$excelRow]['suggested_applied'] = true;
+                    if ($consensus) {
+                        $decisions[$excelRow]['status'] = TarifBridgeResolver::STATUS_MATCHED;
+                        if ($topClass !== '') {
+                            $decisions[$excelRow]['new_class_code'] = mb_strtoupper($topClass);
+                        }
+                    }
+                }
+            }
+            $summary['suggested'] += count($group['rows']);
+            if ($consensus) {
+                $summary['matched'] += count($group['rows']);
+                $summary['not_found'] -= count($group['rows']);
+            }
+        }
+
         // Tempelkan saran grup ke preview row NOT_FOUND untuk modal analisa.
         foreach ($preview as $i => $row) {
             if (($row['status'] ?? '') === TarifBridgeResolver::STATUS_NOT_FOUND) {
-                $preview[$i]['suggestions'] = $groups[$row['mapping_key']]['suggestions'] ?? [];
+                $key = $row['mapping_key'];
+                $preview[$i]['suggestions'] = $groups[$key]['suggestions'] ?? [];
+                if (isset($groups[$key]['top_service'])) {
+                    $preview[$i]['new_service_code'] = $groups[$key]['top_service'];
+                    $preview[$i]['suggested_applied'] = true;
+                    $preview[$i]['suggested'] = [
+                        'service_code' => $groups[$key]['top_service'],
+                        'class_code' => $groups[$key]['suggestions'][0]['class_code'] ?? null,
+                    ];
+                }
+                if (! empty($groups[$key]['consensus'])) {
+                    $preview[$i]['status'] = TarifBridgeResolver::STATUS_MATCHED;
+                    $topClass = trim((string) ($groups[$key]['suggestions'][0]['class_code'] ?? ''));
+                    if ($topClass !== '') {
+                        $preview[$i]['new_class_code'] = mb_strtoupper($topClass);
+                    }
+                }
             }
         }
 

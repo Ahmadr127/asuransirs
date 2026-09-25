@@ -1026,6 +1026,10 @@ class BridgeTarifTest extends TestCase
         // Preview row membawa saran yang sama untuk modal analisa.
         $this->assertSame('NOT_FOUND', $result['preview'][0]['status']);
         $this->assertSame('SUG1', $result['preview'][0]['suggestions'][0]['service_code']);
+        // Saran teratas langsung masuk New Code (status tetap NOT_FOUND).
+        $this->assertSame('SUG1', $result['preview'][0]['new_service_code']);
+        $this->assertTrue($result['preview'][0]['suggested_applied']);
+        $this->assertSame(1, $result['summary']['suggested']);
 
         // Petakan Manual menampilkan saran yang bisa diklik.
         $token = $this->scanOk([
@@ -1149,6 +1153,55 @@ class BridgeTarifTest extends TestCase
             $this->assertSame('OKORT-OP', $codes[0], "Gagal untuk description: $desc");
             $this->assertNotContains('SPL01', $codes, "Noise lolos untuk description: $desc");
         }
+    }
+
+    public function test_notfound_consensus_code_goes_to_new_code_and_generate(): void
+    {
+        // Satu-satunya kandidat (3 kelas, 1 kode) -> konsensus CON1.
+        $provider = Provider::firstOrCreate(['code' => 'PRV1'], ['name' => 'Provider Satu', 'status' => 'active']);
+        $service = Service::create(['code' => 'CON1', 'name' => 'Cortical Screw', 'description' => 'Cortical Screw Test 18 mm', 'status' => 'active']);
+        foreach ([['KLV2', 'VVIP', 180264], ['KLS1', 'KELAS 1', 174048], ['KLS2', 'KELAS 2', 174048]] as [$cc, $cn, $amount]) {
+            $class = ServiceClass::firstOrCreate(['code' => $cc], ['name' => $cn, 'status' => 'active']);
+            Tarif::create([
+                'jenis_tarif_id' => $this->jenis->id,
+                'provider_id' => $provider->id,
+                'service_id' => $service->id,
+                'class_id' => $class->id,
+                'surgery_type' => null, 'helper' => null, 'tariff' => $amount,
+                'valid_date_from' => '2024-01-01', 'end_date_to' => '2029-12-31',
+            ]);
+        }
+
+        $rows = [['PRV1', 'OLD-A', 'CORTICAL SCREW TEST 18 (OST-22104-0139)', 'OLD-K1', 'VVIP', 277639, 277639, 1, 'a']];
+        $result = $this->scanRows($rows, $this->headerExt());
+        $row = $result['preview'][0];
+
+        // Konsensus kode saran -> status valid (MATCHED), fitur saran +
+        // modal + grup manual tetap dipertahankan.
+        $this->assertSame('MATCHED', $row['status']);
+        $this->assertSame('CON1', $row['new_service_code']);
+        $this->assertTrue($row['suggested_applied']);
+        $this->assertSame(1, $result['summary']['matched']);
+        $this->assertSame(0, $result['summary']['not_found']);
+        $this->assertSame(1, $result['summary']['suggested']);
+        $this->assertSame('MATCHED', $result['decisions'][2]['status']);
+        $this->assertTrue($result['decisions'][2]['suggested_applied']);
+        $this->assertSame('CON1', $result['decisions'][2]['new_service_code']);
+        $this->assertNotEmpty($row['suggestions']);
+        $this->assertArrayHasKey('CORTICAL SCREW TEST 18 (OST-22104-0139)|VVIP', $result['groups']);
+
+        // Generate menulis kode konsensus, TARIFF asli tidak berubah.
+        $token = $this->scanOk($rows, $this->headerExt());
+        $gen = $this->actingAs($this->user)->post(route('bridge.generate'), ['token' => $token]);
+        $gen->assertRedirect(route('bridge.download', $token));
+
+        $dl = $this->actingAs($this->user)->get(route('bridge.download', $token));
+        $out = tempnam(sys_get_temp_dir(), 'bout').'.xlsx';
+        file_put_contents($out, $dl->streamedContent() ?: $dl->getContent());
+        $sheet = IOFactory::load($out)->getActiveSheet()->toArray(null, true, true, false);
+        $outRow = array_values($sheet[1]);
+        $this->assertSame('CON1', $outRow[1]);
+        $this->assertEquals(277639, $outRow[5]);
     }
 
     public function test_similar_rejects_midword_substring_despite_like_recall(): void
@@ -1388,6 +1441,10 @@ class BridgeTarifTest extends TestCase
         // Tarif Excel terbawa ke store modal analisa.
         $page->assertSee('200000', false);
         $page->assertSee('Tarif Excel', false);
+        // Kolom presentase rekomendasi + sinyal tarif per saran.
+        $page->assertSee('Rekomendasi', false);
+        $page->assertSee('tariff_diff', false);
+        $page->assertSee('class_match', false);
     }
 
     public function test_effective_tariff_prioritizes_excel_tariff(): void
