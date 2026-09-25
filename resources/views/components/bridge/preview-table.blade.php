@@ -23,6 +23,7 @@
             ];
         }
         $suggested = $row['suggested'] ?? null;
+        $effSource = $row['tariff_source'] ?? null;
         $analysisStore[$row['excel_row']] = [
             'excel_row' => $row['excel_row'],
             'status' => $row['status'],
@@ -32,6 +33,11 @@
             'class_name' => $row['class_name'] ?? '',
             'tariff' => isset($row['tariff']) && is_numeric($row['tariff']) ? (float) $row['tariff'] : null,
             'tariff_raw' => trim((string) ($row['tariff_raw'] ?? '')),
+            'effective_tariff' => isset($row['effective_tariff']) && is_numeric($row['effective_tariff']) ? (float) $row['effective_tariff'] : null,
+            'tariff_source' => $effSource,
+            'tariff_source_label' => \App\Services\Bridge\BridgeTarifEffectiveTariff::sourceLabel($effSource),
+            'total_billed' => isset($row['total_billed']) && is_numeric($row['total_billed']) ? (float) $row['total_billed'] : null,
+            'quantity' => isset($row['quantity']) && is_numeric($row['quantity']) ? (float) $row['quantity'] : null,
             'mapping_key' => $row['mapping_key'] ?? '',
             'new_class_code' => $row['new_class_code'] ?? null,
             'analysis' => $row['analysis'] ?? null,
@@ -45,7 +51,7 @@
 @endphp
 
 <p class="px-4 pt-3 text-xs text-gray-500"><i class="bi bi-cursor-click"></i> Klik baris berstatus <span class="font-semibold text-yellow-700">AMBIGUOUS</span> / <span class="font-semibold text-red-700">NOT_FOUND</span> untuk melihat detail analisa.</p>
-<x-table :columns="['Row', 'Status', 'Old Code', 'Description', 'Old Class Code', 'Kelas', 'New Code', 'New Class Code']" empty="Tidak ada baris.">
+<x-table :columns="['Row', 'Status', 'Old Code', 'Description', 'Old Class Code', 'Kelas', 'Tarif Efektif', 'New Code', 'New Class Code']" empty="Tidak ada baris.">
     @foreach($rows as $row)
     @php $clickable = in_array($row['status'] ?? '', ['AMBIGUOUS', 'NOT_FOUND'], true); @endphp
     <tr @if($clickable) data-ba-open="{{ $row['excel_row'] }}" title="Klik untuk lihat detail analisa" @endif
@@ -61,6 +67,7 @@
         <td class="px-4 py-3 text-xs max-w-xs truncate">{{ $row['service_description'] !== '' ? $row['service_description'] : '-' }}</td>
         <td class="px-4 py-3 whitespace-nowrap font-mono text-xs bg-gray-50">{{ $row['service_class_code'] !== '' ? $row['service_class_code'] : '-' }}</td>
         <td class="px-4 py-3 whitespace-nowrap text-xs">{{ $row['class_name'] !== '' ? $row['class_name'] : '-' }}</td>
+        <td class="px-4 py-3 whitespace-nowrap text-xs font-mono bg-teal-50/50">@if(isset($row['effective_tariff']) && is_numeric($row['effective_tariff'])) Rp {{ number_format((float) $row['effective_tariff'], 0, ',', '.') }}@else<span class="text-gray-300">—</span>@endif</td>
         <td class="px-4 py-3 whitespace-nowrap font-mono text-xs font-semibold bg-blue-50">{{ $row['new_service_code'] ?? '-' }}@if(($row['status'] ?? '') === 'AMBIGUOUS' && !empty($row['suggested_applied'])) <span class="inline-flex px-1.5 py-0 text-[10px] font-bold rounded-full bg-teal-600 text-white font-sans">saran</span>@endif</td>
         <td class="px-4 py-3 whitespace-nowrap font-mono text-xs font-semibold bg-blue-50">{{ $row['new_class_code'] ?? '-' }}</td>
     </tr>
@@ -76,8 +83,7 @@
             <button type="button" data-ba-close class="text-gray-400 hover:text-gray-600 text-xl leading-none px-1">&times;</button>
         </div>
         <div class="flex-1 overflow-y-auto px-4 py-3 min-h-0" data-ba-body></div>
-        <div class="flex items-center justify-between gap-2 px-4 py-3 border-t bg-gray-50 rounded-b-lg">
-            <p class="text-xs text-gray-500">Pilihan final tetap lewat tombol “Petakan Manual” di atas tabel.</p>
+        <div class="flex items-center justify-end gap-2 px-4 py-3 border-t bg-gray-50 rounded-b-lg">
             <button type="button" data-ba-close class="px-4 py-2 text-sm font-semibold text-gray-700 rounded-md border border-gray-300 hover:bg-gray-100 transition-colors">Tutup</button>
         </div>
     </div>
@@ -133,13 +139,20 @@
                 + '<td class="px-3 py-2">' + (isSug ? '<span class="inline-flex px-2 py-0.5 text-[11px] font-bold rounded-full bg-green-600 text-white">Saran</span>' : (i === 0 ? '<span class="inline-flex px-2 py-0.5 text-[11px] font-bold rounded-full bg-yellow-100 text-yellow-800">Teratas</span>' : '')) + '</td>'
                 + '</tr>';
         });
-        return html + '</tbody></table></div>'
-            + '<p class="mt-1 text-[11px] text-gray-500">Skor = kecocokan kode kelas × 1,0 + kedekatan tarif × 2,0. “Saran” muncul bila satu kandidat cocok nyaris persis (≤ 1%) dengan gap jelas: cocok persis 0% cukup gap ≥ 1pp, yang hanya dekat butuh gap ≥ 5pp — tetap perlu dipilih manual.</p>';
+        return html + '</tbody></table></div>';
     }
     function excelTariffLabel(d) {
         if (d.tariff !== null && d.tariff !== undefined) return rupiah(d.tariff);
         if (d.tariff_raw) return esc(d.tariff_raw) + ' (tidak terbaca)';
         return 'kosong';
+    }
+    function effectiveLabel(d) {
+        if (d.effective_tariff === null || d.effective_tariff === undefined) return 'tidak tersedia';
+        return rupiah(d.effective_tariff);
+    }
+    function qtyLabel(q) {
+        if (q === null || q === undefined || q === '') return '-';
+        return esc(String(q));
     }
     function renderBody(d) {
         var excelTariff = excelTariffLabel(d);
@@ -149,22 +162,18 @@
             + '<div class="border rounded-md p-2"><p class="font-semibold text-gray-500">Description</p><p>' + esc(d.service_description || '-') + '</p></div>'
             + '<div class="border rounded-md p-2"><p class="font-semibold text-gray-500">Old Class Code</p><p class="font-mono">' + esc(d.service_class_code || '-') + '</p></div>'
             + '<div class="border rounded-md p-2"><p class="font-semibold text-gray-500">Kelas</p><p>' + esc(d.class_name || '-') + '</p></div>'
-            + '<div class="border rounded-md p-2 border-teal-300 bg-teal-50"><p class="font-semibold text-teal-700">Tarif Excel</p><p class="font-bold text-teal-900">' + excelTariff + '</p></div>'
+            + '<div class="border rounded-md p-2"><p class="font-semibold text-gray-500">Tarif Excel</p><p class="font-mono">' + excelTariff + '</p></div>'
+            + '<div class="border rounded-md p-2 border-teal-300 bg-teal-50"><p class="font-semibold text-teal-700">Tarif Efektif</p><p class="font-bold text-teal-900 font-mono">' + esc(effectiveLabel(d)) + '</p><p class="text-[11px] text-teal-700">Sumber: ' + esc(d.tariff_source_label || 'tidak tersedia') + '</p></div>'
+            + '<div class="border rounded-md p-2"><p class="font-semibold text-gray-500">Total Billed</p><p class="font-mono">' + (d.total_billed === null || d.total_billed === undefined ? '-' : esc(rupiah(d.total_billed))) + '</p></div>'
+            + '<div class="border rounded-md p-2"><p class="font-semibold text-gray-500">Quantity</p><p class="font-mono">' + qtyLabel(d.quantity) + '</p></div>'
             + '<div class="border rounded-md p-2"><p class="font-semibold text-gray-500">Mapping Key</p><p class="font-mono break-all">' + esc(d.mapping_key || '-') + '</p></div>'
-            + '</div>'
-            + '<div><p class="text-xs font-semibold text-gray-600 mb-1">Penjelasan Analisa</p>'
-            + '<p class="text-xs leading-relaxed text-gray-700 bg-gray-50 border border-gray-200 rounded-md p-2.5">' + esc(d.analysis || 'Tidak ada penjelasan.') + '</p></div>';
+            + '</div>';
         if (d.status === 'AMBIGUOUS') {
-            if (d.suggested) {
-                html += '<div class="text-xs bg-green-50 border border-green-200 rounded-md p-2.5">Rekomendasi (belum diterapkan): <span class="font-mono font-bold">' + esc(d.suggested.service_code) + ' | ' + esc(d.suggested.class_code) + '</span> — pilih di “Petakan Manual” bila setuju.</div>';
-            } else {
-                html += '<div class="text-xs bg-yellow-50 border border-yellow-200 rounded-md p-2.5">Belum ada rekomendasi yang cukup yakin — bandingkan tabel lalu pilih manual.</div>';
-            }
             html += '<div><p class="text-xs font-semibold text-gray-600 mb-1">Perbandingan Kandidat (' + d.candidates.length + ')</p>'
-                + '<div class="mb-1.5 text-xs bg-teal-50 border border-teal-300 rounded-md px-2.5 py-1.5">Tarif Excel (pembanding): <span class="font-bold font-mono">' + excelTariff + '</span></div>'
+                + '<div class="mb-1.5 text-xs bg-teal-50 border border-teal-300 rounded-md px-2.5 py-1.5">Tarif Pembanding (efektif): <span class="font-bold font-mono">' + esc(effectiveLabel(d)) + '</span> <span class="text-teal-700">— Sumber: ' + esc(d.tariff_source_label || 'tidak tersedia') + '</span></div>'
                 + renderCompares(d.candidates, d.suggested) + '</div>';
         } else if (d.status === 'NOT_FOUND') {
-            html += '<div class="text-xs bg-red-50 border border-red-200 rounded-md p-2.5">Kode kelas master untuk baris ini: <span class="font-mono font-bold">' + esc(d.new_class_code || '(tidak dikenali — ikut bawaan Excel)') + '</span>. Cari service yang benar lewat “Petakan Manual” (ketik ≥ 2 huruf untuk menyaring, klik untuk saran paling mirip description).</div>';
+            html += '<div class="text-xs bg-red-50 border border-red-200 rounded-md p-2.5">Kode kelas master untuk baris ini: <span class="font-mono font-bold">' + esc(d.new_class_code || '(tidak dikenali — ikut bawaan Excel)') + '</span>. Cari service yang benar lewat “Petakan Manual” (ketik ≥ 2 huruf untuk menyaring, klik untuk saran paling mirip description) dan gunakan tarif efektif <span class="font-mono font-bold">' + esc(effectiveLabel(d)) + '</span> sebagai pembanding.</div>';
         }
         return html + '</div>';
     }

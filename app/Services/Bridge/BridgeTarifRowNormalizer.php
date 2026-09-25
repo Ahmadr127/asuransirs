@@ -22,15 +22,41 @@ class BridgeTarifRowNormalizer
 
     /**
      * Parse nilai tarif Excel ke float. Mendukung angka mentah,
-     * format "Rp 1.250.000", "1,250,000.00", maupun "1250000,50".
+     * format "Rp 1.250.000", "1,250,000.00", "1250000,50", maupun
+     * ribuan Indonesia "31.949" (titik tunggal + tepat 3 digit).
      * null bila kosong / tidak bisa diparsing / <= 0.
      */
     public static function parseTariff(mixed $value): ?float
     {
+        $num = self::parseNumber($value, true);
+
+        return ($num !== null && $num > 0) ? $num : null;
+    }
+
+    /**
+     * Parse quantity: konsisten dengan parser tarif (mendukung desimal
+     * koma/titik seperti "2.5"), tetapi null/kosong/0/negatif = invalid
+     * (tidak boleh dipakai sebagai pembagi). Tanpa heuristik ribuan
+     * Indonesia agar desimal quantity ("1.5") tidak rusak.
+     */
+    public static function parseQuantity(mixed $value): ?float
+    {
+        $num = self::parseNumber($value, false);
+
+        return ($num !== null && $num > 0 && is_finite($num)) ? $num : null;
+    }
+
+    /**
+     * Inti parsing angka. $thousandsHeuristic=true: titik tunggal yang
+     * diikuti tepat 3 digit ("31.949", "63.898") dibaca sebagai pemisah
+     * ribuan Indonesia; false: titik tunggal selalu desimal ("1.5").
+     */
+    protected static function parseNumber(mixed $value, bool $thousandsHeuristic): ?float
+    {
         if (is_int($value) || is_float($value)) {
             $num = (float) $value;
 
-            return $num > 0 ? $num : null;
+            return is_finite($num) ? $num : null;
         }
         $text = trim((string) $value);
         if ($text === '') {
@@ -55,9 +81,11 @@ class BridgeTarifRowNormalizer
             $clean = str_replace('.', '', $clean);
             $clean = str_replace(',', '.', $clean);
         } else {
-            // Tanpa koma: koma ribuan AS ("1,250,000" sudah tertangani di
-            // atas); titik ganda berarti ribuan ("1.250.000").
+            // Tanpa koma: titik ganda berarti ribuan ("1.250.000").
             if (substr_count($clean, '.') > 1) {
+                $clean = str_replace('.', '', $clean);
+            } elseif ($thousandsHeuristic && preg_match('/^\d{1,3}(\.\d{3})+$/', $clean)) {
+                // Titik tunggal + tepat 3 digit = ribuan Indonesia.
                 $clean = str_replace('.', '', $clean);
             }
         }
@@ -66,7 +94,7 @@ class BridgeTarifRowNormalizer
         }
         $num = (float) $clean;
 
-        return $num > 0 ? $num : null;
+        return is_finite($num) ? $num : null;
     }
 
     /**
@@ -86,6 +114,20 @@ class BridgeTarifRowNormalizer
         $tariffRaw = isset($map[BridgeTarifExcelReader::FIELD_TARIFF])
             ? (string) ($values[$map[BridgeTarifExcelReader::FIELD_TARIFF]] ?? '')
             : '';
+        $totalBilledRaw = isset($map[BridgeTarifExcelReader::FIELD_TOTAL_BILLED])
+            ? (string) ($values[$map[BridgeTarifExcelReader::FIELD_TOTAL_BILLED]] ?? '')
+            : '';
+        $quantityRaw = isset($map[BridgeTarifExcelReader::FIELD_QUANTITY])
+            ? (string) ($values[$map[BridgeTarifExcelReader::FIELD_QUANTITY]] ?? '')
+            : '';
+
+        $tariff = self::parseTariff($tariffRaw);
+        $totalBilled = self::parseTariff($totalBilledRaw);
+        $quantity = self::parseQuantity($quantityRaw);
+        // Effective tariff per row (prioritas 1-2). Prioritas 3 (fallback
+        // grup se-mapping_key) diisi BridgeTarifProcessor pada pass kedua.
+        // Nilai asli TARIFF/total/quantity tetap dipertahankan apa adanya.
+        $effective = BridgeTarifEffectiveTariff::fromParts($tariff, $totalBilled, $quantity);
 
         $descriptionKey = self::normalizeKey($description);
         $classKey = self::normalizeKey($className);
@@ -97,7 +139,13 @@ class BridgeTarifRowNormalizer
             'service_class_code' => $classCode,
             'class_name' => $className,
             'tariff_raw' => trim($tariffRaw),
-            'tariff' => self::parseTariff($tariffRaw),
+            'tariff' => $tariff,
+            'total_billed_raw' => trim($totalBilledRaw),
+            'total_billed' => $totalBilled,
+            'quantity_raw' => trim($quantityRaw),
+            'quantity' => $quantity,
+            'effective_tariff' => $effective['effective_tariff'],
+            'tariff_source' => $effective['tariff_source'],
             'description_key' => $descriptionKey,
             'class_key' => $classKey,
             'mapping_key' => $descriptionKey.'|'.$classKey,

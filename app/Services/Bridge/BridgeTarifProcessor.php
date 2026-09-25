@@ -30,10 +30,27 @@ class BridgeTarifProcessor
         $preview = [];
         $decisions = [];
 
+        // Pass 1: normalisasi semua row (murni in-memory, tanpa query).
+        $normalizedList = [];
         $excelRow = 1; // baris 1 = header
         foreach ($rows as $rawRow) {
             $excelRow++;
-            $normalized = BridgeTarifRowNormalizer::normalize($rawRow, $map, $excelRow);
+            $normalizedList[] = BridgeTarifRowNormalizer::normalize($rawRow, $map, $excelRow);
+        }
+
+        // Pass 2: fallback tarif grup — row yang effective_tariff-nya masih
+        // null memakai median tarif valid row lain dengan mapping_key sama
+        // (prioritas 3, sumber 'group'). Nilai asli row tidak diubah.
+        $this->applyGroupTariffFallback($normalizedList);
+
+        // Kumpulan tarif efektif per grup untuk referensi Petakan Manual.
+        /** @var array<string, array<int, array{t: float, s: ?string}>> $groupTariffs */
+        $groupTariffs = [];
+
+        // Pass 3: resolve per row (satu-satunya tempat query via repository
+        // yang sudah preload — tanpa query per row).
+        foreach ($normalizedList as $normalized) {
+            $excelRow = $normalized['excel_row'];
             $resolved = $this->resolver->resolve($normalized);
 
             // Pilihan manual user untuk grup ambigu maupun NOT_FOUND
@@ -93,6 +110,14 @@ class BridgeTarifProcessor
                     'resolved' => null,
                 ];
                 $groups[$key]['rows'][] = $excelRow;
+                // Referensi tarif efektif grup untuk Petakan Manual: tiap
+                // row menyumbang effective_tariff-nya (bila ada).
+                if (isset($normalized['effective_tariff']) && is_numeric($normalized['effective_tariff'])) {
+                    $groupTariffs[$key][] = [
+                        't' => (float) $normalized['effective_tariff'],
+                        's' => $normalized['tariff_source'] ?? null,
+                    ];
+                }
             }
 
             $decisions[$excelRow] = [
@@ -117,6 +142,12 @@ class BridgeTarifProcessor
             }
         }
 
+        // Ringkas referensi tarif efektif per grup (satu nilai bila semua
+        // row sama, rentang min–max bila bervariasi, null bila tak ada).
+        foreach ($groups as $key => $group) {
+            $groups[$key]['tariff_ref'] = $this->summarizeGroupTariffs($groupTariffs[$key] ?? []);
+        }
+
         // Tandai grup yang sudah dipilih user.
         foreach ($groups as $key => $group) {
             if (isset($resolutions[$key])
@@ -133,6 +164,86 @@ class BridgeTarifProcessor
             'groups' => $groups,
             'preview' => $preview,
             'decisions' => $decisions,
+        ];
+    }
+
+    /**
+     * Fallback tarif grup (prioritas 3, in-memory): row yang
+     * effective_tariff-nya masih null memakai median tarif valid row lain
+     * dengan mapping_key sama. Row yang sudah punya effective sendiri
+     * (excel / total_billed_quantity) TIDAK disentuh. Dilewati untuk
+     * key tak lengkap (jalur INVALID) agar row tak terkait tidak tercampur.
+     *
+     * @param  array<int, array<string, mixed>>  $list  (by reference)
+     */
+    protected function applyGroupTariffFallback(array &$list): void
+    {
+        $groupValues = [];
+        foreach ($list as $n) {
+            if (($n['description_key'] ?? '') === '' || ($n['class_key'] ?? '') === '') {
+                continue;
+            }
+            if (isset($n['effective_tariff']) && is_numeric($n['effective_tariff'])) {
+                $groupValues[$n['mapping_key']][] = (float) $n['effective_tariff'];
+            }
+        }
+        $medians = [];
+        foreach ($groupValues as $key => $values) {
+            $medians[$key] = BridgeTarifEffectiveTariff::median($values);
+        }
+        foreach ($list as &$n) {
+            if (isset($n['effective_tariff']) && is_numeric($n['effective_tariff'])) {
+                continue;
+            }
+            $fallback = $medians[$n['mapping_key']] ?? null;
+            if ($fallback !== null) {
+                $n['effective_tariff'] = $fallback;
+                $n['tariff_source'] = BridgeTarifEffectiveTariff::SOURCE_GROUP;
+            }
+        }
+        unset($n);
+    }
+
+    /**
+     * Ringkas tarif efektif grup untuk referensi Petakan Manual.
+     *
+     * @param  array<int, array{t: float, s: ?string}>  $entries
+     * @return array{label: ?string, tariff: ?float, source: ?string, varied: bool}
+     */
+    protected function summarizeGroupTariffs(array $entries): array
+    {
+        $none = ['label' => null, 'tariff' => null, 'source' => null, 'varied' => false];
+        if ($entries === []) {
+            return $none;
+        }
+        // Nilai distinct (2 desimal) terurut; sumber mengikuti kemunculan
+        // pertama nilai tersebut.
+        $byValue = [];
+        foreach ($entries as $e) {
+            $k = number_format($e['t'], 2, '.', '');
+            $byValue[$k] ??= ['t' => $e['t'], 's' => $e['s']];
+        }
+        ksort($byValue);
+        $distinct = array_values($byValue);
+        if (count($distinct) === 1) {
+            $t = $distinct[0]['t'];
+            $s = $distinct[0]['s'];
+
+            return [
+                'label' => 'Rp '.number_format($t, 0, ',', '.').' ('.BridgeTarifEffectiveTariff::sourceLabel($s).')',
+                'tariff' => $t,
+                'source' => $s,
+                'varied' => false,
+            ];
+        }
+        $min = $distinct[0]['t'];
+        $max = $distinct[count($distinct) - 1]['t'];
+
+        return [
+            'label' => 'Rp '.number_format($min, 0, ',', '.').' – Rp '.number_format($max, 0, ',', '.').' (bervariasi antar row)',
+            'tariff' => null,
+            'source' => null,
+            'varied' => true,
         ];
     }
 

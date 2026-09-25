@@ -45,9 +45,11 @@ final class AmbiguousRanker
     public function rank(array $candidates, array $normalized): array
     {
         $excelClass = mb_strtoupper(trim((string) ($normalized['service_class_code'] ?? '')));
-        $excelTariff = isset($normalized['tariff']) && is_numeric($normalized['tariff'])
-            ? (float) $normalized['tariff']
-            : null;
+        // WAJIB effective_tariff (mencakup TARIFF Excel, TOTAL BILLED /
+        // QUANTITY, maupun fallback grup); fallback ke tariff mentah hanya
+        // untuk pemanggil lama yang belum menyediakan effective_tariff.
+        $excelTariff = $normalized['effective_tariff'] ?? ($normalized['tariff'] ?? null);
+        $excelTariff = is_numeric($excelTariff) ? (float) $excelTariff : null;
         if ($excelTariff !== null && $excelTariff <= 0) {
             $excelTariff = null;
         }
@@ -98,9 +100,8 @@ final class AmbiguousRanker
      */
     public function shouldAutoMatch(array $ranked, array $normalized): ?array
     {
-        $excelTariff = isset($normalized['tariff']) && is_numeric($normalized['tariff'])
-            ? (float) $normalized['tariff']
-            : null;
+        $excelTariff = $normalized['effective_tariff'] ?? ($normalized['tariff'] ?? null);
+        $excelTariff = is_numeric($excelTariff) ? (float) $excelTariff : null;
         if ($excelTariff === null || $excelTariff <= 0 || count($ranked) < 2) {
             return null;
         }
@@ -135,14 +136,16 @@ final class AmbiguousRanker
     public function explain(array $ranked, array $normalized, ?array $suggested): string
     {
         $n = count($ranked);
-        $excelTariff = isset($normalized['tariff']) && is_numeric($normalized['tariff'])
-            ? (float) $normalized['tariff']
-            : null;
+        $excelTariff = $normalized['effective_tariff'] ?? ($normalized['tariff'] ?? null);
+        $excelTariff = is_numeric($excelTariff) ? (float) $excelTariff : null;
+        $sourceLabel = \App\Services\Bridge\BridgeTarifEffectiveTariff::sourceLabel(
+            $normalized['tariff_source'] ?? null
+        );
         $base = "Ditemukan {$n} kandidat master dengan description + kelas yang sama setelah normalisasi, sehingga baris ini berstatus AMBIGUOUS dan tidak otomatis dipetakan. ";
-        $base .= 'Kandidat diurutkan berdasarkan kecocokan kode kelas lama Excel (bobot 1,0) dan kedekatan tarif Excel vs tarif master (bobot 2,0). ';
+        $base .= 'Kandidat diurutkan berdasarkan kecocokan kode kelas lama Excel (bobot 1,0) dan kedekatan tarif efektif vs tarif master (bobot 2,0). ';
 
         if ($excelTariff === null || $excelTariff <= 0) {
-            return $base.'Kolom TARIFF pada baris Excel kosong/tidak terbaca, sehingga penimbang tarif tidak dipakai — urutan hanya mengandalkan kecocokan kelas lalu kode service. Isi tarif atau pilih manual.';
+            return $base.'Tarif tidak tersedia (TARIFF kosong dan TOTAL BILLED ÷ QUANTITY tidak bisa dihitung) sehingga pembanding tarif tidak digunakan — urutan hanya mengandalkan kecocokan kelas lalu kode service. Lengkapi tarif atau pilih manual.';
         }
 
         if ($suggested !== null) {
@@ -150,7 +153,7 @@ final class AmbiguousRanker
             $diff = $suggested['_tariff_diff'] ?? null;
             $pct = $diff === null ? '?' : number_format($diff * 100, 2, ',', '.').'%';
 
-            return $base."Rekomendasi: {$code} (selisih tarif {$pct}, paling dekat dan gap jelas dari kandidat lain). Rekomendasi ini tidak otomatis diterapkan — tetap pilih manual.";
+            return $base."Rekomendasi: {$code} (selisih tarif {$pct} terhadap tarif efektif Rp ".number_format($excelTariff, 0, ',', '.')." sumber {$sourceLabel}, paling dekat dan gap jelas dari kandidat lain). Rekomendasi ini langsung masuk ke New Code, tetapi status tetap AMBIGUOUS — periksa dan timpa via manual bila tidak setuju.";
         }
 
         $best = $ranked[0] ?? null;

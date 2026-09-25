@@ -34,6 +34,9 @@
                             @foreach($ambiguousGroups as $key => $group)
                                 <div class="border border-yellow-200 bg-yellow-50 rounded-md p-3" data-rm-root>
                                     <p class="text-sm"><span class="font-semibold">Description:</span> {{ $group['description'] }} &bull; <span class="font-semibold">Kelas:</span> {{ $group['kelas'] }} &bull; <span class="text-gray-500">{{ count($group['rows']) }} row</span></p>
+                                    @if(!empty($group['tariff_ref']['label']))
+                                        <p class="mt-1 text-xs text-gray-600"><i class="bi bi-calculator"></i> Tarif efektif: <span class="font-mono font-semibold">{{ $group['tariff_ref']['label'] }}</span></p>
+                                    @endif
                                     <input type="hidden" name="rows[{{ $rowIndex }}][key]" value="{{ $key }}">
                                     <select name="rows[{{ $rowIndex }}][candidate]"
                                         class="mt-2 w-full px-3 py-1.5 text-sm border border-gray-300 rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-sp-primary/20 focus:border-sp-primary transition-colors">
@@ -59,6 +62,11 @@
                                 @endphp
                                 <div class="border border-red-200 bg-red-50 rounded-md p-3" data-rm-root data-rm-desc="{{ $group['description'] }}">
                                     <p class="text-sm"><span class="font-semibold">Description:</span> {{ $group['description'] !== '' ? $group['description'] : '-' }} &bull; <span class="font-semibold">Kelas:</span> {{ $group['kelas'] !== '' ? $group['kelas'] : '-' }} &bull; <span class="text-gray-500">{{ count($group['rows']) }} row</span></p>
+                                    @if(!empty($group['tariff_ref']['label']))
+                                        <p class="mt-1 text-xs text-gray-600"><i class="bi bi-calculator"></i> Tarif efektif (pembanding): <span class="font-mono font-semibold">{{ $group['tariff_ref']['label'] }}</span></p>
+                                    @else
+                                        <p class="mt-1 text-xs text-gray-400"><i class="bi bi-calculator"></i> Tanpa referensi tarif efektif.</p>
+                                    @endif
                                     <input type="hidden" name="rows[{{ $rowIndex }}][key]" value="{{ $key }}">
                                     <input type="hidden" name="rows[{{ $rowIndex }}][candidate]" value="{{ $resolvedCode !== '' ? $resolvedCode.'|' : '' }}" data-rm-candidate>
                                     <div class="mt-2 relative">

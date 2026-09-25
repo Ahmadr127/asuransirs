@@ -177,10 +177,15 @@ class BridgeTarifTest extends TestCase
         return ['PROVID', 'SERVICECODE', 'SERVICECODE DESCRIPTION', 'SERVICECODE KELAS', 'KELAS', 'TARIFF', 'NOTE'];
     }
 
-    protected function tmpFile(array $rows): string
+    protected function headerExt(): array
+    {
+        return ['PROVID', 'SERVICECODE', 'SERVICECODE DESCRIPTION', 'SERVICECODE KELAS', 'KELAS', 'TARIFF', 'TOTAL BILLED', 'QUANTITY', 'NOTE'];
+    }
+
+    protected function tmpFile(array $rows, ?array $header = null): string
     {
         $spreadsheet = new Spreadsheet;
-        $spreadsheet->getActiveSheet()->fromArray(array_merge([$this->header()], $rows), null, 'A1');
+        $spreadsheet->getActiveSheet()->fromArray(array_merge([$header ?? $this->header()], $rows), null, 'A1');
         $tmp = tempnam(sys_get_temp_dir(), 'bridge').'.xlsx';
         (new Xlsx($spreadsheet))->save($tmp);
         $spreadsheet->disconnectWorksheets();
@@ -188,13 +193,22 @@ class BridgeTarifTest extends TestCase
         return $tmp;
     }
 
-    protected function upload(array $rows): UploadedFile
+    protected function upload(array $rows, ?array $header = null): UploadedFile
     {
         return new UploadedFile(
-            $this->tmpFile($rows), 'lama.xlsx',
+            $this->tmpFile($rows, $header), 'lama.xlsx',
             'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
             null, true
         );
+    }
+
+    /** Scan langsung dari file tersimpan (tanpa HTTP). */
+    protected function scanRows(array $rows, ?array $header = null): array
+    {
+        $service = app(BridgeTarifService::class);
+        $path = Storage::path($this->storeRaw($rows, $header));
+
+        return $service->scanFile($path);
     }
 
     public function test_bridge_page_has_no_jenis_tarif_select(): void
@@ -1074,10 +1088,221 @@ class BridgeTarifTest extends TestCase
         $page->assertSee('Tarif Excel', false);
     }
 
-    protected function storeRaw(array $rows): string
+    public function test_effective_tariff_prioritizes_excel_tariff(): void
+    {
+        $result = $this->scanRows([
+            ['PRV1', 'OLD-MRI', 'MRI BRAIN', 'OLD-K1', 'KELAS 1', 100000, 200000, 2, 'a'],
+        ], $this->headerExt());
+        $row = $result['preview'][0];
+
+        $this->assertSame(100000.0, $row['tariff']);
+        $this->assertSame(100000.0, $row['effective_tariff']);
+        $this->assertSame('excel', $row['tariff_source']);
+    }
+
+    public function test_effective_tariff_computed_from_total_billed_divided_by_quantity(): void
+    {
+        $result = $this->scanRows([
+            ['PRV1', 'OLD-A', 'USG ABDOMEN', 'OLD-K1', 'VIP', '', 63898, 2, 'a'],
+        ], $this->headerExt());
+        $row = $result['preview'][0];
+
+        $this->assertNull($row['tariff']);
+        $this->assertSame(31949.0, $row['effective_tariff']);
+        $this->assertSame('total_billed_quantity', $row['tariff_source']);
+    }
+
+    public function test_effective_tariff_null_when_quantity_zero_or_negative(): void
+    {
+        $result = $this->scanRows([
+            ['PRV1', 'OLD-A', 'USG ABDOMEN', 'OLD-K1', 'VIP', '', 63898, 0, 'a'],
+            ['PRV1', 'OLD-B', 'USG ABDOMEN', 'OLD-K1', 'VIP', '', 63898, -2, 'b'],
+            ['PRV1', 'OLD-C', 'USG ABDOMEN', 'OLD-K1', 'VIP', '', 0, 2, 'c'],
+        ], $this->headerExt());
+
+        foreach ($result['preview'] as $row) {
+            $this->assertNull($row['effective_tariff']);
+            $this->assertNull($row['tariff_source']);
+        }
+    }
+
+    public function test_effective_tariff_null_when_total_billed_missing(): void
+    {
+        $result = $this->scanRows([
+            ['PRV1', 'OLD-A', 'USG ABDOMEN', 'OLD-K1', 'VIP', '', '', 2, 'a'],
+        ], $this->headerExt());
+        $row = $result['preview'][0];
+
+        $this->assertNull($row['effective_tariff']);
+        $this->assertNull($row['tariff_source']);
+    }
+
+    public function test_ambiguous_uses_effective_tariff_for_suggestion_but_stays_ambiguous(): void
+    {
+        $ct1 = Service::where('code', 'CT001')->firstOrFail();
+        $ct2 = Service::where('code', 'CT002')->firstOrFail();
+        Tarif::where('service_id', $ct1->id)->update(['tariff' => 31949]);
+        Tarif::where('service_id', $ct2->id)->update(['tariff' => 60703]);
+
+        $result = $this->scanRows([
+            ['PRV1', 'OLD-CT', 'CT SCAN HEAD', 'OLD-K1', 'KELAS 1', '', 63898, 2, 'b'],
+        ], $this->headerExt());
+        $row = $result['preview'][0];
+
+        $this->assertSame('AMBIGUOUS', $row['status']);
+        $this->assertSame(31949.0, $row['effective_tariff']);
+        $this->assertSame('total_billed_quantity', $row['tariff_source']);
+        $this->assertSame('CT001', $row['suggested']['service_code'] ?? null);
+        $this->assertSame('CT001', $row['new_service_code']);
+        $this->assertTrue($row['suggested_applied']);
+    }
+
+    public function test_notfound_keeps_effective_tariff_and_mentions_it_in_analysis(): void
+    {
+        $result = $this->scanRows([
+            ['PRV1', 'OLD-A', 'USG ABDOMEN', 'OLD-K1', 'VIP', '', 50000, 2, 'a'],
+        ], $this->headerExt());
+        $row = $result['preview'][0];
+
+        $this->assertSame('NOT_FOUND', $row['status']);
+        $this->assertSame(25000.0, $row['effective_tariff']);
+        $this->assertSame('total_billed_quantity', $row['tariff_source']);
+        $this->assertStringContainsStringIgnoringCase('tarif efektif', $row['analysis']);
+        $this->assertStringContainsString('TOTAL BILLED', $row['analysis']);
+    }
+
+    public function test_notfound_without_any_tariff_keeps_old_behavior(): void
+    {
+        $result = $this->scanRows([
+            ['PRV1', 'OLD-A', 'USG ABDOMEN', 'OLD-K1', 'VIP', '', 'a'],
+        ]);
+        $row = $result['preview'][0];
+
+        $this->assertSame('NOT_FOUND', $row['status']);
+        $this->assertNull($row['effective_tariff']);
+        $this->assertNull($row['tariff_source']);
+        $this->assertStringContainsStringIgnoringCase('tidak tersedia', $row['analysis']);
+    }
+
+    public function test_duplicate_mapping_key_rows_keep_own_effective_tariff(): void
+    {
+        $result = $this->scanRows([
+            ['PRV1', 'OLD-A', 'INFUSAN NACL 100 ML SANBE', 'OLD-K1', 'VVIP', '', 63898, 2, 'a'],
+            ['PRV1', 'OLD-B', 'INFUSAN NACL 100 ML SANBE', 'OLD-K1', 'VVIP', 31949, 31949, 1, 'b'],
+            ['PRV1', 'OLD-C', 'INFUSAN NACL 100 ML SANBE', 'OLD-K1', 'VVIP', '', 63898, 2, 'c'],
+        ], $this->headerExt());
+
+        $this->assertCount(3, $result['preview']);
+        [$a, $b, $c] = $result['preview'];
+
+        $this->assertSame(31949.0, $a['effective_tariff']);
+        $this->assertSame('total_billed_quantity', $a['tariff_source']);
+        $this->assertSame(31949.0, $b['effective_tariff']);
+        $this->assertSame('excel', $b['tariff_source']);
+        $this->assertSame(31949.0, $c['effective_tariff']);
+        $this->assertSame('total_billed_quantity', $c['tariff_source']);
+        // Nilai asli tidak diubah.
+        $this->assertNull($a['tariff']);
+        $this->assertSame(31949.0, $b['tariff']);
+    }
+
+    public function test_group_tariff_fallback_when_row_has_no_tariff_at_all(): void
+    {
+        $result = $this->scanRows([
+            ['PRV1', 'OLD-A', 'INFUSAN NACL 100 ML SANBE', 'OLD-K1', 'VVIP', 50000, 50000, 1, 'a'],
+            ['PRV1', 'OLD-B', 'INFUSAN NACL 100 ML SANBE', 'OLD-K1', 'VVIP', '', '', '', 'b'],
+        ], $this->headerExt());
+        [$a, $b] = $result['preview'];
+
+        $this->assertSame('excel', $a['tariff_source']);
+        $this->assertSame(50000.0, $b['effective_tariff']);
+        $this->assertSame('group', $b['tariff_source']);
+        $this->assertNull($b['tariff']);
+    }
+
+    public function test_number_formats_and_quantity_parsing(): void
+    {
+        $this->assertSame(31949.0, \App\Services\Bridge\BridgeTarifRowNormalizer::parseTariff('31.949'));
+        $this->assertSame(1250000.0, \App\Services\Bridge\BridgeTarifRowNormalizer::parseTariff('1.250.000'));
+        $this->assertSame(1250000.5, \App\Services\Bridge\BridgeTarifRowNormalizer::parseTariff('1.250.000,50'));
+        $this->assertSame(1250000.0, \App\Services\Bridge\BridgeTarifRowNormalizer::parseTariff('1,250,000.00'));
+        $this->assertSame(63898.0, \App\Services\Bridge\BridgeTarifRowNormalizer::parseTariff('63.898'));
+        $this->assertSame(2.0, \App\Services\Bridge\BridgeTarifRowNormalizer::parseQuantity('2'));
+        $this->assertSame(2.5, \App\Services\Bridge\BridgeTarifRowNormalizer::parseQuantity('2.5'));
+        $this->assertSame(1.5, \App\Services\Bridge\BridgeTarifRowNormalizer::parseQuantity('1,5'));
+        $this->assertNull(\App\Services\Bridge\BridgeTarifRowNormalizer::parseQuantity('0'));
+        $this->assertNull(\App\Services\Bridge\BridgeTarifRowNormalizer::parseQuantity('-1'));
+        $this->assertNull(\App\Services\Bridge\BridgeTarifRowNormalizer::parseQuantity(''));
+
+        $result = $this->scanRows([
+            ['PRV1', 'OLD-A', 'USG ABDOMEN', 'OLD-K1', 'VIP', '', 100000, 2.5, 'a'],
+        ], $this->headerExt());
+
+        $this->assertEqualsWithDelta(40000.0, $result['preview'][0]['effective_tariff'], 0.001);
+    }
+
+    public function test_real_case_infusan_nacl_effective_tariffs(): void
+    {
+        $result = $this->scanRows([
+            ['PRV1', 'OLD-A', 'Infusan Nacl 100 ml Sanbe', '2', 'VVIP', '', 63898, 2, 'a'],
+            ['PRV1', 'OLD-B', 'Infusan Nacl 100 ml Sanbe', '2', 'VVIP', 31949, 31949, 1, 'b'],
+            ['PRV1', 'OLD-C', 'Infusan NS (Cairan Nacl 500 ml) Sanbe', '2', 'VVIP', '', 72106, 2, 'c'],
+        ], $this->headerExt());
+        [$a, $b, $c] = $result['preview'];
+
+        $this->assertSame(31949.0, $a['effective_tariff']);
+        $this->assertSame('total_billed_quantity', $a['tariff_source']);
+        $this->assertSame(31949.0, $b['effective_tariff']);
+        $this->assertSame('excel', $b['tariff_source']);
+        $this->assertSame(36053.0, $c['effective_tariff']);
+        $this->assertSame('total_billed_quantity', $c['tariff_source']);
+    }
+
+    public function test_result_page_modal_shows_effective_tariff_source(): void
+    {
+        $token = $this->scanOk([
+            ['PRV1', 'OLD-CT', 'CT SCAN HEAD', 'OLD-K1', 'KELAS 1', '', 200000, 2, 'b'],
+            ['PRV1', 'OLD-USG', 'USG ABDOMEN', 'OLD-K1', 'KELAS 1', '', 50000, 2, 'c'],
+        ], $this->headerExt());
+
+        $page = $this->actingAs($this->user)->get(route('bridge.result', $token));
+        $page->assertOk();
+        $page->assertSee('Tarif Efektif', false);
+        $page->assertSee('total_billed_quantity', false);
+        $page->assertSee('TOTAL BILLED', false);
+    }
+
+    public function test_generate_does_not_change_original_tariff_column(): void
+    {
+        $token = $this->scanOk([
+            ['PRV1', 'OLD-MRI', 'MRI BRAIN', 'OLD-K1', 'KELAS 1', 31949, 31949, 1, 'a'],
+            ['PRV1', 'OLD-USG', 'USG ABDOMEN', 'OLD-K1', 'VIP', '', 50000, 2, 'b'],
+        ], $this->headerExt());
+
+        $gen = $this->actingAs($this->user)->post(route('bridge.generate'), ['token' => $token]);
+        $gen->assertRedirect(route('bridge.download', $token));
+
+        $dl = $this->actingAs($this->user)->get(route('bridge.download', $token));
+        $dl->assertOk();
+
+        $out = tempnam(sys_get_temp_dir(), 'bout').'.xlsx';
+        file_put_contents($out, $dl->streamedContent() ?: $dl->getContent());
+        $sheet = IOFactory::load($out)->getActiveSheet()->toArray(null, true, true, false);
+
+        $matched = array_values($sheet[1]);
+        $notFound = array_values($sheet[2]);
+        // SERVICECODE berubah (MATCHED), TARIFF asli tetap.
+        $this->assertSame('MRI001', $matched[1]);
+        $this->assertEquals(31949, $matched[5]);
+        // NOT_FOUND: SERVICECODE lama tetap, TARIFF kosong tetap kosong.
+        $this->assertSame('OLD-USG', $notFound[1]);
+        $this->assertTrue($notFound[5] === null || $notFound[5] === '');
+    }
+
+    protected function storeRaw(array $rows, ?array $header = null): string
     {
         $filename = 'bridge-inputs/'.uniqid('raw', true).'.xlsx';
-        Storage::put($filename, file_get_contents($this->tmpFile($rows)));
+        Storage::put($filename, file_get_contents($this->tmpFile($rows, $header)));
 
         return $filename;
     }
@@ -1099,9 +1324,9 @@ class BridgeTarifTest extends TestCase
         return $m[1];
     }
 
-    protected function scanOk(array $rows): string
+    protected function scanOk(array $rows, ?array $header = null): string
     {
-        $response = $this->actingAs($this->user)->post(route('bridge.scan'), ['file' => $this->upload($rows)]);
+        $response = $this->actingAs($this->user)->post(route('bridge.scan'), ['file' => $this->upload($rows, $header)]);
         $response->assertRedirect();
 
         return $this->extractToken($response);

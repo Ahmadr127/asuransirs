@@ -22,6 +22,10 @@ class BridgeTarifExcelReader
 
     public const FIELD_TARIFF = 'TARIFF';
 
+    public const FIELD_TOTAL_BILLED = 'TOTAL_BILLED';
+
+    public const FIELD_QUANTITY = 'QUANTITY';
+
     /**
      * Normalisasi nama header: trim, lowercase, buang non-alfanumerik.
      * "SERVICECODE DESCRIPTION" / "ServiceCode_Description" -> "servicecodedescription".
@@ -56,13 +60,24 @@ class BridgeTarifExcelReader
             $hasServiceCode = str_contains($norm, 'servicecode');
             $hasDesc = str_contains($norm, 'desc');
             $hasKelas = str_contains($norm, 'kelas') || str_contains($norm, 'class') || str_contains($norm, 'kode');
-            // Kolom tarif opsional (dipakai penimbang AMBIGUOUS): TARIFF /
-            // TARIF / HARGA / PRICE. Kolom "jenis tarif" tidak ikut.
+            // Kolom tarif opsional (dipakai penimbang AMBIGUOUS/NOT_FOUND):
+            // TARIFF / TARIF / HARGA / PRICE. Kolom "jenis tarif" dan
+            // "tariff description" tidak ikut (itu bukan nilai tarif).
             $hasTariff = (str_contains($norm, 'tarif') || str_contains($norm, 'tariff') || str_contains($norm, 'harga') || str_contains($norm, 'price'))
-                && ! str_contains($norm, 'jenis');
+                && ! str_contains($norm, 'jenis')
+                && ! $hasDesc;
+            // Kolom pendukung effective tariff (keduanya opsional — file
+            // lama tanpa kolom ini tetap bisa diproses seperti semula).
+            $hasTotalBilled = str_contains($norm, 'total')
+                && (str_contains($norm, 'bill') || str_contains($norm, 'tagih'));
+            $hasQuantity = str_contains($norm, 'qty') || str_contains($norm, 'quantity');
 
             if ($hasTariff && ! isset($map[self::FIELD_TARIFF])) {
                 $map[self::FIELD_TARIFF] = $index;
+            } elseif ($hasTotalBilled && ! isset($map[self::FIELD_TOTAL_BILLED])) {
+                $map[self::FIELD_TOTAL_BILLED] = $index;
+            } elseif ($hasQuantity && ! isset($map[self::FIELD_QUANTITY])) {
+                $map[self::FIELD_QUANTITY] = $index;
             } elseif ($hasProvider && $hasProviderName && ! isset($map[self::FIELD_PROVIDER_NAME])) {
                 $map[self::FIELD_PROVIDER_NAME] = $index;
             } elseif ($hasProvider && ! isset($map[self::FIELD_PROVIDER_CODE])) {
