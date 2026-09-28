@@ -11,7 +11,7 @@
 <div class="px-4 pb-4">
     <button type="button" data-rm-open
         class="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-semibold text-white rounded-md bg-blue-600 hover:bg-blue-700 transition-colors">
-        <i class="bi bi-pencil-square"></i> Petakan Manual ({{ $totalGroups }} grup)
+        <i class="bi bi-pencil-square"></i> Petakan Manual
     </button>
     <p class="mt-1 text-xs text-gray-500">Satu grup berlaku untuk seluruh row dengan description + kelas sama.</p>
 </div>

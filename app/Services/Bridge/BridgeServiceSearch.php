@@ -15,9 +15,11 @@ use App\Models\Service;
  * - Query dinormalisasi (lowercase, trim, spasi ganda -> satu) lalu
  *   ditokenisasi per whitespace. Token < 2 huruf dibuang; numerik
  *   >= 2 digit ("22", "75x75") tetap lolos.
- * - Recall: prefilter LIKE PER TOKEN (OR) di DB, pool max 500 —
- *   LIKE tidak pernah dipakai untuk frasa utuh ("LIKE '%kamar
- *   operasi%'") dan tidak menentukan urutan. Pipeline:
+  * - Recall: prefilter LIKE PER TOKEN (OR) di DB, pool max 500 —
+  *   LIKE tidak pernah dipakai untuk frasa utuh ("LIKE '%kamar
+  *   operasi%'") dan tidak menentukan urutan. Token keluarga peran
+  *   ("anestesi") dikeluarkan dari recall (recallTokens) agar tidak
+  *   membanjiri pool. Pipeline:
  *   description -> hapus [...] -> normalize -> tokenize ->
  *   SQL broad recall -> rank PHP -> filter threshold -> sort -> LIMIT.
  * - Ranking (relevance) dihitung di PHP per kandidat, HANYA terhadap
@@ -77,6 +79,19 @@ class BridgeServiceSearch
     ];
 
     /**
+     * Token keluarga peran: muncul di ribuan description master (semua
+     * "Dokter Anestesi", "infiltrasi anestesi", ...) sehingga meledakkan
+     * recall OR dan mendesak baris prosedur langka keluar dari pool 500
+     * (kasus produksi Row 21: OKURO hilang total, top-10 penuh BMHP).
+     * Dikeluarkan dari recall SAJA — scoring (tier/role) tetap memakai
+     * token penuh karena peran sudah menjadi sinyal tersendiri.
+     */
+    public const RECALL_EXCLUDED_ROLE = [
+        'anestesi', 'anasthesy', 'anasthesi', 'anesthesia', 'anesthesy',
+        'anastesi', 'narkose', 'sedasi',
+    ];
+
+    /**
      * Normalisasi: HAPUS dulu seluruh blok [...] beserta isinya (nama
      * dokter, kelas, keterangan — tidak boleh memengaruhi similarity),
      * lalu lowercase + trim + spasi ganda menjadi satu +
@@ -94,19 +109,58 @@ class BridgeServiceSearch
     }
 
     /**
+     * Alias klinis Inggris -> istilah master (query-side saja — words()
+     * hanya dipakai untuk token query, sisi data memakai hayWords
+     * mentah di rank()). Tanpa ini, "Varicocelectomy" (Row 18) gagal
+     * recall total: LIKE '%varicocelectomy%' tidak mengenai master
+     * "Ligasi Varicocele".
+     */
+    public const CLINICAL_ALIASES = [
+        'varicocelectomy' => 'varicocele',
+        'anasthesy' => 'anestesi',
+        'anasthesi' => 'anestesi',
+        'anesthesia' => 'anestesi',
+        'anesthesy' => 'anestesi',
+        'ortohopedi' => 'ortopedi',
+    ];
+
+    /**
      * Pecah teks menjadi token unik (min. 2 karakter agar kata
-     * penghubung 1 huruf terbuang).
+     * penghubung 1 huruf terbuang). Token query dinormalisasi via
+     * alias klinis (Inggris -> istilah master).
      *
      * @return array<int, string>
      */
     public static function words(string $text): array
     {
         $words = array_unique(array_filter(
-            explode(' ', self::normalize($text)),
+            array_map(
+                fn ($w) => self::clinicalAlias($w),
+                explode(' ', self::normalize($text))
+            ),
             fn ($w) => mb_strlen($w) >= 2
         ));
 
         return array_values($words);
+    }
+
+    /**
+     * Petakan satu token ke istilah master: alias eksplisit dulu,
+     * lalu generik akhiran "-ectomy" (tindakan eksisi Inggris) ke
+     * akarnya ("varicocelectomy" -> "varicocele").
+     */
+    public static function clinicalAlias(string $token): string
+    {
+        if (isset(self::CLINICAL_ALIASES[$token])) {
+            return self::CLINICAL_ALIASES[$token];
+        }
+        if (mb_strlen($token) > 10 && str_ends_with($token, 'ectomy')) {
+            $root = substr($token, 0, -6);
+
+            return mb_strlen($root) >= 4 ? $root : $token;
+        }
+
+        return $token;
     }
 
     /**
@@ -125,6 +179,60 @@ class BridgeServiceSearch
         ));
 
         return $filtered !== [] ? $filtered : $words;
+    }
+
+    /**
+     * Token recall (klausa OR LIKE): contentWords minus keluarga peran.
+     * Bila habis (query memang hanya peran), fallback ke token penuh.
+     * Scoring tetap memakai token penuh — yang dibuang hanya recall.
+     *
+     * @param  array<int, string>  $tokens
+     * @return array<int, string>
+     */
+    public static function recallTokens(array $tokens): array
+    {
+        $filtered = array_values(array_filter(
+            $tokens,
+            fn ($w) => ! in_array($w, self::RECALL_EXCLUDED_ROLE, true)
+        ));
+
+        return $filtered !== [] ? $filtered : $tokens;
+    }
+
+    /**
+     * True bila ada kata teks data yang diawali token query DENGAN
+     * perpanjangan >= 3 huruf (bentuk penuh klinis: "varicocelectomy"
+     * memuat "varicocele"). Varian pendek (+1/+2 huruf, mis. "interna"
+     * vs "internal") sering kali kata berbeda sehingga tidak dihitung.
+     * Dipakai sebagai exact di gerbang ketat similar() dan ranking
+     * suggest(): bukti akarnya sama kuat dengan kata persis. Arah
+     * sebaliknya (token memuat kata) tidak dihitung: query yang lebih
+     * panjang dari kata data adalah klaim lebih lemah.
+     *
+     * @param  array<int, string>  $tokens
+     */
+    public static function extendsToken(array $tokens, string $haystack): bool
+    {
+        $normHay = self::normalize($haystack);
+        if ($normHay === '') {
+            return false;
+        }
+        $hayWords = array_filter(
+            explode(' ', $normHay),
+            fn ($w) => mb_strlen($w) >= 2
+        );
+        foreach ($tokens as $token) {
+            foreach ($hayWords as $word) {
+                if ($word !== $token
+                    && str_starts_with($word, $token)
+                    && mb_strlen($word) - mb_strlen($token) >= 3
+                ) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
     }
 
     /**
@@ -316,7 +424,8 @@ class BridgeServiceSearch
      * urutan kemiripan.
      *
      * Mode default (tanpa ketikan) KETAT: partial (tidak semua token cocok)
-     * hanya tampil bila ada whole-word match persis; prefix-only dibuang.
+     * hanya tampil bila ada whole-word match persis atau bentuk penuh
+     * (extendsToken); prefix-only selain itu dibuang.
      * Bila mode ketat menghasilkan KOSONG dan description >= 3 token,
      * dilonggarkan sekali (prefix partial diizinkan) agar tetap ada saran.
      * Mode mengetik (q terisi): prefix matching seperti biasa.
@@ -338,13 +447,21 @@ class BridgeServiceSearch
 
         // Prefilter: kandidat harus mengandung kata description (agar pool
         // relevan), dan bila user mengetik juga harus mengandung kata q.
-        $rows = self::prefilter($descTokens, $queryTokens === [] ? null : $queryTokens);
+        // Recall memakai recallTokens (tanpa keluarga peran) agar token
+        // ubiquitous ("anestesi") tidak membanjiri pool 500 dan mendesak
+        // baris prosedur langka; scoring di bawah tetap memakai
+        // $descTokens penuh.
+        $rows = self::prefilter(self::recallTokens($descTokens), $queryTokens === [] ? null : $queryTokens);
 
         $scored = [];
         foreach ($rows as $service) {
             [$descTier, $descMatched, $descExact] = self::rankCandidate(
                 $descTokens, $description, $service->code, $service->name, $service->description
             );
+            // Bentuk penuh kata master ("varicocelectomy" memuat
+            // "varicocele") dihitung setara exact agar tak terbuang di
+            // gerbang ketat di bawah.
+            $descExtended = $descExact || self::extendsToken($descTokens, (string) $service->description);
             if ($queryTokens !== []) {
                 [$qTier, $qMatched] = self::rankCandidate(
                     $queryTokens, $query, $service->code, $service->name, $service->description
@@ -352,16 +469,16 @@ class BridgeServiceSearch
                 if ($qTier === 0) {
                     continue;
                 }
-                $scored[] = [$qTier, $qMatched, $descTier, $descMatched, $descExact, (string) $service->code, $service];
+                $scored[] = [$qTier, $qMatched, $descTier, $descMatched, $descExtended, (string) $service->code, $service];
             } elseif ($descTier > 0) {
-                $scored[] = [0, 0, $descTier, $descMatched, $descExact, (string) $service->code, $service];
+                $scored[] = [0, 0, $descTier, $descMatched, $descExtended, (string) $service->code, $service];
             }
         }
 
         if ($queryTokens === []) {
             // Mode default ketat: buang partial yang hanya prefix (tanpa
-            // satu pun whole-word match). Semua-token-cocok (tier >= 3)
-            // selalu lolos.
+            // satu pun whole-word match maupun bentuk penuh). Semua-token-
+            // cocok (tier >= 3) selalu lolos.
             $strict = array_values(array_filter(
                 $scored,
                 fn ($row) => $row[2] >= self::TIER_ALL_UNORDERED || $row[4]

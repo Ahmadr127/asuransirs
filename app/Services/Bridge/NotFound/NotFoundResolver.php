@@ -33,11 +33,13 @@ final class NotFoundResolver
         ?float $effectiveTariff = null,
         int $limit = 20,
     ): array {
-        // Pola visite + nama dokter ditulis ulang menjadi frasa kanonis
-        // ("VISITE DOKTER SPESIALIS/UMUM") dan dipakai langsung — tanpa
-        // lewat ekstraksi inti (kata "spesialis" sendiri noise di sana).
-        // Bukan pola visite -> ekstraksi inti tindakan seperti semula.
-        $searchDesc = VisiteQueryRule::rewrite($description)
+        // Pola room charge ("Room Charge KELAS 2" -> "KAMAR PERAWATAN
+        // KELAS 2") ditulis ulang menjadi frasa kanonis master dan dipakai
+        // langsung — tanpa lewat ekstraksi inti (bedah-bahasa + angka level
+        // yang terbuang di tokenisasi membuat query mentah tak berguna).
+        // Bukan pola room -> pola visite -> ekstraksi inti seperti semula.
+        $searchDesc = RoomChargeQueryRule::rewrite($description, $className)
+            ?? VisiteQueryRule::rewrite($description)
             ?? $this->coreAction($description);
 
         $services = BridgeServiceSearch::similar($searchDesc, $query, $limit * 2);
@@ -76,6 +78,14 @@ final class NotFoundResolver
         // ("laparoscopy") bila tier + jumlah cocok seri — kasus Row 25.
         $idfs = $this->idfWeights($descTokens, $services);
         $descTotal = count($descTokens);
+        // Sinyal specialty + role dibaca dari description MENTAH (masih
+        // memuat prefix "BEDAH UROLOGI" dan kata peran "anasthesy"):
+        // specialty kuat mengalahkan tarif (Row 21: urologi vs anak/umum),
+        // role hanya pemecah seri di bawah tarif agar perilaku Row 31
+        // (operator menang via tarif walau query menyebut anasthesy)
+        // tetap hijau.
+        $querySpec = self::detectSpecialty($description);
+        $roleHint = self::detectRole($description);
         foreach ($pairs as $pair) {
             $key = mb_strtoupper(trim($pair['service_code']));
             $service = $byCode[$key] ?? null;
@@ -93,6 +103,13 @@ final class NotFoundResolver
                 (string) ($service['service_code'] ?? ''), $service['service_name'] ?? null,
                 (string) ($service['service_description'] ?? '')
             );
+            // Kata master yang memuat UTUH token query ("Varicocelectomy"
+            // memuat "varicocele", kasus OKURO Row 18) dihitung exact juga:
+            // bukti akarnya sama kuat dengan kata persis, dan tidak boleh
+            // kalah dari kandidat yang kebetulan ejaannya pendek.
+            $descExact = $descExact || BridgeServiceSearch::extendsToken(
+                $descTokens, (string) ($service['service_description'] ?? '')
+            );
             [$qTier, $qMatched, $qExact] = $queryTokens === []
                 ? [0, 0, false]
                 : BridgeServiceSearch::rankCandidate(
@@ -100,6 +117,18 @@ final class NotFoundResolver
                     (string) ($service['service_code'] ?? ''), $service['service_name'] ?? null,
                     (string) ($service['service_description'] ?? '')
                 );
+            if ($queryTokens !== []) {
+                $qExact = $qExact || BridgeServiceSearch::extendsToken(
+                    $queryTokens, (string) ($service['service_description'] ?? '')
+                );
+            }
+            // Tier efektif: kandidat yang specialty-nya TERBUKTI beda dari
+            // query didemosi 2 tingkat (Row 21: OKANK tier 4 -> 2 sehingga
+            // jatuh di bawah OKURO tier 2). Tier mentah tetap disimpan
+            // untuk display/P5; yang di-sort adalah tier efektif.
+            $candSpec = self::detectSpecialty((string) ($service['service_description'] ?? ''));
+            $effDescTier = $this->effTier($descTier, $querySpec, $candSpec);
+            $effQier = $this->effTier($qTier, $querySpec, $candSpec);
             $ranked[] = [
                 'service_code' => $service['service_code'],
                 'service_name' => $service['service_name'] ?? null,
@@ -118,13 +147,19 @@ final class NotFoundResolver
                 'desc_matched' => $descMatched,
                 'desc_exact' => $descExact,
                 'desc_total' => $descTotal,
+                'eff_q_tier' => $effQier,
+                'eff_desc_tier' => $effDescTier,
+                'spec_score' => $this->specScore(
+                    $descTokens, $querySpec, (string) ($service['service_description'] ?? '')
+                ),
+                'role_match' => ($roleHint !== null
+                    && self::detectRole((string) ($service['service_description'] ?? '')) === $roleHint) ? 1 : 0,
                 'text_idf' => $descTier > 0
                     ? $this->matchedIdf($descTokens, (string) ($service['service_description'] ?? ''), $idfs)
                     : 0.0,
                 '_order' => $service['_order'],
             ];
         }
-
 
         foreach ($byCode as $key => $service) {
             if (isset($pairedCodes[$key])) {
@@ -135,6 +170,9 @@ final class NotFoundResolver
                 (string) ($service['service_code'] ?? ''), $service['service_name'] ?? null,
                 (string) ($service['service_description'] ?? '')
             );
+            $descExact = $descExact || BridgeServiceSearch::extendsToken(
+                $descTokens, (string) ($service['service_description'] ?? '')
+            );
             [$qTier, $qMatched, $qExact] = $queryTokens === []
                 ? [0, 0, false]
                 : BridgeServiceSearch::rankCandidate(
@@ -142,6 +180,14 @@ final class NotFoundResolver
                     (string) ($service['service_code'] ?? ''), $service['service_name'] ?? null,
                     (string) ($service['service_description'] ?? '')
                 );
+            if ($queryTokens !== []) {
+                $qExact = $qExact || BridgeServiceSearch::extendsToken(
+                    $queryTokens, (string) ($service['service_description'] ?? '')
+                );
+            }
+            $candSpec = self::detectSpecialty((string) ($service['service_description'] ?? ''));
+            $effDescTier = $this->effTier($descTier, $querySpec, $candSpec);
+            $effQier = $this->effTier($qTier, $querySpec, $candSpec);
             $ranked[] = [
                 'service_code' => $service['service_code'],
                 'service_name' => $service['service_name'] ?? null,
@@ -159,6 +205,13 @@ final class NotFoundResolver
                 'desc_matched' => $descMatched,
                 'desc_exact' => $descExact,
                 'desc_total' => $descTotal,
+                'eff_q_tier' => $effQier,
+                'eff_desc_tier' => $effDescTier,
+                'spec_score' => $this->specScore(
+                    $descTokens, $querySpec, (string) ($service['service_description'] ?? '')
+                ),
+                'role_match' => ($roleHint !== null
+                    && self::detectRole((string) ($service['service_description'] ?? '')) === $roleHint) ? 1 : 0,
                 'text_idf' => $descTier > 0
                     ? $this->matchedIdf($descTokens, (string) ($service['service_description'] ?? ''), $idfs)
                     : 0.0,
@@ -167,17 +220,37 @@ final class NotFoundResolver
         }
 
         usort($ranked, function ($a, $b) {
-            foreach (['q_tier', 'q_matched', 'q_exact', 'desc_tier', 'desc_matched', 'desc_exact'] as $k) {
+            // Tier EFEKTIF dulu (tier mentah minus demosi specialty),
+            // lalu kecocokan query, agar kandidat beda spesialisasi tidak
+            // naik hanya karena cocok banyak token generik.
+            foreach (['eff_q_tier', 'eff_desc_tier'] as $k) {
                 if ($a[$k] !== $b[$k]) {
                     return $b[$k] <=> $a[$k];
                 }
             }
-            // Seri teks (tier + jumlah + exact sama): token langka
-            // menang sebelum sinyal kelas/tarif — mis. "varicocele"
-            // mengalahkan "laparoscopy" pada Row 25.
+            // Procedure + specialty di atas kelas/tarif (Row 21): kandidat
+            // se-spesialisasi menang mutlak atas beda spesialisasi walau
+            // tarifnya lebih jauh; penalti -2 untuk specialty berbeda.
+            if (abs($a['spec_score'] - $b['spec_score']) > 1e-9) {
+                return $b['spec_score'] <=> $a['spec_score'];
+            }
+            // Component/role (anestesi/operator/kamar) berbobot tinggi:
+            // memisahkan komponen dalam satu keluarga prosedur.
+            if ($a['role_match'] !== $b['role_match']) {
+                return $b['role_match'] <=> $a['role_match'];
+            }
+            foreach (['q_matched', 'q_exact', 'desc_matched', 'desc_exact'] as $k) {
+                if ($a[$k] !== $b[$k]) {
+                    return $b[$k] <=> $a[$k];
+                }
+            }
+            // Seri teks: token langka menang sebelum sinyal kelas/tarif —
+            // mis. "varicocele" mengalahkan "laparoscopy" pada Row 25.
             if (abs($a['text_idf'] - $b['text_idf']) > 1e-9) {
                 return $b['text_idf'] <=> $a['text_idf'];
             }
+            // Kelas + tarif hanya validasi sekunder: tak boleh mengalahkan
+            // kecocokan procedure + specialty + component di atas.
             if ($a['_score'] !== $b['_score']) {
                 return $b['_score'] <=> $a['_score'];
             }
@@ -191,20 +264,181 @@ final class NotFoundResolver
         });
 
         return array_map(function ($row) {
-            unset($row['_order'], $row['q_tier'], $row['q_matched'], $row['q_exact'], $row['desc_exact']);
+            unset($row['_order'], $row['eff_q_tier'], $row['eff_desc_tier'], $row['q_tier'], $row['q_matched'], $row['q_exact'], $row['desc_exact']);
             // Sinyal teks dipertahankan dengan nama publik agar UI bisa
             // memecah "% rekomendasi" (kelas+tarif) dari kecocokan teks,
             // dan processor bisa mensyaratkan bukti teks minimal (P5).
 
             return $row;
-        }, array_slice($ranked, 0, $limit));
+        }, $this->diverseSlice($ranked, $limit));
+    }
+
+    /**
+     * Tier efektif: demosi 2 tingkat bila specialty kandidat TERBUKTI
+     * beda dari query (keduanya terdeteksi dan berbeda). Tanpa info di
+     * salah satu sisi → tier mentah (netral, bukan penalti).
+     */
+    protected function effTier(int $tier, ?string $querySpec, ?string $candSpec): int
+    {
+        if ($tier > 0 && $querySpec !== null && $candSpec !== null && $querySpec !== $candSpec) {
+            return $tier - 2;
+        }
+
+        return $tier;
+    }
+
+    /**
+     * Ambil $limit teratas dengan batas maks 3 pasangan per kode service.
+     * Tanpa ini, 10 slot rekomendasi bisa banjir oleh 1-2 kode yang punya
+     * banyak pasangan kelas (kasus Row 18: 10 baris OKANK semua) sehingga
+     * prosedur yang benar (OKURO) tak terlihat sama sekali.
+     *
+     * @param  array<int, array<string, mixed>>  $ranked  sudah terurut
+     * @return array<int, array<string, mixed>>
+     */
+    protected function diverseSlice(array $ranked, int $limit): array
+    {
+        $counts = [];
+        $out = [];
+        foreach ($ranked as $row) {
+            if (count($out) >= $limit) {
+                break;
+            }
+            $code = mb_strtoupper(trim((string) ($row['service_code'] ?? '')));
+            if (($counts[$code] ?? 0) >= 3) {
+                continue;
+            }
+            $counts[$code] = ($counts[$code] ?? 0) + 1;
+            $out[] = $row;
+        }
+
+        return $out;
+    }
+
+    /**
+     * Pola specialty umum (frasa dulu, lalu kata tunggal). "umum" hanya
+     * dikenali dalam frasa "bedah umum" agar "dokter umum" (role) tidak
+     * terbaca sebagai spesialisasi.
+     */
+    private const SPECIALTY_PATTERNS = [
+        ['/bedah\s+anak/iu', 'anak'],
+        ['/\banak\b/iu', 'anak'],
+        ['/bedah\s+umum/iu', 'umum'],
+        ['/urologi/iu', 'urologi'],
+        ['/jantung|cardio|kardiovaskular/iu', 'jantung'],
+        ['/saraf|neuro/iu', 'saraf'],
+        ['/mata|ophthalm/iu', 'mata'],
+        ['/obgyn|kandungan|obstetri|ginekologi/iu', 'obgyn'],
+        ['/ortopedi|orthopedi|ortohopedi/iu', 'ortopedi'],
+        ['/\btulang\b/iu', 'ortopedi'],
+        ['/digestif/iu', 'digestif'],
+        ['/plastik/iu', 'plastik'],
+        ['/paru|thorax|toraks/iu', 'paru'],
+        ['/ginjal|nefro/iu', 'ginjal'],
+        ['/\btht\b|telinga|hidung|tenggorokan/iu', 'tht'],
+        ['/gigi|dental|\bmulut\b/iu', 'gigi'],
+        ['/kulit|kelamin|dermato|venereologi/iu', 'kulit'],
+    ];
+
+    /**
+     * Deteksi spesialisasi dari teks bebas (description Excel mentah atau
+     * description master). null bila tak ada pola yang dikenali.
+     */
+    public static function detectSpecialty(string $text): ?string
+    {
+        $norm = BridgeServiceSearch::normalize($text);
+        if ($norm === '') {
+            return null;
+        }
+        foreach (self::SPECIALTY_PATTERNS as [$pattern, $canonical]) {
+            if (preg_match($pattern, $norm)) {
+                return $canonical;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Deteksi peran/komponen: "kamar" (kamar/ruang operasi, sarana) >
+     * "operator" > "anestesi" (termasuk typo anasthesy/anesthesia dan
+     * kerabat narkose/sedasi). null bila tak disebut.
+     */
+    public static function detectRole(string $text): ?string
+    {
+        $norm = ' '.BridgeServiceSearch::normalize($text).' ';
+        if ($norm === '  ') {
+            return null;
+        }
+        if (preg_match('/\bkamar\s+operasi\b|\bruang\s+operasi\b|\bsarana\b/u', $norm)) {
+            return 'kamar';
+        }
+        if (preg_match('/\boperator\b/u', $norm)) {
+            return 'operator';
+        }
+        if (preg_match('/\banestesi\b|\banasthesy\b|\banasthesi\b|\banesthesia\b|\banesthesy\b|\banastesi\b|\bnarkose\b|\bsedasi\b/u', $norm)) {
+            return 'anestesi';
+        }
+
+        return null;
+    }
+
+    /**
+     * Skor procedure + specialty satu kandidat (dipakai SEBELUM sinyal
+     * kelas/tarif): specialty sama +2, specialty beda -2 (penalti),
+     * tanpa info specialty 0; kualitas procedure per token: kata master
+     * memuat utuh token +1,5 (bentuk penuh "varicocelectomy" mengalahkan
+     * "varicocele"), kata persis +1, token memuat kata +0,75, prefix
+     * biasa +0,5.
+     *
+     * @param  array<int, string>  $tokens  token isi query
+     */
+    protected function specScore(array $tokens, ?string $querySpec, string $hayDesc): float
+    {
+        $score = 0.0;
+        $candSpec = self::detectSpecialty($hayDesc);
+        if ($querySpec !== null && $candSpec !== null) {
+            $score += ($querySpec === $candSpec) ? 2.0 : -2.0;
+        }
+
+        $normHay = BridgeServiceSearch::normalize($hayDesc);
+        $hayWords = $normHay === ''
+            ? []
+            : array_values(array_filter(
+                explode(' ', $normHay),
+                fn ($w) => mb_strlen($w) >= 2
+            ));
+        foreach ($tokens as $token) {
+            $best = 0.0;
+            foreach ($hayWords as $word) {
+                if ($word === $token) {
+                    $best = max($best, 1.0);
+                } elseif (str_starts_with($word, $token)
+                    && mb_strlen($word) - mb_strlen($token) >= 3
+                ) {
+                    // Bentuk penuh klinis (konsisten dengan extendsToken).
+                    $best = max($best, 1.5);
+                } elseif (str_starts_with($token, $word)) {
+                    $best = max($best, 0.75);
+                } elseif (str_starts_with($word, mb_substr($token, 0, 4))
+                    && str_starts_with($token, mb_substr($word, 0, 4))
+                ) {
+                    // Sama-sama awalan 4 huruf (variasi ejaan) — di bawah
+                    // prefix searah agar tak mengalahkan bentuk penuh.
+                    $best = max($best, 0.5);
+                }
+            }
+            $score += $best;
+        }
+
+        return $score;
     }
 
     /**
      * Bobot IDF per token di atas pool recall: log((N+1)/(df+1)) + 1.
      * Token yang muncul di sedikit kandidat bernilai lebih tinggi.
      *
-     * @param  array<int, string>  $tokens
+     * @param  array<int, string>  $tokens @param  array<int, string>  $tokens
      * @param  array<int, array{service_description: ?string}>  $services
      * @return array<string, float>
      */
@@ -266,14 +500,23 @@ final class NotFoundResolver
      * - sisa segmen DIGABUNG tanpa asumsi posisi (bukan "selalu segmen
      *   ke-2/ke-3/terakhir") — similarity existing yang memverifikasi
      *   mana yang cocok, exact/phrase/token tetap penentu utama.
-     * Struktur tak jelas (satu segmen, sisa < 2 token utama) ->
-     * description mentah (fallback aman).
+     * Sisa 1 token utama (mis. "Varicocelectomy" setelah prefix + nama
+     * dokter dibuang, Row 18) tetap dipakai — JANGAN fallback ke
+     * description mentah karena justru mengembalikan nama dokter +
+     * prefix generik ke query. Fallback mentah hanya bila tidak ada
+     * token utama sama sekali; kekosongan recall sudah ditangani
+     * percobaan ulang di suggest().
      */
     protected function coreAction(string $description): string
     {
         $core = (string) preg_replace('/\([^)]*\)/u', ' ', $description);
+        // Keluarga "anestesi" (termasuk typo anasthesy/anesthesia)
+        // SENGAJA tidak dipotong: ia dipertahankan sebagai token query
+        // sekaligus sinyal role/komponen (Row 21). Yang dipotong hanya
+        // penanda non-tindakan: dokter/operator/bidan/gelar/narkose/
+        // sedasi/bius.
         $core = trim((string) preg_replace(
-            '/\b(anasthesy|anestesi|anastesi|anesthesi|anasthesi|narkose|sedasi|bius|dokter|operator|bidan|spesialis|dpjp|konsulen)\b.*/ius',
+            '/\b(narkose|sedasi|bius|dokter|operator|bidan|spesialis|dpjp|konsulen)\b.*/ius',
             '',
             $core
         ));
@@ -293,7 +536,7 @@ final class NotFoundResolver
                     array_shift($segments);
                 }
                 if ($segments === []) {
-                    return $description;
+                    return $this->fallbackCore($core, $description);
                 }
                 // Role yang dikenali (bentuk sudah dinormalisasi, karena
                 // "&" hilang saat normalisasi: "kamar operasi sarana").
@@ -311,11 +554,11 @@ final class NotFoundResolver
                         BridgeServiceSearch::words($joined),
                         fn ($t) => mb_strlen($t) > 2
                     ));
-                    if (count($joinedMains) >= 2) {
+                    if ($joinedMains !== []) {
                         return $joined;
                     }
 
-                    return $description;
+                    return $this->fallbackCore($core, $description);
                 }
             }
         }
@@ -324,7 +567,22 @@ final class NotFoundResolver
             fn ($t) => mb_strlen($t) > 2
         ));
 
-        return count($coreMains) >= 2 ? $core : $description;
+        return $coreMains !== [] ? $core : $description;
+    }
+
+    /**
+     * Fallback inti: core yang sudah bersih (tanpa nama dokter) lebih
+     * baik daripada description mentah walau hanya 1 token; mentah
+     * hanya bila core pun tak punya token utama sama sekali.
+     */
+    protected function fallbackCore(string $core, string $description): string
+    {
+        $coreMains = array_values(array_filter(
+            BridgeServiceSearch::words($core),
+            fn ($t) => mb_strlen($t) > 2
+        ));
+
+        return $coreMains !== [] ? $core : $description;
     }
 
 

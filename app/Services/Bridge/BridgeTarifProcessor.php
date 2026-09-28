@@ -169,12 +169,14 @@ class BridgeTarifProcessor
         }
 
         // Saran NOT_FOUND teratas langsung masuk New Code — status tetap
-        // NOT_FOUND dan bisa ditimpa manual — HANYA bila bukti teksnya
-        // cukup (P5: desc_matched >= 2). Tanpa threshold, kandidat yang
-        // hanya cocok 1 token generik + tarif dekat (kasus Row 25:
-        // "Laparoscopy Appendektomi" untuk query Varicocele) langsung
-        // mengisi New Code yang salah. Saran tetap ditampilkan untuk
-        // dipilih manual walau di bawah threshold.
+        // NOT_FOUND dan bisa ditimpa manual — HANYA bila buktinya cukup:
+        // (a) >= 2 token isi cocok, ATAU (b) token tunggal yang kuat:
+        // spec_score >= 3 (spesialisasi sama + bentuk penuh) DAN kelas
+        // cocok DAN selisih tarif <= 50% (kasus Row 18: "Varicocelectomy"
+        // -> OKURO-O/KL2). Tanpa threshold, kandidat yang hanya cocok
+        // 1 token generik + tarif dekat langsung mengisi New Code yang
+        // salah. Saran tetap ditampilkan untuk dipilih manual walau di
+        // bawah threshold.
         // KONSENSUS (seluruh saran berkode sama): status menjadi
         // MATCHED/valid dengan syarat yang sama, tetapi grup Petakan
         // Manual + modal analisa tetap dipertahankan agar bisa
@@ -188,9 +190,14 @@ class BridgeTarifProcessor
             if ($code === '') {
                 continue;
             }
-            // Bukti teks minimal: >= 2 token isi cocok. Saran tetap ada
+            // Bukti kuat: >= 2 token isi cocok, atau token tunggal dengan
+            // spec kuat + kelas cocok + tarif wajar. Saran tetap ada
             // untuk dipilih manual; hanya auto-isi yang ditahan.
-            if ((int) ($top['desc_matched'] ?? 0) < 2) {
+            $tariffDiff = $top['_tariff_diff'] ?? null;
+            $strongSingle = ((float) ($top['spec_score'] ?? 0.0)) >= 3.0
+                && ((int) ($top['_class_match'] ?? 0)) === 1
+                && is_numeric($tariffDiff) && (float) $tariffDiff <= 0.5;
+            if ((int) ($top['desc_matched'] ?? 0) < 2 && ! $strongSingle) {
                 continue;
             }
             $groups[$key]['top_service'] = $top['service_code'];

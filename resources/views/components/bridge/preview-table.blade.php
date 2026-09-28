@@ -76,7 +76,7 @@
         <td class="px-4 py-3 whitespace-nowrap text-xs text-gray-500">{{ $row['excel_row'] }}</td>
         <td class="px-4 py-3 whitespace-nowrap">
             <x-bridge.status-badge :status="$row['status']" />
-            @if(($row['status'] ?? '') === 'AMBIGUOUS' && !empty($row['suggested']['service_code']))
+            @if(in_array($row['status'] ?? '', ['AMBIGUOUS', 'NOT_FOUND'], true) && !empty($row['suggested_applied']))
                 <span class="ml-1 inline-flex px-1.5 py-0 text-[10px] font-bold rounded-full bg-green-600 text-white align-middle">ada saran</span>
             @endif
         </td>
@@ -85,7 +85,7 @@
         <td class="px-4 py-3 whitespace-nowrap font-mono text-xs bg-gray-50">{{ $row['service_class_code'] !== '' ? $row['service_class_code'] : '-' }}</td>
         <td class="px-4 py-3 whitespace-nowrap text-xs">{{ $row['class_name'] !== '' ? $row['class_name'] : '-' }}</td>
         <td class="px-4 py-3 whitespace-nowrap text-xs font-mono bg-teal-50/50">@if(isset($row['effective_tariff']) && is_numeric($row['effective_tariff'])) Rp {{ number_format((float) $row['effective_tariff'], 0, ',', '.') }}@else<span class="text-gray-300">—</span>@endif</td>
-        <td class="px-4 py-3 whitespace-nowrap font-mono text-xs font-semibold bg-blue-50">{{ $row['new_service_code'] ?? '-' }}@if(in_array($row['status'] ?? '', ['AMBIGUOUS', 'NOT_FOUND'], true) && !empty($row['suggested_applied'])) <span class="inline-flex px-1.5 py-0 text-[10px] font-bold rounded-full bg-teal-600 text-white font-sans">saran</span>@endif</td>
+        <td class="px-4 py-3 whitespace-nowrap font-mono text-xs font-semibold bg-blue-50">{{ $row['new_service_code'] ?? '-' }}</td>
         <td class="px-4 py-3 whitespace-nowrap font-mono text-xs font-semibold bg-blue-50">{{ $row['new_class_code'] ?? '-' }}</td>
     </tr>
     @endforeach
@@ -226,6 +226,10 @@
                 var weakTop = d.suggestions[0] && d.suggestions[0].text_matched !== null && d.suggestions[0].text_matched !== undefined && d.suggestions[0].text_matched < 2;
                 if (weakTop) {
                     html += '<div class="px-2.5 py-1.5 text-xs bg-amber-50 border-b border-amber-200 text-amber-800">⚠ Kecocokan teks saran teratas lemah (Teks ' + esc(d.suggestions[0].text_matched) + '/' + esc(d.suggestions[0].text_total) + ') — % tinggi hanya dari kelas + tarif yang dekat. Verifikasi nama tindakan sebelum memilih.</div>';
+                }
+                var farTariff = d.suggestions[0] && d.suggestions[0].tariff_diff !== null && d.suggestions[0].tariff_diff !== undefined && d.suggestions[0].tariff_diff > 0.5;
+                if (farTariff) {
+                    html += '<div class="px-2.5 py-1.5 text-xs bg-amber-50 border-b border-amber-200 text-amber-800">⚠ Selisih tarif saran teratas > 50% dari tarif efektif — kemungkinan komponen (operator / anestesi / kamar operasi) atau kelas tindakan berbeda. Cocokkan dulu komponennya di Petakan Manual.</div>';
                 }
                 d.suggestions.forEach(function (s) {
                     html += '<div class="px-2.5 py-1.5 text-xs border-b border-gray-100 last:border-0 flex items-center justify-between gap-2">'
