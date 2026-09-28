@@ -1112,10 +1112,16 @@ class BridgeTarifTest extends TestCase
 
         $this->assertContains('OKORT-AN', $codes);
         $this->assertContains('OKORT-OP', $codes);
-        $this->assertNotContains('SPL01', $codes);
         // Di antara yang relevan, tarif terdekat (operator, 6jt) teratas.
         $this->assertSame('OKORT-OP', $codes[0]);
         $this->assertSame('OKORT-AN', $codes[1]);
+        // SPL01 boleh ikut (token "bedah" memang ada di prefix Excel)
+        // tetapi wajib di bawah kandidat relevan — tarif dekat tak boleh
+        // mengangkatnya ke atas.
+        $posSPL = array_search('SPL01', $codes);
+        if ($posSPL !== false) {
+            $this->assertGreaterThan(1, $posSPL);
+        }
     }
 
     public function test_search_services_suggest_noise_keywords_share_same_core(): void
@@ -1151,8 +1157,48 @@ class BridgeTarifTest extends TestCase
             $res->assertOk();
             $codes = array_column($res->json('data'), 'service_code');
             $this->assertSame('OKORT-OP', $codes[0], "Gagal untuk description: $desc");
-            $this->assertNotContains('SPL01', $codes, "Noise lolos untuk description: $desc");
+            // SPL01 (token "bedah" sah dari prefix) boleh ikut tetapi
+            // wajib di bawah OKORT yang relevan.
+            $posSPL = array_search('SPL01', $codes);
+            if ($posSPL !== false) {
+                $this->assertGreaterThan(
+                    array_search('OKORT-OP', $codes),
+                    $posSPL,
+                    "SPL01 di atas OKORT untuk description: $desc"
+                );
+            }
         }
+    }
+
+    public function test_search_services_suggest_dash_role_segment_dropped(): void
+    {
+        // Segmen role setelah " - " ("Kamar Operasi") wajib dibuang:
+        // tanpa itu query = role saja dan decoy KO99 (serta tarifnya)
+        // akan menjadi saran teratas yang salah.
+        $this->seedOrtopediCase();
+        $provider = Provider::firstOrCreate(['code' => 'PRV1'], ['name' => 'Provider Satu', 'status' => 'active']);
+        $vvip = ServiceClass::firstOrCreate(['code' => 'KLV2'], ['name' => 'VVIP', 'status' => 'active']);
+        $decoy = Service::create(['code' => 'KO99', 'name' => 'Kamar Operasi', 'description' => 'Kamar Operasi', 'status' => 'active']);
+        Tarif::create([
+            'jenis_tarif_id' => $this->jenis->id,
+            'provider_id' => $provider->id,
+            'service_id' => $decoy->id,
+            'class_id' => $vvip->id,
+            'surgery_type' => null, 'helper' => null, 'tariff' => 100000,
+            'valid_date_from' => '2024-01-01', 'end_date_to' => '2029-12-31',
+        ]);
+
+        $res = $this->actingAs($this->user)->getJson(route('bridge.search-services', [
+            'description' => 'Reposisi Terbuka Dan Fiksasi Interna Fraktur Tulang Panjang - Kamar Operasi',
+            'class' => 'VVIP',
+            'tariff' => 5600000,
+        ]));
+        $res->assertOk();
+        $codes = array_column($res->json('data'), 'service_code');
+
+        $this->assertSame('OKORT-OP', $codes[0]);
+        $this->assertNotContains('KO99', $codes);
+        $this->assertNotContains('SPL01', $codes);
     }
 
     public function test_notfound_consensus_code_goes_to_new_code_and_generate(): void

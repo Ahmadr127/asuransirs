@@ -179,11 +179,17 @@ final class NotFoundResolver
     }
 
     /**
-     * Ekstraksi inti tindakan (logika existing, dipindah utuh dari
-     * suggest() agar bisa dipakai berdampingan dengan aturan visite):
-     * buang (...) nama dokter, potong sejak kata-noise, buang prefix
-     * kategori. Fallback aman: inti tak dapat ditentukan (< 2 token
-     * utama) -> description mentah.
+     * Ekstraksi inti tindakan: buang (...) nama dokter, potong sejak
+     * kata-noise, lalu tangani delimiter TEPAT " - " (spasi-hyphen-spasi,
+     * bukan "-" umum) sebagai SINYAL STRUKTUR tambahan:
+     * - segmen terakhir = ROLE/KONTEKS hanya bila dikenali (daftar
+     *   eksplisit: Dokter Operator/Anestesi/..., Kamar/Ruang Operasi,
+     *   ... — dalam bentuk ternormalisasi), lalu dibuang;
+     * - sisa segmen DIGABUNG tanpa asumsi posisi (bukan "selalu segmen
+     *   ke-2/ke-3/terakhir") — similarity existing yang memverifikasi
+     *   mana yang cocok, exact/phrase/token tetap penentu utama.
+     * Struktur tak jelas (satu segmen, sisa < 2 token utama) ->
+     * description mentah (fallback aman).
      */
     protected function coreAction(string $description): string
     {
@@ -194,10 +200,33 @@ final class NotFoundResolver
             $core
         ));
         if (str_contains($core, ' - ')) {
-            $parts = explode(' - ', $core);
-            $tail = trim((string) end($parts));
-            if ($tail !== '') {
-                $core = $tail;
+            $segments = array_values(array_filter(
+                array_map(fn ($s) => trim((string) $s), explode(' - ', $core)),
+                fn ($s) => $s !== ''
+            ));
+            if (count($segments) >= 2) {
+                // Role yang dikenali (bentuk sudah dinormalisasi, karena
+                // "&" hilang saat normalisasi: "kamar operasi sarana").
+                $roles = [
+                    'dokter operator', 'dokter anestesi', 'dokter umum',
+                    'dokter spesialis', 'dokter', 'kamar operasi',
+                    'kamar operasi sarana', 'ruang operasi', 'ruang bedah',
+                ];
+                if (in_array(BridgeServiceSearch::normalize((string) end($segments)), $roles, true)) {
+                    array_pop($segments);
+                }
+                $joined = trim(implode(' ', $segments));
+                if ($joined !== '') {
+                    $joinedMains = array_values(array_filter(
+                        BridgeServiceSearch::words($joined),
+                        fn ($t) => mb_strlen($t) > 2
+                    ));
+                    if (count($joinedMains) >= 2) {
+                        return $joined;
+                    }
+
+                    return $description;
+                }
             }
         }
         $coreMains = array_values(array_filter(
