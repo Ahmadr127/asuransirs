@@ -65,13 +65,10 @@ class BridgeServiceSearch
     public const TIER_FEW = 1;
 
     /**
-     * Stopword taksonomi master (kategori, bukan tindakan): kata yang
-     * muncul di hampir setiap description master ("Golongan Besar ...",
-     * "Tindakan Medis ...") sehingga tidak membedakan tindakan.
-     * HANYA dipakai untuk token query sisi description NOT_FOUND
-     * (contentWords), bukan untuk ketikan user (q) dan bukan untuk
-     * sisi data — agar pencarian eksplisit seperti "kamar operasi"
-     * tetap berfungsi.
+     * Stopword taksonomi master — nilai default; efektif dibaca dari
+     * config('bridge.search.stopwords') agar kasus baru cukup edit
+     * config tanpa sentuh kode. Hanya untuk token query description
+     * NOT_FOUND, bukan ketikan user (q) dan bukan sisi data.
      */
     public const STOPWORDS_DESC = [
         'golongan', 'tindakan', 'medis', 'besar', 'khusus',
@@ -79,12 +76,9 @@ class BridgeServiceSearch
     ];
 
     /**
-     * Token keluarga peran: muncul di ribuan description master (semua
-     * "Dokter Anestesi", "infiltrasi anestesi", ...) sehingga meledakkan
-     * recall OR dan mendesak baris prosedur langka keluar dari pool 500
-     * (kasus produksi Row 21: OKURO hilang total, top-10 penuh BMHP).
-     * Dikeluarkan dari recall SAJA — scoring (tier/role) tetap memakai
-     * token penuh karena peran sudah menjadi sinyal tersendiri.
+     * Token keluarga peran — nilai default; efektif dibaca dari
+     * config('bridge.search.recall_excluded_role'). Dikeluarkan dari
+     * recall SAJA; scoring tetap memakai token penuh.
      */
     public const RECALL_EXCLUDED_ROLE = [
         'anestesi', 'anasthesy', 'anasthesi', 'anesthesia', 'anesthesy',
@@ -109,11 +103,9 @@ class BridgeServiceSearch
     }
 
     /**
-     * Alias klinis Inggris -> istilah master (query-side saja — words()
-     * hanya dipakai untuk token query, sisi data memakai hayWords
-     * mentah di rank()). Tanpa ini, "Varicocelectomy" (Row 18) gagal
-     * recall total: LIKE '%varicocelectomy%' tidak mengenai master
-     * "Ligasi Varicocele".
+     * Alias klinis Inggris -> istilah master — nilai default; efektif
+     * dibaca dari config('bridge.search.clinical_aliases').
+     * Query-side saja (words() hanya dipakai untuk token query).
      */
     public const CLINICAL_ALIASES = [
         'varicocelectomy' => 'varicocele',
@@ -122,12 +114,39 @@ class BridgeServiceSearch
         'anesthesia' => 'anestesi',
         'anesthesy' => 'anestesi',
         'ortohopedi' => 'ortopedi',
+        'sedasi' => 'anestesi',
+        'narkose' => 'anestesi',
+        'bius' => 'anestesi',
     ];
 
+    /** @return array<int, string> */
+    protected static function stopwords(): array
+    {
+        $configured = config('bridge.search.stopwords');
+
+        return is_array($configured) && $configured !== [] ? array_values($configured) : self::STOPWORDS_DESC;
+    }
+
+    /** @return array<string, string> */
+    protected static function aliases(): array
+    {
+        $configured = config('bridge.search.clinical_aliases');
+
+        return is_array($configured) && $configured !== [] ? $configured : self::CLINICAL_ALIASES;
+    }
+
+    /** @return array<int, string> */
+    protected static function recallExcluded(): array
+    {
+        $configured = config('bridge.search.recall_excluded_role');
+
+        return is_array($configured) && $configured !== [] ? array_values($configured) : self::RECALL_EXCLUDED_ROLE;
+    }
+
     /**
-     * Pecah teks menjadi token unik (min. 2 karakter agar kata
-     * penghubung 1 huruf terbuang). Token query dinormalisasi via
-     * alias klinis (Inggris -> istilah master).
+     * Pecah teks menjadi token unik. Kata 1 huruf dibuang, tetapi digit
+     * 1 angka dipertahankan ("IGD 2" vs "IGD 3", "Kelas 1/2/3" — Row 15).
+     * Token query dinormalisasi via alias klinis (config).
      *
      * @return array<int, string>
      */
@@ -138,21 +157,22 @@ class BridgeServiceSearch
                 fn ($w) => self::clinicalAlias($w),
                 explode(' ', self::normalize($text))
             ),
-            fn ($w) => mb_strlen($w) >= 2
+            fn ($w) => mb_strlen($w) >= 2 || ctype_digit($w)
         ));
 
         return array_values($words);
     }
 
     /**
-     * Petakan satu token ke istilah master: alias eksplisit dulu,
-     * lalu generik akhiran "-ectomy" (tindakan eksisi Inggris) ke
-     * akarnya ("varicocelectomy" -> "varicocele").
+     * Petakan satu token ke istilah master: alias config dulu (nilai
+     * di-lowercase agar tulisan config tak merusak kecocokan
+     * case-sensitive), lalu generik akhiran "-ectomy" ke akarnya.
      */
     public static function clinicalAlias(string $token): string
     {
-        if (isset(self::CLINICAL_ALIASES[$token])) {
-            return self::CLINICAL_ALIASES[$token];
+        $aliases = self::aliases();
+        if (isset($aliases[$token])) {
+            return mb_strtolower((string) $aliases[$token]);
         }
         if (mb_strlen($token) > 10 && str_ends_with($token, 'ectomy')) {
             $root = substr($token, 0, -6);
@@ -165,35 +185,35 @@ class BridgeServiceSearch
 
     /**
      * Token isi untuk query description NOT_FOUND: words() minus
-     * STOPWORDS_DESC. Bila semua token habis (mis. query hanya berisi
-     * taksonomi), fallback ke words() agar tidak kosong mendadak.
+     * stopword (config). Fallback ke words() bila habis semua.
      *
      * @return array<int, string>
      */
     public static function contentWords(string $text): array
     {
         $words = self::words($text);
+        $stopwords = self::stopwords();
         $filtered = array_values(array_filter(
             $words,
-            fn ($w) => ! in_array($w, self::STOPWORDS_DESC, true)
+            fn ($w) => ! in_array($w, $stopwords, true)
         ));
 
         return $filtered !== [] ? $filtered : $words;
     }
 
     /**
-     * Token recall (klausa OR LIKE): contentWords minus keluarga peran.
-     * Bila habis (query memang hanya peran), fallback ke token penuh.
-     * Scoring tetap memakai token penuh — yang dibuang hanya recall.
+     * Token recall (klausa OR LIKE): contentWords minus keluarga peran
+     * (config). Fallback ke token penuh bila habis.
      *
      * @param  array<int, string>  $tokens
      * @return array<int, string>
      */
     public static function recallTokens(array $tokens): array
     {
+        $excluded = self::recallExcluded();
         $filtered = array_values(array_filter(
             $tokens,
-            fn ($w) => ! in_array($w, self::RECALL_EXCLUDED_ROLE, true)
+            fn ($w) => ! in_array($w, $excluded, true)
         ));
 
         return $filtered !== [] ? $filtered : $tokens;
@@ -263,14 +283,13 @@ class BridgeServiceSearch
         }
 
         $normHay = self::normalize($haystack);
-        // Kata 1 huruf di sisi data diabaikan (simetris dengan words()
-        // yang membuang token 1 huruf di sisi query): artefak seperti
-        // "s" dari "Ladd's" tidak boleh mem-prefix-match semua token.
+        // Simetris dengan words(): kata 1 huruf dibuang, digit 1 angka
+        // dipertahankan ("IGD 2" vs "IGD 3" harus terbedakan).
         $hayWords = $normHay === ''
             ? []
             : array_values(array_filter(
                 explode(' ', $normHay),
-                fn ($w) => mb_strlen($w) >= 2
+                fn ($w) => mb_strlen($w) >= 2 || ctype_digit($w)
             ));
         $total = count($queryTokens);
 

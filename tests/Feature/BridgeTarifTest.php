@@ -1916,6 +1916,137 @@ class BridgeTarifTest extends TestCase
         $this->assertTrue($row['suggested_applied']);
     }
 
+    public function test_notfound_ekg_abbreviation_kept_and_top_suggestion_autofills(): void
+    {
+        // Row 7: "Elektrokardiografi (EKG) IGD" SUITE Rp 250.000.
+        // Isi kurung "(EKG)" adalah singkatan klinis, BUKAN nama dokter —
+        // menghapusnya (perilaku lama) menyisakan 1 token sehingga TPJ004
+        // tak terbedakan dan New Code kosong. Kini "ekg" dipertahankan:
+        // TPJ004 cocok 2/3 token dan mengisi New Code sebagai saran.
+        $this->assertSame(
+            'Elektrokardiografi (EKG) IGD',
+            \App\Services\Bridge\NotFound\NotFoundResolver::stripDoctorMentions('Elektrokardiografi (EKG) IGD')
+        );
+        $this->assertStringNotContainsString(
+            'Chrisma',
+            \App\Services\Bridge\NotFound\NotFoundResolver::stripDoctorMentions('Laparoscopy Varicocele (Chrisma Adryana Albandjar, dr., Sp.An-KIC)')
+        );
+
+        $provider = Provider::firstOrCreate(['code' => 'PRV1'], ['name' => 'Provider Satu', 'status' => 'active']);
+        $suite = ServiceClass::firstOrCreate(['code' => 'KLX'], ['name' => 'Suite', 'status' => 'active']);
+        $seed = function (string $code, string $desc, float $tariff) use ($provider, $suite) {
+            $service = Service::create(['code' => $code, 'name' => $desc, 'description' => $desc, 'status' => 'active']);
+            Tarif::create([
+                'jenis_tarif_id' => $this->jenis->id, 'provider_id' => $provider->id,
+                'service_id' => $service->id, 'class_id' => $suite->id,
+                'surgery_type' => null, 'helper' => null, 'tariff' => $tariff,
+                'valid_date_from' => '2024-01-01', 'end_date_to' => '2029-12-31',
+            ]);
+        };
+        $seed('TPJ004', 'Elektrokardiografi (EKG)', 250000);
+        $seed('TPJ005', 'Elektrokardiografi (EKG) Gedung A', 250000);
+        $seed('HCEKG01', 'Home Care Sewa Alat Elektrokardiografi (EKG)', 300000);
+
+        $desc = 'Elektrokardiografi (EKG) IGD';
+
+        $res = $this->actingAs($this->user)->getJson(route('bridge.search-services', [
+            'description' => $desc, 'class' => 'Suite', 'tariff' => 250000,
+        ]));
+        $res->assertOk();
+        $data = $res->json('data');
+        $codes = array_column($data, 'service_code');
+
+        $this->assertNotEmpty($codes);
+        $this->assertSame('TPJ004', $codes[0]);
+        $this->assertSame(3, $data[0]['desc_total']);
+        $this->assertSame(2, $data[0]['desc_matched']);
+
+        // Scan: NOT_FOUND, TPJ004 mengisi New Code sebagai saran.
+        $result = $this->scanRows([
+            ['PRV1', 'ALT 247', $desc, '1', 'SUITE', 250000, 250000, 1, 'x'],
+        ], $this->headerExt());
+        $row = $result['preview'][0];
+
+        $this->assertSame('NOT_FOUND', $row['status']);
+        $this->assertSame('TPJ004', $row['suggestions'][0]['service_code']);
+        $this->assertSame('TPJ004', $row['new_service_code']);
+        $this->assertTrue($row['suggested_applied']);
+    }
+
+    public function test_notfound_dokter_umum_igd_distinguishes_digit_and_autofills(): void
+    {
+        // Row 15: "Konsultasi Dokter Umum - IGD 2 [ ELNI OKTAVIANI, DR ]"
+        // SUITE Rp 140.000. Tiga mekanisme generik bekerja di sini:
+        // (1) kurung nama dokter dibuang, (2) "Dokter" tengah frasa TIDAK
+        // dipotong (hanya kualifikasi akhir setelah koma/dash), (3) digit
+        // "2" dipertahankan sehingga IGD 2 vs IGD 3 terbedakan (tier 5).
+        $provider = Provider::firstOrCreate(['code' => 'PRV1'], ['name' => 'Provider Satu', 'status' => 'active']);
+        $suite = ServiceClass::firstOrCreate(['code' => 'KLX'], ['name' => 'Suite', 'status' => 'active']);
+        $seed = function (string $code, string $desc, float $tariff) use ($provider, $suite) {
+            $service = Service::create(['code' => $code, 'name' => $desc, 'description' => $desc, 'status' => 'active']);
+            Tarif::create([
+                'jenis_tarif_id' => $this->jenis->id, 'provider_id' => $provider->id,
+                'service_id' => $service->id, 'class_id' => $suite->id,
+                'surgery_type' => null, 'helper' => null, 'tariff' => $tariff,
+                'valid_date_from' => '2024-01-01', 'end_date_to' => '2029-12-31',
+            ]);
+        };
+        $seed('DOK33', 'Konsultasi Dokter Gigi Umum', 140000);
+        $seed('DOK35', 'Konsultasi Dokter Umum - IGD 2', 140000);
+        $seed('DOK35A', 'Konsultasi Dokter Umum - IGD 3', 140000);
+
+        $desc = 'Konsultasi Dokter Umum - IGD 2 [ ELNI OKTAVIANI, DR ]';
+
+        $res = $this->actingAs($this->user)->getJson(route('bridge.search-services', [
+            'description' => $desc, 'class' => 'Suite', 'tariff' => 140000,
+        ]));
+        $res->assertOk();
+        $data = $res->json('data');
+        $codes = array_column($data, 'service_code');
+
+        $this->assertNotEmpty($codes);
+        $this->assertSame('DOK35', $codes[0]);
+        // "umum" adalah stopword taksonomi -> 4 token isi.
+        $this->assertSame(4, $data[0]['desc_total']);
+        $this->assertSame(4, $data[0]['desc_matched']);
+        $this->assertContains('DOK35A', $codes);
+        $this->assertGreaterThan(
+            array_search('DOK35', $codes),
+            array_search('DOK35A', $codes)
+        );
+
+        // Scan: NOT_FOUND, DOK35 mengisi New Code sebagai saran.
+        $result = $this->scanRows([
+            ['PRV1', 'DOK35', $desc, '1', 'SUITE', 140000, 140000, 1, 'x'],
+        ], $this->headerExt());
+        $row = $result['preview'][0];
+
+        $this->assertSame('NOT_FOUND', $row['status']);
+        $this->assertSame('DOK35', $row['suggestions'][0]['service_code']);
+        $this->assertSame('DOK35', $row['new_service_code']);
+        $this->assertTrue($row['suggested_applied']);
+    }
+
+    public function test_bridge_search_dictionaries_configurable_without_code_change(): void
+    {
+        // Bukti jangka panjang: perilaku kamus (alias/stopword/spesialisasi)
+        // bisa diubah dari config tanpa sentuh kode.
+        $this->assertSame(['varicocele'], \App\Services\Bridge\BridgeServiceSearch::words('Varicocelectomy'));
+
+        config(['bridge.search.clinical_aliases' => ['varicocelectomy' => 'VARIX']]);
+        $this->assertSame(['varix'], \App\Services\Bridge\BridgeServiceSearch::words('Varicocelectomy'));
+
+        config(['bridge.search.stopwords' => ['konsultasi']]);
+        $this->assertSame(
+            ['dokter', 'umum', 'igd', '2'],
+            \App\Services\Bridge\BridgeServiceSearch::contentWords('Konsultasi Dokter Umum - IGD 2')
+        );
+
+        config(['bridge.search.specialties' => [['/gigi/iu', 'gigi']]]);
+        $this->assertSame('gigi', \App\Services\Bridge\NotFound\NotFoundResolver::detectSpecialty('Konsultasi Dokter Gigi'));
+        $this->assertNull(\App\Services\Bridge\NotFound\NotFoundResolver::detectSpecialty('BEDAH UROLOGI - Varicocelectomy'));
+    }
+
     public function test_search_services_suggest_visite_rule_by_title_after_dr(): void
     {
         // Pola visite + nama dokter ditulis ulang menjadi frasa kanonis:

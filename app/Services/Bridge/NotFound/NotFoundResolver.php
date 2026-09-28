@@ -324,9 +324,9 @@ final class NotFoundResolver
     }
 
     /**
-     * Kata generik yang dibuang saat membangun query prosedur jangkar
-     * (suggestKamarSibling): taksonomi + peran + kata biaya. Bila habis
-     * semua, fallback ke token penuh agar tak kosong mendadak.
+     * Kata generik yang dibuang saat membangun query prosedur jangkar —
+     * nilai default; efektif dibaca dari config('bridge.search.
+     * sibling_generic').
      */
     private const SIBLING_GENERIC = [
         'golongan', 'tindakan', 'medis', 'besar', 'khusus',
@@ -334,6 +334,14 @@ final class NotFoundResolver
         'operasi', 'bedah', 'kamar', 'ruang', 'dokter', 'sarana',
         'biaya', 'sewa', 'charge', 'paket', 'pemakaian',
     ];
+
+    /** @return array<int, string> */
+    private static function siblingGeneric(): array
+    {
+        $configured = config('bridge.search.sibling_generic');
+
+        return is_array($configured) && $configured !== [] ? array_values($configured) : self::SIBLING_GENERIC;
+    }
 
     /**
      * True bila description adalah tarif kamar TANPA prosedur
@@ -350,7 +358,7 @@ final class NotFoundResolver
             return false;
         }
         foreach (BridgeServiceSearch::contentWords($description) as $token) {
-            if (! in_array($token, self::SIBLING_GENERIC, true)) {
+            if (! in_array($token, self::siblingGeneric(), true)) {
                 return false;
             }
         }
@@ -372,7 +380,7 @@ final class NotFoundResolver
         ?float $effectiveTariff = null,
         int $limit = 10,
     ): array {
-        $proc = (string) preg_replace('/\([^)]*\)/u', ' ', $anchorDesc);
+        $proc = self::stripDoctorMentions($anchorDesc);
         $proc = trim($proc);
         if (str_contains($proc, ' - ')) {
             $segments = array_values(array_filter(
@@ -388,7 +396,7 @@ final class NotFoundResolver
         }
         $tokens = array_values(array_filter(
             BridgeServiceSearch::contentWords($proc),
-            fn ($t) => ! in_array($t, self::SIBLING_GENERIC, true)
+            fn ($t) => ! in_array($t, self::siblingGeneric(), true)
         ));
         if ($tokens === []) {
             $tokens = BridgeServiceSearch::contentWords($proc);
@@ -407,9 +415,10 @@ final class NotFoundResolver
     }
 
     /**
-     * Pola specialty umum (frasa dulu, lalu kata tunggal). "umum" hanya
-     * dikenali dalam frasa "bedah umum" agar "dokter umum" (role) tidak
-     * terbaca sebagai spesialisasi.
+     * Pola specialty [pattern, kanonis] — nilai default; efektif dibaca
+     * dari config('bridge.search.specialties'). Urutan penting (frasa
+     * dulu). "umum" hanya via frasa "bedah umum" agar "dokter umum"
+     * (role) tidak terbaca sebagai spesialisasi.
      */
     private const SPECIALTY_PATTERNS = [
         ['/bedah\s+anak/iu', 'anak'],
@@ -433,7 +442,7 @@ final class NotFoundResolver
 
     /**
      * Deteksi spesialisasi dari teks bebas (description Excel mentah atau
-     * description master). null bila tak ada pola yang dikenali.
+     * description master). Pola dari config, null bila tak dikenali.
      */
     public static function detectSpecialty(string $text): ?string
     {
@@ -441,8 +450,13 @@ final class NotFoundResolver
         if ($norm === '') {
             return null;
         }
-        foreach (self::SPECIALTY_PATTERNS as [$pattern, $canonical]) {
-            if (preg_match($pattern, $norm)) {
+        $patterns = config('bridge.search.specialties');
+        if (! is_array($patterns) || $patterns === []) {
+            $patterns = self::SPECIALTY_PATTERNS;
+        }
+        foreach ($patterns as $entry) {
+            [$pattern, $canonical] = is_array($entry) ? array_values($entry) + [null, null] : [null, null];
+            if (is_string($pattern) && is_string($canonical) && $pattern !== '' && @preg_match($pattern, $norm)) {
                 return $canonical;
             }
         }
@@ -451,9 +465,8 @@ final class NotFoundResolver
     }
 
     /**
-     * Deteksi peran/komponen: "kamar" (kamar/ruang operasi, ruang bedah,
-     * sarana) > "operator" > "anestesi" (termasuk typo anasthesy/
-     * anesthesia dan kerabat narkose/sedasi). null bila tak disebut.
+     * Deteksi peran/komponen dari config('bridge.search.roles'):
+     * berurutan kamar > operator > anestesi. null bila tak disebut.
      */
     public static function detectRole(string $text): ?string
     {
@@ -461,14 +474,18 @@ final class NotFoundResolver
         if ($norm === '  ') {
             return null;
         }
-        if (preg_match('/\bkamar\s+operasi\b|\bruang\s+operasi\b|\bruang\s+bedah\b|\bsarana\b/u', $norm)) {
-            return 'kamar';
+        $roles = config('bridge.search.roles');
+        if (! is_array($roles) || $roles === []) {
+            $roles = [
+                'kamar' => '/\bkamar\s+operasi\b|\bruang\s+operasi\b|\bruang\s+bedah\b|\bsarana\b/u',
+                'operator' => '/\boperator\b/u',
+                'anestesi' => '/\banestesi\b|\banasthesy\b|\banasthesi\b|\banesthesia\b|\banesthesy\b|\banastesi\b|\bnarkose\b|\bsedasi\b/u',
+            ];
         }
-        if (preg_match('/\boperator\b/u', $norm)) {
-            return 'operator';
-        }
-        if (preg_match('/\banestesi\b|\banasthesy\b|\banasthesi\b|\banesthesia\b|\banesthesy\b|\banastesi\b|\bnarkose\b|\bsedasi\b/u', $norm)) {
-            return 'anestesi';
+        foreach ($roles as $canonical => $pattern) {
+            if (is_string($pattern) && $pattern !== '' && @preg_match($pattern, $norm)) {
+                return (string) $canonical;
+            }
         }
 
         return null;
@@ -497,7 +514,7 @@ final class NotFoundResolver
             ? []
             : array_values(array_filter(
                 explode(' ', $normHay),
-                fn ($w) => mb_strlen($w) >= 2
+                fn ($w) => mb_strlen($w) >= 2 || ctype_digit($w)
             ));
         foreach ($tokens as $token) {
             $best = 0.0;
@@ -526,10 +543,26 @@ final class NotFoundResolver
     }
 
     /**
+     * Buang segmen kurung (...) / [...] HANYA bila berisi penanda dokter
+     * (dr/dokter/Sp./spesialis/konsulen/FIPM/FIPP/Ph.D/dll). Kurung berisi
+     * singkatan klinis ("(EKG)"), ukuran ("(18 mm)"), atau kode
+     * ("(OST-22104-0139)") dipertahankan — menghapusnya membuang token
+     * pembeda (Row 7: "ekg" hilang sehingga TPJ004 tak terbedakan).
+     */
+    public static function stripDoctorMentions(string $text): string
+    {
+        return (string) preg_replace(
+            '/[\(\[][^)\]]*\b(dr\.?|dokter|sp\.?|spesialis|subspesialis|konsulen|fipm|fipp|ph\.?d\.?|m\.?h\.?|m\.?kes\.?)\b[^)\]]*[\)\]]/iu',
+            ' ',
+            $text
+        );
+    }
+
+    /**
      * Bobot IDF per token di atas pool recall: log((N+1)/(df+1)) + 1.
      * Token yang muncul di sedikit kandidat bernilai lebih tinggi.
      *
-     * @param  array<int, string>  $tokens @param  array<int, string>  $tokens
+     * @param  array<int, string>  $tokens
      * @param  array<int, array{service_description: ?string}>  $services
      * @return array<string, float>
      */
@@ -564,7 +597,7 @@ final class NotFoundResolver
             ? []
             : array_values(array_filter(
                 explode(' ', $normHay),
-                fn ($w) => mb_strlen($w) >= 2
+                fn ($w) => mb_strlen($w) >= 2 || ctype_digit($w)
             ));
         $sum = 0.0;
         foreach ($tokens as $token) {
@@ -579,10 +612,30 @@ final class NotFoundResolver
         return $sum;
     }
 
+    /** @return array<int, string> */
+    private static function personnelNoise(): array
+    {
+        $configured = config('bridge.search.personnel_noise');
+
+        return is_array($configured) && $configured !== [] ? array_values($configured) : self::PERSONNEL_NOISE;
+    }
+
     /**
-     * Ekstraksi inti tindakan: buang (...) nama dokter, potong sejak
-     * kata-noise, lalu tangani delimiter TEPAT " - " (spasi-hyphen-spasi,
-     * bukan "-" umum) sebagai SINYAL STRUKTUR tambahan:
+     * Daftar penanda personel — nilai default; efektif dibaca dari
+     * config('bridge.search.personnel_noise').
+     */
+    private const PERSONNEL_NOISE = [
+        'narkose', 'sedasi', 'bius', 'dokter', 'operator',
+        'bidan', 'spesialis', 'dpjp', 'konsulen',
+    ];
+
+    /**
+     * Ekstraksi inti tindakan: buang kurung (...) / [...] HANYA bila
+     * berisi penanda dokter (nama + gelar: dr/dokter/Sp./FIPM/...) —
+     * singkatan klinis seperti "(EKG)" dipertahankan sebagai token
+     * (Row 7). Lalu potong sejak kata-noise, lalu tangani delimiter
+     * TEPAT " - " (spasi-hyphen-spasi, bukan "-" umum) sebagai SINYAL
+     * STRUKTUR tambahan:
      * - segmen PERTAMA = PREFIX SPESIALISASI bila memuat kata "bedah"
      *   ("BEDAH UMUM", "BEDAH TULANG / ORTOHOPEDI") lalu dibuang;
      * - segmen terakhir = ROLE/KONTEKS hanya bila dikenali (daftar
@@ -600,14 +653,18 @@ final class NotFoundResolver
      */
     protected function coreAction(string $description): string
     {
-        $core = (string) preg_replace('/\([^)]*\)/u', ' ', $description);
-        // Keluarga "anestesi" (termasuk typo anasthesy/anesthesia)
-        // SENGAJA tidak dipotong: ia dipertahankan sebagai token query
-        // sekaligus sinyal role/komponen (Row 21). Yang dipotong hanya
-        // penanda non-tindakan: dokter/operator/bidan/gelar/narkose/
-        // sedasi/bius.
+        $core = self::stripDoctorMentions($description);
+        // Personel (dokter/operator/..., daftar di config) dipotong HANYA
+        // sebagai kualifikasi akhir — setelah koma atau " - ". Di tengah
+        // frasa ("Konsultasi Dokter Umum", Row 15) dipertahankan karena
+        // bagian nama tindakan. Keluarga anestesi tak pernah dipotong
+        // (sinyal komponen, Row 21) karena tak ada di daftar personel.
+        $personnelAlt = implode('|', array_map(
+            fn ($w) => preg_quote($w, '/'),
+            self::personnelNoise()
+        ));
         $core = trim((string) preg_replace(
-            '/\b(narkose|sedasi|bius|dokter|operator|bidan|spesialis|dpjp|konsulen)\b.*/ius',
+            '/(,|\s-\s)[^,]*?\b('.$personnelAlt.')\b.*/ius',
             '',
             $core
         ));
