@@ -63,6 +63,20 @@ class BridgeServiceSearch
     public const TIER_FEW = 1;
 
     /**
+     * Stopword taksonomi master (kategori, bukan tindakan): kata yang
+     * muncul di hampir setiap description master ("Golongan Besar ...",
+     * "Tindakan Medis ...") sehingga tidak membedakan tindakan.
+     * HANYA dipakai untuk token query sisi description NOT_FOUND
+     * (contentWords), bukan untuk ketikan user (q) dan bukan untuk
+     * sisi data — agar pencarian eksplisit seperti "kamar operasi"
+     * tetap berfungsi.
+     */
+    public const STOPWORDS_DESC = [
+        'golongan', 'tindakan', 'medis', 'besar', 'khusus',
+        'kecil', 'sedang', 'umum', 'layanan', 'jasa',
+    ];
+
+    /**
      * Normalisasi: HAPUS dulu seluruh blok [...] beserta isinya (nama
      * dokter, kelas, keterangan — tidak boleh memengaruhi similarity),
      * lalu lowercase + trim + spasi ganda menjadi satu +
@@ -93,6 +107,24 @@ class BridgeServiceSearch
         ));
 
         return array_values($words);
+    }
+
+    /**
+     * Token isi untuk query description NOT_FOUND: words() minus
+     * STOPWORDS_DESC. Bila semua token habis (mis. query hanya berisi
+     * taksonomi), fallback ke words() agar tidak kosong mendadak.
+     *
+     * @return array<int, string>
+     */
+    public static function contentWords(string $text): array
+    {
+        $words = self::words($text);
+        $filtered = array_values(array_filter(
+            $words,
+            fn ($w) => ! in_array($w, self::STOPWORDS_DESC, true)
+        ));
+
+        return $filtered !== [] ? $filtered : $words;
     }
 
     /**
@@ -293,7 +325,11 @@ class BridgeServiceSearch
      */
     public static function similar(string $description, ?string $query = null, int $limit = 20): array
     {
-        $descTokens = self::words($description);
+        // Token description memakai contentWords (stopword taksonomi
+        // dibuang) agar kata generik ("umum", "tindakan", ...) tidak
+        // mendongkrak kandidat salah. Token ketikan user (q) tetap
+        // words() penuh agar pencarian eksplisit tetap presisi.
+        $descTokens = self::contentWords($description);
         if ($descTokens === []) {
             return [];
         }

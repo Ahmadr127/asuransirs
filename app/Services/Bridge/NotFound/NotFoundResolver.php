@@ -64,13 +64,18 @@ final class NotFoundResolver
         $pairs = $this->repository->pairsForServices(array_keys($byCode));
 
         
-        $descTokens = BridgeServiceSearch::words($searchDesc);
+        $descTokens = BridgeServiceSearch::contentWords($searchDesc);
         $queryTokens = $query !== null && trim($query) !== ''
             ? BridgeServiceSearch::words($query)
             : [];
 
         $pairedCodes = [];
         $ranked = [];
+        // Bobot IDF per token query (di atas pool recall): token langka
+        // ("varicocele") lebih menentukan daripada token umum
+        // ("laparoscopy") bila tier + jumlah cocok seri — kasus Row 25.
+        $idfs = $this->idfWeights($descTokens, $services);
+        $descTotal = count($descTokens);
         foreach ($pairs as $pair) {
             $key = mb_strtoupper(trim($pair['service_code']));
             $service = $byCode[$key] ?? null;
@@ -112,6 +117,10 @@ final class NotFoundResolver
                 'desc_tier' => $descTier,
                 'desc_matched' => $descMatched,
                 'desc_exact' => $descExact,
+                'desc_total' => $descTotal,
+                'text_idf' => $descTier > 0
+                    ? $this->matchedIdf($descTokens, (string) ($service['service_description'] ?? ''), $idfs)
+                    : 0.0,
                 '_order' => $service['_order'],
             ];
         }
@@ -149,6 +158,10 @@ final class NotFoundResolver
                 'desc_tier' => $descTier,
                 'desc_matched' => $descMatched,
                 'desc_exact' => $descExact,
+                'desc_total' => $descTotal,
+                'text_idf' => $descTier > 0
+                    ? $this->matchedIdf($descTokens, (string) ($service['service_description'] ?? ''), $idfs)
+                    : 0.0,
                 '_order' => $service['_order'],
             ];
         }
@@ -158,6 +171,12 @@ final class NotFoundResolver
                 if ($a[$k] !== $b[$k]) {
                     return $b[$k] <=> $a[$k];
                 }
+            }
+            // Seri teks (tier + jumlah + exact sama): token langka
+            // menang sebelum sinyal kelas/tarif — mis. "varicocele"
+            // mengalahkan "laparoscopy" pada Row 25.
+            if (abs($a['text_idf'] - $b['text_idf']) > 1e-9) {
+                return $b['text_idf'] <=> $a['text_idf'];
             }
             if ($a['_score'] !== $b['_score']) {
                 return $b['_score'] <=> $a['_score'];
@@ -172,16 +191,75 @@ final class NotFoundResolver
         });
 
         return array_map(function ($row) {
-            unset($row['_order'], $row['q_tier'], $row['q_matched'], $row['q_exact'], $row['desc_tier'], $row['desc_matched'], $row['desc_exact']);
+            unset($row['_order'], $row['q_tier'], $row['q_matched'], $row['q_exact'], $row['desc_exact']);
+            // Sinyal teks dipertahankan dengan nama publik agar UI bisa
+            // memecah "% rekomendasi" (kelas+tarif) dari kecocokan teks,
+            // dan processor bisa mensyaratkan bukti teks minimal (P5).
 
             return $row;
         }, array_slice($ranked, 0, $limit));
     }
 
     /**
+     * Bobot IDF per token di atas pool recall: log((N+1)/(df+1)) + 1.
+     * Token yang muncul di sedikit kandidat bernilai lebih tinggi.
+     *
+     * @param  array<int, string>  $tokens
+     * @param  array<int, array{service_description: ?string}>  $services
+     * @return array<string, float>
+     */
+    protected function idfWeights(array $tokens, array $services): array
+    {
+        $n = count($services);
+        $weights = [];
+        foreach ($tokens as $token) {
+            $df = 0;
+            foreach ($services as $service) {
+                if (BridgeServiceSearch::rank([$token], (string) ($service['service_description'] ?? ''))[1] > 0) {
+                    $df++;
+                }
+            }
+            $weights[$token] = log(($n + 1) / ($df + 1)) + 1.0;
+        }
+
+        return $weights;
+    }
+
+    /**
+     * Jumlah bobot IDF token query yang cocok di satu description
+     * kandidat (aturan cocok = prefix persis seperti rank()).
+     *
+     * @param  array<int, string>  $tokens
+     * @param  array<string, float>  $idfs
+     */
+    protected function matchedIdf(array $tokens, string $description, array $idfs): float
+    {
+        $normHay = BridgeServiceSearch::normalize($description);
+        $hayWords = $normHay === ''
+            ? []
+            : array_values(array_filter(
+                explode(' ', $normHay),
+                fn ($w) => mb_strlen($w) >= 2
+            ));
+        $sum = 0.0;
+        foreach ($tokens as $token) {
+            foreach ($hayWords as $word) {
+                if ($word === $token || str_starts_with($word, $token) || str_starts_with($token, $word)) {
+                    $sum += $idfs[$token] ?? 0.0;
+                    break;
+                }
+            }
+        }
+
+        return $sum;
+    }
+
+    /**
      * Ekstraksi inti tindakan: buang (...) nama dokter, potong sejak
      * kata-noise, lalu tangani delimiter TEPAT " - " (spasi-hyphen-spasi,
      * bukan "-" umum) sebagai SINYAL STRUKTUR tambahan:
+     * - segmen PERTAMA = PREFIX SPESIALISASI bila memuat kata "bedah"
+     *   ("BEDAH UMUM", "BEDAH TULANG / ORTOHOPEDI") lalu dibuang;
      * - segmen terakhir = ROLE/KONTEKS hanya bila dikenali (daftar
      *   eksplisit: Dokter Operator/Anestesi/..., Kamar/Ruang Operasi,
      *   ... — dalam bentuk ternormalisasi), lalu dibuang;
@@ -205,6 +283,18 @@ final class NotFoundResolver
                 fn ($s) => $s !== ''
             ));
             if (count($segments) >= 2) {
+                // Prefix spesialisasi ("BEDAH UMUM - ...",
+                // "BEDAH TULANG / ORTOHOPEDI - ..."): segmen pertama yang
+                // memuat kata "bedah" dibuang agar token generik tidak
+                // mencemari query dan mendongkrak kandidat salah (Row 25:
+                // "BEDAH UMUM" membuat Appendektomi Bedah Anak menang).
+                $firstNorm = ' '.BridgeServiceSearch::normalize((string) $segments[0]).' ';
+                if (str_contains($firstNorm, ' bedah ')) {
+                    array_shift($segments);
+                }
+                if ($segments === []) {
+                    return $description;
+                }
                 // Role yang dikenali (bentuk sudah dinormalisasi, karena
                 // "&" hilang saat normalisasi: "kamar operasi sarana").
                 $roles = [

@@ -48,6 +48,12 @@
                 'tariff' => isset($s['tariff']) && is_numeric($s['tariff']) ? (float) $s['tariff'] : null,
                 'tariff_diff' => isset($s['_tariff_diff']) && is_numeric($s['_tariff_diff']) ? (float) $s['_tariff_diff'] : null,
                 'class_match' => (int) ($s['_class_match'] ?? 0),
+                // Sinyal teks (P2): agar % tidak disangka kemiripan nama
+                // tindakan — % murni rata-rata kecocokan kelas + tarif.
+                'text_tier' => isset($s['desc_tier']) ? (int) $s['desc_tier'] : null,
+                'text_matched' => isset($s['desc_matched']) ? (int) $s['desc_matched'] : null,
+                'text_total' => isset($s['desc_total']) ? (int) $s['desc_total'] : null,
+                'text_idf' => isset($s['text_idf']) && is_numeric($s['text_idf']) ? round((float) $s['text_idf'], 3) : null,
             ], array_slice($row['suggestions'] ?? [], 0, 10)),
             'mapping_key' => $row['mapping_key'] ?? '',
             'new_class_code' => $row['new_class_code'] ?? null,
@@ -123,13 +129,26 @@
     // Presentase rekomendasi = rata-rata dua nilai 0-100:
     // Kelas (cocok = 100, tidak = 0) dan Tarif (terkecil dibagi
     // terbesar x 100). Bila tarif tak tersedia, hanya nilai kelas.
+    // PENTING: ini BUKAN kemiripan nama tindakan — kecocokan teks
+    // (tier/jumlah token) ditampilkan terpisah via textBadge().
     function recPct(diff, cls) {
         var parts = [cls ? 100 : 0];
         if (diff !== null && diff !== undefined) parts.push((1 - diff) * 100);
         var pct = parts.reduce(function (a, b) { return a + b; }, 0) / parts.length;
-        if (pct >= 100) return '<span class="font-bold text-teal-700">100%</span>';
-        if (pct <= 0) return '<span class="font-bold">0%</span>';
-        return '<span class="font-bold">' + pct.toFixed(2).replace('.', ',') + '%</span>';
+        if (pct >= 100) return '<span class="font-bold text-teal-700" title="Rata-rata kecocokan kelas + tarif, bukan kemiripan nama tindakan">100%</span>';
+        if (pct <= 0) return '<span class="font-bold" title="Rata-rata kecocokan kelas + tarif, bukan kemiripan nama tindakan">0%</span>';
+        return '<span class="font-bold" title="Rata-rata kecocokan kelas + tarif, bukan kemiripan nama tindakan">' + pct.toFixed(2).replace('.', ',') + '%</span>';
+    }
+    // Lencana kecocokan teks untuk saran NOT_FOUND: "Teks 1/2".
+    // Peringatan bila bukti teks lemah (< 2 token cocok): % setinggi
+    // apa pun tidak boleh dipercaya membabi-buta (kasus Row 25).
+    function textBadge(s) {
+        if (s.text_matched === null || s.text_matched === undefined || s.text_total === null || s.text_total === undefined) return '';
+        var weak = s.text_matched < 2;
+        return '<span class="' + (weak ? 'text-amber-700 font-semibold' : 'text-gray-500') + '" title="Jumlah token inti tindakan yang cocok di description master (tier ' + esc(s.text_tier === null ? '-' : s.text_tier) + ')">Teks ' + esc(s.text_matched) + '/' + esc(s.text_total) + (weak ? ' ⚠' : '') + '</span>';
+    }
+    function recFull(s) {
+        return textBadge(s) + ' • <span class="text-gray-400">kelas+tarif</span> ' + recPct(s.tariff_diff, s.class_match);
     }
     function store() {
         var el = document.querySelector('[data-ba-store]');
@@ -144,7 +163,7 @@
             + '<th class="px-3 py-2 text-left font-semibold text-gray-700">Kelas Master</th>'
             + '<th class="px-3 py-2 text-left font-semibold text-gray-700">Tarif Master</th>'
             + '<th class="px-3 py-2 text-left font-semibold text-gray-700">Selisih Tarif</th>'
-            + '<th class="px-3 py-2 text-left font-semibold text-gray-700">Rekomendasi</th>'
+            + '<th class="px-3 py-2 text-left font-semibold text-gray-700" title="Rata-rata kecocokan kelas + tarif, bukan kemiripan nama tindakan">Kelas+Tarif</th>'
             + '<th class="px-3 py-2 text-left font-semibold text-gray-700">Kelas Cocok</th>'
             + '<th class="px-3 py-2 text-left font-semibold text-gray-700">Skor</th>'
             + '<th class="px-3 py-2 text-left font-semibold text-gray-700"></th>'
@@ -203,12 +222,16 @@
                 html += '<div class="text-xs bg-red-50 border border-red-200 rounded-md p-2.5">Kode kelas master untuk baris ini: <span class="font-mono font-bold">' + esc(d.new_class_code || '(tidak dikenali — ikut bawaan Excel)') + '</span>. Cari service yang benar lewat “Petakan Manual” (ketik ≥ 2 huruf untuk menyaring, klik untuk saran paling mirip description) dan gunakan tarif efektif <span class="font-mono font-bold">' + esc(effectiveLabel(d)) + '</span> sebagai pembanding.</div>';
             }
             if (d.suggestions && d.suggestions.length) {
-                html += '<div><p class="text-xs font-semibold text-gray-600 mb-1">Rekomendasi (' + d.suggestions.length + ')</p><div class="border border-gray-200 rounded-md overflow-hidden">';
+                html += '<div><p class="text-xs font-semibold text-gray-600 mb-1">Rekomendasi (' + d.suggestions.length + ')</p><p class="mb-1 text-[11px] text-gray-500">% = kecocokan <span class="font-semibold">kelas + tarif</span>, bukan kemiripan nama tindakan — periksa kolom Teks.</p><div class="border border-gray-200 rounded-md overflow-hidden">';
+                var weakTop = d.suggestions[0] && d.suggestions[0].text_matched !== null && d.suggestions[0].text_matched !== undefined && d.suggestions[0].text_matched < 2;
+                if (weakTop) {
+                    html += '<div class="px-2.5 py-1.5 text-xs bg-amber-50 border-b border-amber-200 text-amber-800">⚠ Kecocokan teks saran teratas lemah (Teks ' + esc(d.suggestions[0].text_matched) + '/' + esc(d.suggestions[0].text_total) + ') — % tinggi hanya dari kelas + tarif yang dekat. Verifikasi nama tindakan sebelum memilih.</div>';
+                }
                 d.suggestions.forEach(function (s) {
                     html += '<div class="px-2.5 py-1.5 text-xs border-b border-gray-100 last:border-0 flex items-center justify-between gap-2">'
                         + '<span><span class="font-mono font-semibold">' + esc(s.service_code) + '</span> | ' + esc(s.service_description || s.service_code)
                         + ((s.class_name || s.class_code) ? ' <span class="text-gray-400">(' + esc(s.class_name || s.class_code) + (s.tariff !== null && s.tariff !== undefined ? ' • ' + esc(rupiah(s.tariff)) : '') + ')</span>' : '')
-                        + '</span><span class="whitespace-nowrap">' + recPct(s.tariff_diff, s.class_match) + '</span>'
+                        + '</span><span class="whitespace-nowrap">' + recFull(s) + '</span>'
                         + '</div>';
                 });
                 html += '</div><p class="mt-1 text-[11px] text-gray-500">Pilih salah satunya di “Petakan Manual” bila setuju.</p></div>';

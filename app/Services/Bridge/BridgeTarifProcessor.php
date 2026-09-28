@@ -168,12 +168,17 @@ class BridgeTarifProcessor
             );
         }
 
-        // Saran NOT_FOUND teratas (presentase tertinggi) langsung masuk
-        // New Code — status tetap NOT_FOUND dan bisa ditimpa manual,
-        // kecuali KONSENSUS (seluruh saran berkode sama): status menjadi
-        // MATCHED/valid, tetapi grup Petakan Manual + modal analisa tetap
-        // dipertahankan agar bisa diperiksa/diubah. Berlaku untuk preview
-        // + decisions (generate).
+        // Saran NOT_FOUND teratas langsung masuk New Code — status tetap
+        // NOT_FOUND dan bisa ditimpa manual — HANYA bila bukti teksnya
+        // cukup (P5: desc_matched >= 2). Tanpa threshold, kandidat yang
+        // hanya cocok 1 token generik + tarif dekat (kasus Row 25:
+        // "Laparoscopy Appendektomi" untuk query Varicocele) langsung
+        // mengisi New Code yang salah. Saran tetap ditampilkan untuk
+        // dipilih manual walau di bawah threshold.
+        // KONSENSUS (seluruh saran berkode sama): status menjadi
+        // MATCHED/valid dengan syarat yang sama, tetapi grup Petakan
+        // Manual + modal analisa tetap dipertahankan agar bisa
+        // diperiksa/diubah. Berlaku untuk preview + decisions (generate).
         foreach ($groups as $key => $group) {
             if (! ($group['manual'] ?? false) || empty($group['suggestions'])) {
                 continue;
@@ -181,6 +186,11 @@ class BridgeTarifProcessor
             $top = $group['suggestions'][0];
             $code = trim((string) ($top['service_code'] ?? ''));
             if ($code === '') {
+                continue;
+            }
+            // Bukti teks minimal: >= 2 token isi cocok. Saran tetap ada
+            // untuk dipilih manual; hanya auto-isi yang ditahan.
+            if ((int) ($top['desc_matched'] ?? 0) < 2) {
                 continue;
             }
             $groups[$key]['top_service'] = $top['service_code'];

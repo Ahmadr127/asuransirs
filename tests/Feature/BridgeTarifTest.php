@@ -1322,6 +1322,73 @@ class BridgeTarifTest extends TestCase
         $this->assertNotContains('SPL01', $codes);
     }
 
+    public function test_notfound_varicocele_ranks_ligasi_over_appendektomi_and_no_autofill(): void
+    {
+        // Regresi Row 25: "BEDAH UMUM - Laparoscopy Varicocele, anasthesy, (...)"
+        // tarif Rp 3.200.000. Sebelum perbaikan, "Laparoscopy Appendektomi"
+        // (tarif Rp 3.246.000, selisih 1,4%) menang atas "Ligasi Varicocele"
+        // karena token generik "BEDAH UMUM" + tarif dekat.
+        $provider = Provider::firstOrCreate(['code' => 'PRV1'], ['name' => 'Provider Satu', 'status' => 'active']);
+        $kelas2 = ServiceClass::firstOrCreate(['code' => 'KL2'], ['name' => 'KELAS 2', 'status' => 'active']);
+        $seed = function (string $code, string $desc, float $tariff) use ($provider, $kelas2) {
+            $service = Service::create(['code' => $code, 'name' => $desc, 'description' => $desc, 'status' => 'active']);
+            Tarif::create([
+                'jenis_tarif_id' => $this->jenis->id,
+                'provider_id' => $provider->id,
+                'service_id' => $service->id,
+                'class_id' => $kelas2->id,
+                'surgery_type' => null, 'helper' => null, 'tariff' => $tariff,
+                'valid_date_from' => '2024-01-01', 'end_date_to' => '2029-12-31',
+            ]);
+        };
+        $seed('OKANK-K-042-015', 'Golongan Besar Khusus II - Tindakan Medis Operasi Bedah Anak - Laparoscopy Appendektomi - Kamar Operasi & Sarana', 3246000);
+        $seed('OKANK-A-031-014', 'Golongan Besar I - Tindakan Medis Operasi Bedah Anak - Ligasi Varicocele - Dokter Anestesi', 2520000);
+        $seed('OKANK-A-042-015', 'Golongan Besar Khusus II - Tindakan Medis Operasi Bedah Anak - Laparoscopy Appendektomi - Dokter Anestesi', 4200000);
+        $seed('OKANK-K-031-014', 'Golongan Besar I - Tindakan Medis Operasi Bedah Anak - Ligasi Varicocele - Kamar Operasi & Sarana', 2414000);
+        // Decoy: "laparoscopy" memang token umum di master (IDF rendah),
+        // "varicocele" langka (IDF tinggi) — meniru distribusi produksi.
+        $seed('LAP-DEC-1', 'Golongan Besar Khusus II - Tindakan Medis Operasi Bedah Anak - Laparoscopy Kolesistektomi - Dokter Operator', 6000000);
+        $seed('LAP-DEC-2', 'Golongan Besar Khusus II - Tindakan Medis Operasi Bedah Anak - Laparoscopy Herniorafi - Dokter Anestesi', 6100000);
+
+        $desc = 'BEDAH UMUM - Laparoscopy Varicocele, anasthesy, (Chrisma Adryana Albandjar, dr., Sp.An-KIC)';
+
+        $res = $this->actingAs($this->user)->getJson(route('bridge.search-services', [
+            'description' => $desc,
+            'class' => 'KELAS 2',
+            'tariff' => 3200000,
+        ]));
+        $res->assertOk();
+        $codes = array_column($res->json('data'), 'service_code');
+
+        $this->assertNotEmpty($codes);
+        // Saran teratas harus keluarga Varicocele, bukan Appendektomi
+        // walau tarif Appendektomi jauh lebih dekat.
+        $this->assertContains($codes[0], ['OKANK-A-031-014', 'OKANK-K-031-014']);
+        $posVaricocele = min(
+            array_search('OKANK-A-031-014', $codes) === false ? PHP_INT_MAX : array_search('OKANK-A-031-014', $codes),
+            array_search('OKANK-K-031-014', $codes) === false ? PHP_INT_MAX : array_search('OKANK-K-031-014', $codes)
+        );
+        $posAppend = min(
+            array_search('OKANK-K-042-015', $codes) === false ? PHP_INT_MAX : array_search('OKANK-K-042-015', $codes),
+            array_search('OKANK-A-042-015', $codes) === false ? PHP_INT_MAX : array_search('OKANK-A-042-015', $codes)
+        );
+        $this->assertLessThan($posAppend, $posVaricocele);
+
+        // Scan: tetap NOT_FOUND, saran teratas Varicocele, TANPA auto-isi
+        // New Code karena bukti teks hanya 1 token (P5).
+        $result = $this->scanRows([
+            ['PRV1', '1210-3', $desc, '5', 'KELAS 2', 3200000, 3200000, 1, 'x'],
+        ], $this->headerExt());
+        $row = $result['preview'][0];
+
+        $this->assertSame('NOT_FOUND', $row['status']);
+        $this->assertNotEmpty($row['suggestions']);
+        $this->assertContains($row['suggestions'][0]['service_code'], ['OKANK-A-031-014', 'OKANK-K-031-014']);
+        $this->assertNull($row['new_service_code']);
+        $this->assertFalse($row['suggested_applied']);
+        $this->assertSame(0, $result['summary']['suggested']);
+    }
+
     public function test_search_services_suggest_visite_rule_by_title_after_dr(): void
     {
         // Pola visite + nama dokter ditulis ulang menjadi frasa kanonis:
