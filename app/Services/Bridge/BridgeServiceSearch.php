@@ -509,6 +509,13 @@ class BridgeServiceSearch
      * ada token utama: LIKE '%ii%' mengenai ribuan baris dan bisa
      * mendesak kandidat relevan keluar dari pool 500.
      *
+     * Kuota per token: tiap token mengambil jatahnya sendiri
+     * (ceil(500/jumlah token)) lalu digabung — token langka ("reposisi",
+     * "varicocele") dijamin kebagian pool walau token umum ("tulang",
+     * "anestesi") cocok ribuan baris (kasus produksi Row 21 & Row 40:
+     * baris exact hilang total dari saran). Tanpa ORDER BY, LIMIT global
+     * selalu mengembalikan baris terlama dan menggusur yang langka.
+     *
      * @param  array<int, string>  $orTokens
      * @param  array<int, string>|null  $andTokens
      * @return \Illuminate\Support\Collection<int, Service>
@@ -526,26 +533,40 @@ class BridgeServiceSearch
             }
         }
 
-        $query = Service::query();
-        $query->where(function ($w) use ($orTokens) {
-            foreach (array_slice($orTokens, 0, 6) as $token) {
-                $like = '%'.$token.'%';
-                $w->orWhereRaw('LOWER(code) LIKE ?', [$like])
+        $orTokens = array_values(array_slice($orTokens, 0, 6));
+        if ($andTokens !== null) {
+            $andTokens = array_values(array_slice($andTokens, 0, 6));
+        }
+        $quota = (int) max(50, ceil(500 / max(1, count($orTokens))));
+
+        $merged = [];
+        foreach ($orTokens as $token) {
+            $like = '%'.$token.'%';
+            $query = Service::query();
+            $query->where(function ($w) use ($like) {
+                $w->whereRaw('LOWER(code) LIKE ?', [$like])
                     ->orWhereRaw('LOWER(name) LIKE ?', [$like])
                     ->orWhereRaw('LOWER(description) LIKE ?', [$like]);
-            }
-        });
-        if ($andTokens !== null && $andTokens !== []) {
-            $query->where(function ($w) use ($andTokens) {
-                foreach (array_slice($andTokens, 0, 6) as $token) {
-                    $like = '%'.$token.'%';
-                    $w->orWhereRaw('LOWER(code) LIKE ?', [$like])
-                        ->orWhereRaw('LOWER(name) LIKE ?', [$like])
-                        ->orWhereRaw('LOWER(description) LIKE ?', [$like]);
-                }
             });
+            if ($andTokens !== null && $andTokens !== []) {
+                $query->where(function ($w) use ($andTokens) {
+                    foreach ($andTokens as $andToken) {
+                        $alike = '%'.$andToken.'%';
+                        $w->orWhereRaw('LOWER(code) LIKE ?', [$alike])
+                            ->orWhereRaw('LOWER(name) LIKE ?', [$alike])
+                            ->orWhereRaw('LOWER(description) LIKE ?', [$alike]);
+                    }
+                });
+            }
+
+            foreach ($query->limit($quota)->get(['code', 'name', 'description']) as $service) {
+                $merged[mb_strtoupper(trim((string) $service->code))] = $service;
+            }
+            if (count($merged) >= 500) {
+                break;
+            }
         }
 
-        return $query->limit(500)->get(['code', 'name', 'description']);
+        return collect(array_values($merged))->take(500)->values();
     }
 }

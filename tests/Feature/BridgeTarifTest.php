@@ -1839,6 +1839,83 @@ class BridgeTarifTest extends TestCase
         $this->assertNotContains('OKANK-K-021-001', array_slice($codes, 0, 3));
     }
 
+    public function test_notfound_row40_exact_procedure_survives_token_flood(): void
+    {
+        // Row 40: "BEDAH TULANG / ORTOHOPEDI - Reposisi Terbuka Dan
+        // Fiksasi Interna Fraktur Tulang Panjang (...)" SUITE Rp 15,4 jt.
+        // Token umum (tulang/fraktur/dan) me-LIKE ratusan baris sehingga
+        // pool 500 penuh sebelum baris exact (yang hanya cocok token
+        // langka reposisi/fiksasi) sempat masuk — top-10 penuh MIPO.
+        // Kuota per token menjamin baris langka kebagian pool.
+        $provider = Provider::firstOrCreate(['code' => 'PRV1'], ['name' => 'Provider Satu', 'status' => 'active']);
+        $suite = ServiceClass::firstOrCreate(['code' => 'KLX'], ['name' => 'Suite', 'status' => 'active']);
+        $now = now()->toDateTimeString();
+        $svcRows = [];
+        for ($i = 0; $i < 510; $i++) {
+            $svcRows[] = [
+                'code' => sprintf('FL-TULANG-%04d', $i),
+                'name' => 'Bedah Orthopedi - Fraktur Tulang Belakang - Laminektomi',
+                'description' => 'Bedah Orthopedi - Fraktur Tulang Belakang - Laminektomi',
+                'status' => 'active', 'created_at' => $now, 'updated_at' => $now,
+            ];
+        }
+        DB::table('services')->insert($svcRows);
+        $trfRows = [];
+        foreach (DB::table('services')->where('code', 'like', 'FL-TULANG-%')->pluck('id') as $id) {
+            $trfRows[] = [
+                'jenis_tarif_id' => $this->jenis->id, 'provider_id' => $provider->id,
+                'service_id' => $id, 'class_id' => $suite->id,
+                'surgery_type' => null, 'helper' => null, 'tariff' => 4000000,
+                'valid_date_from' => '2024-01-01', 'end_date_to' => '2029-12-31',
+                'created_at' => $now, 'updated_at' => $now,
+            ];
+        }
+        DB::table('tarifs')->insert($trfRows);
+
+        $mkTarif = function (Service $service, float $tariff) use ($provider, $suite) {
+            Tarif::create([
+                'jenis_tarif_id' => $this->jenis->id, 'provider_id' => $provider->id,
+                'service_id' => $service->id, 'class_id' => $suite->id,
+                'surgery_type' => null, 'helper' => null, 'tariff' => $tariff,
+                'valid_date_from' => '2024-01-01', 'end_date_to' => '2029-12-31',
+            ]);
+        };
+        $mkService = fn (string $code, string $desc) => Service::create(['code' => $code, 'name' => $desc, 'description' => $desc, 'status' => 'active']);
+        $mkTarif($mkService('OKORT-OP', 'Golongan Khusus 1 - Tindakan Medis Bedah Orthopedi - Reposisi Terbuka Dan Fiksasi Interna Fraktur Tulang Panjang - Dokter Operator'), 15400000);
+        $mkTarif($mkService('OKORT-O-031-009', 'Golongan Besar 1 - Tindakan Medis Operasi Bedah Ortopedi - Fraktur Tulang Panjang - MIPO/ ORIF Dan Implant Removal - Dokter Operator'), 13200000);
+
+        $desc = 'BEDAH TULANG / ORTOHOPEDI - Reposisi Terbuka Dan Fiksasi Interna Fraktur Tulang Panjang (Karisa Kartika Sukotjo, dr. Sp. OT)';
+
+        $res = $this->actingAs($this->user)->getJson(route('bridge.search-services', [
+            'description' => $desc, 'class' => 'Suite', 'tariff' => 15400000,
+        ]));
+        $res->assertOk();
+        $codes = array_column($res->json('data'), 'service_code');
+
+        $this->assertNotEmpty($codes);
+        // Prosedur exact (8/8 token) teratas, MIPO (4/8) kedua.
+        $this->assertSame('OKORT-OP', $codes[0]);
+        $this->assertSame('OKORT-O-031-009', $codes[1]);
+        // Baris banjir (cocok 2/8) boleh tampil, tetapi wajib di bawah
+        // keduanya — tidak boleh mendesak keluar dari pool.
+        foreach ($codes as $pos => $code) {
+            if (str_starts_with($code, 'FL-TULANG')) {
+                $this->assertGreaterThan(1, $pos, "Banjir $code di atas saran relevan");
+            }
+        }
+
+        // Scan: NOT_FOUND, exact mengisi New Code sebagai saran.
+        $result = $this->scanRows([
+            ['PRV1', '1380-2', $desc, '1', 'SUITE', 15400000, 15400000, 1, 'x'],
+        ], $this->headerExt());
+        $row = $result['preview'][0];
+
+        $this->assertSame('NOT_FOUND', $row['status']);
+        $this->assertSame('OKORT-OP', $row['suggestions'][0]['service_code']);
+        $this->assertSame('OKORT-OP', $row['new_service_code']);
+        $this->assertTrue($row['suggested_applied']);
+    }
+
     public function test_search_services_suggest_visite_rule_by_title_after_dr(): void
     {
         // Pola visite + nama dokter ditulis ulang menjadi frasa kanonis:
