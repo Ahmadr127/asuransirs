@@ -263,6 +263,14 @@ final class NotFoundResolver
             return $a['_order'] <=> $b['_order'];
         });
 
+        // Aturan sibling KAMAR (mode default, tanpa ketikan user): bila
+        // baris Excel adalah tarif kamar operasi, jawabannya adalah
+        // pasangan "Kamar Operasi & Sarana" dari prosedur (service) yang
+        // paling cocok teksnya — bukan pair operator/anestesi walau
+        // tarifnya lebih dekat. Contoh: dari keluarga OKURO-O/A/K yang
+        // naik adalah OKURO-K.
+        $ranked = KamarSiblingRule::promote($ranked, $roleHint, $queryTokens);
+
         return array_map(function ($row) {
             unset($row['_order'], $row['eff_q_tier'], $row['eff_desc_tier'], $row['q_tier'], $row['q_matched'], $row['q_exact'], $row['desc_exact']);
             // Sinyal teks dipertahankan dengan nama publik agar UI bisa
@@ -316,6 +324,89 @@ final class NotFoundResolver
     }
 
     /**
+     * Kata generik yang dibuang saat membangun query prosedur jangkar
+     * (suggestKamarSibling): taksonomi + peran + kata biaya. Bila habis
+     * semua, fallback ke token penuh agar tak kosong mendadak.
+     */
+    private const SIBLING_GENERIC = [
+        'golongan', 'tindakan', 'medis', 'besar', 'khusus',
+        'kecil', 'sedang', 'umum', 'layanan', 'jasa',
+        'operasi', 'bedah', 'kamar', 'ruang', 'dokter', 'sarana',
+        'biaya', 'sewa', 'charge', 'paket', 'pemakaian',
+    ];
+
+    /**
+     * True bila description adalah tarif kamar TANPA prosedur
+     * ("Kamar Operasi", "BIAYA KAMAR OPERASI"): role kamar terdeteksi
+     * tetapi setelah kata generik dibuang tak tersisa token prosedur.
+     * Baris seperti ini butuh jangkar prosedur dari baris se-kasus di
+     * file yang sama (fase jangkar di processor). Beda dengan "BEDAH
+     * UROLOGI - Varicocelectomy - Kamar Operasi" (prosedur ada di baris
+     * yang sama → false, jalur sibling promotion biasa).
+     */
+    public static function isBareKamar(string $description): bool
+    {
+        if (self::detectRole($description) !== 'kamar') {
+            return false;
+        }
+        foreach (BridgeServiceSearch::contentWords($description) as $token) {
+            if (! in_array($token, self::SIBLING_GENERIC, true)) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /**
+     * Saran saudara kamar dari prosedur jangkar: description master
+     * prosedur (mis. "... Varicocelectomy - Dokter Operator" milik baris
+     * se-kasus) dipangkas ekor perannya, dibangun query sintetis
+     * "<spesialisasi + inti> - Kamar Operasi", lalu seluruh mesin
+     * suggest() dipakai ulang — termasuk sibling promotion, diversity,
+     * dan sinyal teks. Tanpa inti prosedur yang tersisa: [].
+     */
+    public function suggestKamarSibling(
+        string $anchorDesc,
+        ?string $className = null,
+        ?float $effectiveTariff = null,
+        int $limit = 10,
+    ): array {
+        $proc = (string) preg_replace('/\([^)]*\)/u', ' ', $anchorDesc);
+        $proc = trim($proc);
+        if (str_contains($proc, ' - ')) {
+            $segments = array_values(array_filter(
+                array_map(fn ($s) => trim((string) $s), explode(' - ', $proc)),
+                fn ($s) => $s !== ''
+            ));
+            if (count($segments) >= 2
+                && self::detectRole((string) end($segments)) !== null
+            ) {
+                array_pop($segments);
+            }
+            $proc = trim(implode(' ', $segments));
+        }
+        $tokens = array_values(array_filter(
+            BridgeServiceSearch::contentWords($proc),
+            fn ($t) => ! in_array($t, self::SIBLING_GENERIC, true)
+        ));
+        if ($tokens === []) {
+            $tokens = BridgeServiceSearch::contentWords($proc);
+        }
+        if ($tokens === []) {
+            return [];
+        }
+
+        return $this->suggest(
+            implode(' ', $tokens).' - Kamar Operasi',
+            null,
+            $className,
+            $effectiveTariff,
+            $limit,
+        );
+    }
+
+    /**
      * Pola specialty umum (frasa dulu, lalu kata tunggal). "umum" hanya
      * dikenali dalam frasa "bedah umum" agar "dokter umum" (role) tidak
      * terbaca sebagai spesialisasi.
@@ -360,9 +451,9 @@ final class NotFoundResolver
     }
 
     /**
-     * Deteksi peran/komponen: "kamar" (kamar/ruang operasi, sarana) >
-     * "operator" > "anestesi" (termasuk typo anasthesy/anesthesia dan
-     * kerabat narkose/sedasi). null bila tak disebut.
+     * Deteksi peran/komponen: "kamar" (kamar/ruang operasi, ruang bedah,
+     * sarana) > "operator" > "anestesi" (termasuk typo anasthesy/
+     * anesthesia dan kerabat narkose/sedasi). null bila tak disebut.
      */
     public static function detectRole(string $text): ?string
     {
@@ -370,7 +461,7 @@ final class NotFoundResolver
         if ($norm === '  ') {
             return null;
         }
-        if (preg_match('/\bkamar\s+operasi\b|\bruang\s+operasi\b|\bsarana\b/u', $norm)) {
+        if (preg_match('/\bkamar\s+operasi\b|\bruang\s+operasi\b|\bruang\s+bedah\b|\bsarana\b/u', $norm)) {
             return 'kamar';
         }
         if (preg_match('/\boperator\b/u', $norm)) {

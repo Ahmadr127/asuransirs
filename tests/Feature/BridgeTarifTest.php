@@ -1737,6 +1737,108 @@ class BridgeTarifTest extends TestCase
         $this->assertSame([], $flood);
     }
 
+    public function test_notfound_kamar_row_promotes_kamar_sibling_pair(): void
+    {
+        // Baris kamar operasi: "BEDAH UROLOGI - Varicocelectomy - Kamar
+        // Operasi (...)" KELAS 2 Rp 4.800.000 (= tarif komponen operator).
+        // Jawabannya harus pasangan Kamar Operasi & Sarana dari prosedur
+        // yang sama (OKURO-K), bukan pair operator walau tarifnya persis,
+        // dan bukan jebakan Bedah Umum yang tarifnya dekat.
+        $this->assertSame('kamar', \App\Services\Bridge\NotFound\NotFoundResolver::detectRole('Varicocelectomy - Ruang Bedah (Fakhri, dr.)'));
+
+        $provider = Provider::firstOrCreate(['code' => 'PRV1'], ['name' => 'Provider Satu', 'status' => 'active']);
+        $kelas2 = ServiceClass::firstOrCreate(['code' => 'KL2'], ['name' => 'KELAS 2', 'status' => 'active']);
+        $mkTarif = function (Service $service, float $tariff) use ($provider, $kelas2) {
+            Tarif::create([
+                'jenis_tarif_id' => $this->jenis->id, 'provider_id' => $provider->id,
+                'service_id' => $service->id, 'class_id' => $kelas2->id,
+                'surgery_type' => null, 'helper' => null, 'tariff' => $tariff,
+                'valid_date_from' => '2024-01-01', 'end_date_to' => '2029-12-31',
+            ]);
+        };
+        $mkService = fn (string $code, string $desc) => Service::create(['code' => $code, 'name' => $desc, 'description' => $desc, 'status' => 'active']);
+        $mkTarif($mkService('OKURO-O-030-002', 'Golongan Besar - Tindakan Medis Operasi Bedah Urologi - Varicocelectomy - Dokter Operator'), 4800000);
+        $mkTarif($mkService('OKURO-A-030-002', 'Golongan Besar - Tindakan Medis Operasi Bedah Urologi - Varicocelectomy - Dokter Anestesi'), 1920000);
+        $mkTarif($mkService('OKURO-K-030-002', 'Golongan Besar - Tindakan Medis Operasi Bedah Urologi - Varicocelectomy - Kamar Operasi & Sarana'), 2414000);
+        $mkTarif($mkService('OKUMM-O-042-018', 'Golongan Besar Khusus II - Tindakan Medis Operasi Bedah Umum - Laparoscopy Varicocele - Dokter Operator'), 4700000);
+
+        $desc = 'BEDAH UROLOGI - Varicocelectomy - Kamar Operasi (Fakhri Zuhdian Nasher, dr., Sp. U)';
+
+        $res = $this->actingAs($this->user)->getJson(route('bridge.search-services', [
+            'description' => $desc, 'class' => 'KELAS 2', 'tariff' => 4800000,
+        ]));
+        $res->assertOk();
+        $data = $res->json('data');
+        $codes = array_column($data, 'service_code');
+
+        $this->assertNotEmpty($codes);
+        $this->assertSame('OKURO-K-030-002', $codes[0]);
+        $this->assertSame('KL2', $data[0]['class_code']);
+        $posKamar = array_search('OKURO-K-030-002', $codes);
+        $posTrap = array_search('OKUMM-O-042-018', $codes);
+        if ($posTrap !== false) {
+            $this->assertLessThan($posTrap, $posKamar);
+        }
+
+        // Scan: NOT_FOUND, saran teratas OKURO-K/KL2 mengisi New Code.
+        $result = $this->scanRows([
+            ['PRV1', '868-5', $desc, '5', 'KELAS 2', 4800000, 4800000, 1, 'x'],
+        ], $this->headerExt());
+        $row = $result['preview'][0];
+
+        $this->assertSame('NOT_FOUND', $row['status']);
+        $this->assertSame('OKURO-K-030-002', $row['suggestions'][0]['service_code']);
+        $this->assertSame('OKURO-K-030-002', $row['new_service_code']);
+        $this->assertTrue($row['suggested_applied']);
+    }
+
+    public function test_notfound_bare_kamar_anchors_to_same_case_procedure(): void
+    {
+        // Kasus 868-1: description HANYA "Kamar Operasi" (tanpa prosedur),
+        // KELAS 2 Rp 2.212.000. Prosedur diambil dari baris se-kasus 868-2
+        // (Varicocelectomy -> OKURO), lalu saran = saudara kamarnya
+        // (OKURO-K/KL2) — bukan Biopsi Bedah Anak yang tarifnya paling
+        // dekat (Rp 2.159.000).
+        $this->assertTrue(\App\Services\Bridge\NotFound\NotFoundResolver::isBareKamar('Kamar Operasi'));
+        $this->assertFalse(\App\Services\Bridge\NotFound\NotFoundResolver::isBareKamar('BEDAH UROLOGI - Varicocelectomy - Kamar Operasi (Fakhri, dr.)'));
+        $this->assertFalse(\App\Services\Bridge\NotFound\NotFoundResolver::isBareKamar('Room Charge KELAS 2'));
+
+        $provider = Provider::firstOrCreate(['code' => 'PRV1'], ['name' => 'Provider Satu', 'status' => 'active']);
+        $kelas2 = ServiceClass::firstOrCreate(['code' => 'KL2'], ['name' => 'KELAS 2', 'status' => 'active']);
+        $mkTarif = function (Service $service, float $tariff) use ($provider, $kelas2) {
+            Tarif::create([
+                'jenis_tarif_id' => $this->jenis->id, 'provider_id' => $provider->id,
+                'service_id' => $service->id, 'class_id' => $kelas2->id,
+                'surgery_type' => null, 'helper' => null, 'tariff' => $tariff,
+                'valid_date_from' => '2024-01-01', 'end_date_to' => '2029-12-31',
+            ]);
+        };
+        $mkService = fn (string $code, string $desc) => Service::create(['code' => $code, 'name' => $desc, 'description' => $desc, 'status' => 'active']);
+        $mkTarif($mkService('OKURO-O-030-002', 'Golongan Besar - Tindakan Medis Operasi Bedah Urologi - Varicocelectomy - Dokter Operator'), 4800000);
+        $mkTarif($mkService('OKURO-K-030-002', 'Golongan Besar - Tindakan Medis Operasi Bedah Urologi - Varicocelectomy - Kamar Operasi & Sarana'), 2414000);
+        $mkTarif($mkService('OKANK-K-021-001', 'Golongan Sedang I - Tindakan Medis Operasi Bedah Anak - Biopsi Eksisi Tumor Kecil - Kamar Operasi & Sarana'), 2159000);
+
+        $result = $this->scanRows([
+            ['PRV1', '868-2', 'BEDAH UROLOGI - Varicocelectomy (Fakhri Zuhdian Nasher, dr., Sp. U)', '5', 'KELAS 2', 8400000, 8400000, 1, 'x'],
+            ['PRV1', '868-1', 'Kamar Operasi', '5', 'KELAS 2', 2212000, 2212000, 1, 'x'],
+        ], $this->headerExt());
+
+        $kamar = null;
+        foreach ($result['preview'] as $prow) {
+            if ($prow['excel_row'] === 3) {
+                $kamar = $prow;
+            }
+        }
+        $this->assertNotNull($kamar);
+        $this->assertNotEmpty($kamar['suggestions']);
+        // Saudara kamar prosedur se-kasus teratas, bukan Biopsi.
+        $this->assertSame('OKURO-K-030-002', $kamar['suggestions'][0]['service_code']);
+        $this->assertSame('KL2', $kamar['suggestions'][0]['class_code']);
+        $this->assertStringContainsString('868-2', (string) ($kamar['analysis'] ?? ''));
+        $codes = array_column($kamar['suggestions'], 'service_code');
+        $this->assertNotContains('OKANK-K-021-001', array_slice($codes, 0, 3));
+    }
+
     public function test_search_services_suggest_visite_rule_by_title_after_dr(): void
     {
         // Pola visite + nama dokter ditulis ulang menjadi frasa kanonis:

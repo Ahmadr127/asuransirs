@@ -27,6 +27,37 @@ final class NotFoundRepository
     }
 
     /**
+     * Description master untuk sekumpulan kode service (satu query).
+     * Dipakai fase jangkar: baris MATCHED se-kasus menjadi prosedur
+     * acuan bagi baris kamar tanpa prosedur.
+     *
+     * @param  array<int, string>  $serviceCodes
+     * @return array<string, string>  kode upper => description
+     */
+    public function serviceDescriptions(array $serviceCodes): array
+    {
+        $serviceCodes = array_values(array_unique(array_filter(array_map(
+            fn ($c) => mb_strtoupper(trim((string) $c)),
+            $serviceCodes
+        ))));
+        if ($serviceCodes === []) {
+            return [];
+        }
+
+        $out = [];
+        foreach (
+            DB::table('services')
+                ->whereIn(DB::raw('UPPER(TRIM(code))'), $serviceCodes)
+                ->select(['code', 'description'])
+                ->get() as $row
+        ) {
+            $out[mb_strtoupper(trim((string) $row->code))] = (string) ($row->description ?? '');
+        }
+
+        return $out;
+    }
+
+    /**
      * Pasangan unik service+kelas beserta daftar tarifnya untuk
      * sekumpulan kode service. Bentuk sama dengan kandidat Ambiguous
      * agar bisa diranking dengan sinyal yang sama (kelas + tarif).

@@ -168,6 +168,18 @@ class BridgeTarifProcessor
             );
         }
 
+        // Fase JANGKAR se-kasus (kasus 868-1): grup kamar TANPA prosedur
+        // ("Kamar Operasi" saja) tidak bisa dicari dari deskripsinya
+        // sendiri — prosedurnya diambil dari baris se-kasus di file yang
+        // sama (868-2 Varicocelectomy), lalu saran diganti dengan
+        // saudara kamar prosedur tersebut (suggestKamarSibling). Kunci
+        // kasus = prefix Old Code sebelum "-" numerik ("868-1" -> "868";
+        // kode master seperti "OKURO-O-030-002" tidak dipecah karena
+        // prefixnya mengandung huruf). Fallback: baris prosedur terdekat.
+        // Tanpa jangkar yakin (MATCHED atau spec >= 2): perilaku lama
+        // (saran berbasis tarif) dipertahankan.
+        $this->applyKamarAnchors($groups, $preview);
+
         // Saran NOT_FOUND teratas langsung masuk New Code — status tetap
         // NOT_FOUND dan bisa ditimpa manual — HANYA bila buktinya cukup:
         // (a) >= 2 token isi cocok, ATAU (b) token tunggal yang kuat:
@@ -234,6 +246,11 @@ class BridgeTarifProcessor
             if (($row['status'] ?? '') === TarifBridgeResolver::STATUS_NOT_FOUND) {
                 $key = $row['mapping_key'];
                 $preview[$i]['suggestions'] = $groups[$key]['suggestions'] ?? [];
+                if (! empty($groups[$key]['anchor_note'])) {
+                    $preview[$i]['analysis'] = trim(
+                        (string) ($preview[$i]['analysis'] ?? '').' '.$groups[$key]['anchor_note']
+                    );
+                }
                 if (isset($groups[$key]['top_service'])) {
                     $preview[$i]['new_service_code'] = $groups[$key]['top_service'];
                     $preview[$i]['suggested_applied'] = true;
@@ -349,6 +366,207 @@ class BridgeTarifProcessor
             'source' => null,
             'varied' => true,
         ];
+    }
+
+    /**
+     * Fase jangkar: untuk tiap grup kamar tanpa prosedur, cari prosedur
+     * jangkar dari baris lain di file yang sama lalu ganti saran grup
+     * dengan saudara kamar prosedur tersebut.
+     *
+     * @param  array<string, array>  $groups  (by reference)
+     * @param  array<int, array<string, mixed>>  $preview
+     */
+    protected function applyKamarAnchors(array &$groups, array $preview): void
+    {
+        $targets = [];
+        foreach ($groups as $key => $group) {
+            if (($group['manual'] ?? false)
+                && ! empty($group['suggestions'])
+                && \App\Services\Bridge\NotFound\NotFoundResolver::isBareKamar((string) ($group['description'] ?? ''))
+            ) {
+                $targets[$key] = $group;
+            }
+        }
+        if ($targets === []) {
+            return;
+        }
+
+        $byExcelRow = [];
+        foreach ($preview as $row) {
+            $byExcelRow[(int) ($row['excel_row'] ?? 0)] = $row;
+        }
+
+        $needDesc = [];
+        $anchors = [];
+        foreach ($targets as $key => $group) {
+            $anchor = $this->findKamarAnchor($group, $groups, $byExcelRow);
+            if ($anchor !== null && ($anchor['kind'] ?? '') === 'matched') {
+                $needDesc[$anchor['service_code']] = true;
+            }
+            $anchors[$key] = $anchor;
+        }
+        $descriptions = $needDesc === []
+            ? []
+            : $this->resolver->notFound()->repository()->serviceDescriptions(array_keys($needDesc));
+
+        foreach ($targets as $key => $group) {
+            $anchor = $anchors[$key] ?? null;
+            if ($anchor === null) {
+                continue;
+            }
+            $anchorDesc = (string) ($anchor['description'] ?? '');
+            if ($anchorDesc === '' && isset($descriptions[mb_strtoupper(trim($anchor['service_code']))])) {
+                $anchorDesc = $descriptions[mb_strtoupper(trim($anchor['service_code']))];
+            }
+            if (trim($anchorDesc) === '') {
+                continue;
+            }
+            $tariff = $groups[$key]['tariff_ref']['tariff'] ?? null;
+            $kelas = trim((string) ($group['kelas'] ?? ''));
+            $sibling = $this->resolver->notFound()->suggestKamarSibling(
+                $anchorDesc,
+                $kelas !== '' ? $kelas : null,
+                is_numeric($tariff) ? (float) $tariff : null,
+                10,
+            );
+            if ($sibling === []) {
+                continue;
+            }
+            $groups[$key]['suggestions'] = $sibling;
+            $groups[$key]['anchor_note'] = 'Prosedur '.$anchor['service_code']
+                .' diambil dari baris '.$anchor['excel_row']
+                .($anchor['old_code'] !== '' ? ' ('.$anchor['old_code'].')' : '')
+                .' se-kasus ('.$anchor['kind'].'); saran di bawah adalah '
+                .'saudara kamar prosedur tersebut.';
+        }
+    }
+
+    /**
+     * Cari prosedur jangkar bagi grup kamar tanpa prosedur: baris
+     * se-kasus (kunci kasus sama) dulu — MATCHED menang atas saran,
+     * lalu spec tertinggi — fallback baris prosedur terdekat.
+     * null bila tak ada jangkar yakin (MATCHED atau spec >= 2).
+     *
+     * @param  array<string, mixed>  $group
+     * @param  array<string, array>  $groups
+     * @param  array<int, array<string, mixed>>  $byExcelRow
+     * @return array{service_code: string, description: string, excel_row: int, old_code: string, kind: string}|null
+     */
+    protected function findKamarAnchor(array $group, array $groups, array $byExcelRow): ?array
+    {
+        $ownRows = array_map('intval', (array) ($group['rows'] ?? []));
+        $ownCases = [];
+        foreach ($ownRows as $excelRow) {
+            $oldCode = trim((string) ($byExcelRow[$excelRow]['service_code'] ?? ''));
+            $ownCases[self::caseKey($oldCode)] = true;
+        }
+
+        $scanRows = [];
+        foreach ($groups as $other) {
+            if ($other === $group) {
+                continue;
+            }
+            foreach ((array) ($other['rows'] ?? []) as $excelRow) {
+                $scanRows[(int) $excelRow] = $other;
+            }
+        }
+        foreach ($byExcelRow as $excelRow => $prow) {
+            if (in_array((int) $excelRow, $ownRows, true)) {
+                continue;
+            }
+            $scanRows[(int) $excelRow] ??= null;
+        }
+
+        $best = null;
+        $bestSameCase = null;
+        foreach ($scanRows as $excelRow => $other) {
+            $prow = $byExcelRow[(int) $excelRow] ?? null;
+            if ($prow === null) {
+                continue;
+            }
+            $candidate = $this->anchorFromRow($prow, $other);
+            if ($candidate === null) {
+                continue;
+            }
+            $candidate['excel_row'] = (int) $excelRow;
+            $oldCode = trim((string) ($prow['service_code'] ?? ''));
+            $candidate['old_code'] = $oldCode;
+            $sameCase = isset($ownCases[self::caseKey($oldCode)]);
+            $score = $candidate['kind'] === 'matched' ? 1000.0 : (float) ($candidate['spec'] ?? 0.0);
+            if ($sameCase && ($bestSameCase === null || $score > $bestSameCase['score'])) {
+                $bestSameCase = ['candidate' => $candidate, 'score' => $score];
+            }
+            if ($best === null
+                || ($sameCase && ! $best['sameCase'])
+                || ($sameCase === $best['sameCase'] && $score > $best['score'])
+                || ($sameCase === $best['sameCase'] && $score === $best['score']
+                    && abs($excelRow - min($ownRows)) < abs($best['candidate']['excel_row'] - min($ownRows)))
+            ) {
+                $best = ['candidate' => $candidate, 'score' => $score, 'sameCase' => $sameCase];
+            }
+        }
+
+        return $bestSameCase !== null ? $bestSameCase['candidate'] : ($best['candidate'] ?? null);
+    }
+
+    /**
+     * Ekstrak info jangkar dari satu baris preview: baris MATCHED
+     * (prosedur pasti, description menyusul dari master) atau saran
+     * teratas yang spec-nya meyakinkan (>= 2). null bila tak layak.
+     *
+     * @param  array<string, mixed>  $prow
+     * @param  array<string, mixed>|null  $group
+     * @return array{service_code: string, description: string, spec: float, kind: string}|null
+     */
+    protected function anchorFromRow(array $prow, ?array $group): ?array
+    {
+        if (($prow['status'] ?? '') === TarifBridgeResolver::STATUS_MATCHED
+            && trim((string) ($prow['new_service_code'] ?? '')) !== ''
+        ) {
+            return [
+                'service_code' => mb_strtoupper(trim((string) $prow['new_service_code'])),
+                'description' => '',
+                'spec' => 1000.0,
+                'kind' => 'matched',
+            ];
+        }
+        $suggestions = [];
+        if ($group !== null && ! empty($group['suggestions'])) {
+            $suggestions = $group['suggestions'];
+        } elseif (! empty($prow['suggestions'])) {
+            $suggestions = $prow['suggestions'];
+        }
+        if ($suggestions === []) {
+            return null;
+        }
+        $top = $suggestions[0];
+        if (trim((string) ($top['service_code'] ?? '')) === ''
+            || ((float) ($top['spec_score'] ?? 0.0)) < 2.0
+        ) {
+            return null;
+        }
+
+        return [
+            'service_code' => mb_strtoupper(trim((string) $top['service_code'])),
+            'description' => (string) ($top['service_description'] ?? $top['service_name'] ?? ''),
+            'spec' => (float) $top['spec_score'],
+            'kind' => 'suggested',
+        ];
+    }
+
+    /**
+     * Kunci kasus dari Old Code: prefix sebelum "-" numerik akhir
+     * ("868-1" -> "868"). Prefix berhuruf ("OKURO-O-030-002") tidak
+     * dipecah — dianggap kunci sendiri agar tak salah kelompok.
+     */
+    protected static function caseKey(string $oldCode): string
+    {
+        $oldCode = trim($oldCode);
+        if (preg_match('/^(\d+)-\d+$/', $oldCode, $m)) {
+            return $m[1];
+        }
+
+        return mb_strtoupper($oldCode);
     }
 
     /** @param  array<int, array>  $candidates */
