@@ -33,7 +33,12 @@
                 <div id="scan-bar" class="bg-sp-primary h-3 rounded-full transition-all duration-500" style="width: {{ $batch->scanPercent() }}%"></div>
             </div>
             <p id="scan-text" class="text-sm text-gray-600">{{ number_format($batch->scan_processed_rows) }} / {{ number_format($batch->scan_total_rows) }} rows ({{ $batch->scanPercent() }}%)</p>
+            <p class="text-xs text-gray-500">Batch #{{ $batch->id }} &bull; diupload {{ $batch->created_at?->format('d/m/Y H:i:s') ?? '-' }} &bull; file tersimpan, menunggu giliran worker.</p>
             <p id="scan-error" class="hidden text-sm font-medium text-red-700 bg-red-50 border border-red-200 rounded-md px-3 py-2"></p>
+            <div id="scan-stuck" class="hidden text-sm text-yellow-800 bg-yellow-50 border border-yellow-200 rounded-md px-3 py-2">
+                <p class="font-semibold">File berhasil diupload, tapi scan belum berjalan <span id="scan-stuck-elapsed"></span>.</p>
+                <p class="mt-1">Penyebab paling umum: <span class="font-medium">queue worker tidak berjalan</span> di server. Jalankan <code class="font-mono text-xs bg-yellow-100 px-1 rounded">php artisan queue:work --timeout=3600 --memory=1024 --tries=1 --sleep=3</code>, lalu pantau di <a href="{{ route('tarif-import.batches') }}" class="font-semibold underline">Riwayat Import</a>. Batch otomatis ditandai SCAN FAILED bila worker mati &gt; 10 menit.</p>
+            </div>
         </div>
     </x-card>
 </div>
@@ -48,11 +53,16 @@
     const bar = document.getElementById('scan-bar');
     const text = document.getElementById('scan-text');
     const errBox = document.getElementById('scan-error');
+    const stuckBox = document.getElementById('scan-stuck');
+    const stuckElapsed = document.getElementById('scan-stuck-elapsed');
     const fmt = n => Number(n || 0).toLocaleString('id-ID');
 
     // Notifikasi persisten ditangani Floating Process Manager.
     // Hentikan polling bila batch tak ditemukan berulang (mis. dihapus).
     let misses = 0;
+    let lastProcessed = @json((int) $batch->scan_processed_rows);
+    let lastChange = Date.now();
+    const STUCK_AFTER_MS = 90000; // 90 detik tanpa progress → kemungkinan worker mati
     async function poll() {
         let res;
         try {
@@ -75,6 +85,21 @@
 
         bar.style.width = b.scan_percent + '%';
         text.textContent = `${fmt(b.scan_processed_rows)} / ${fmt(b.scan_total_rows)} rows (${b.scan_percent}%)`;
+
+        // Deteksi antrean macet: upload OK tapi worker tidak memproses.
+        if (['pending_scan', 'processing_scan'].includes(b.status)) {
+            if (Number(b.scan_processed_rows) !== Number(lastProcessed)) {
+                lastProcessed = Number(b.scan_processed_rows);
+                lastChange = Date.now();
+                if (stuckBox) stuckBox.classList.add('hidden');
+            } else if (Date.now() - lastChange > STUCK_AFTER_MS) {
+                if (stuckBox) stuckBox.classList.remove('hidden');
+                if (stuckElapsed) {
+                    const mins = Math.max(1, Math.round((Date.now() - lastChange) / 60000));
+                    stuckElapsed.textContent = `(tidak ada progress ${mins} mnt)`;
+                }
+            }
+        }
 
         if (b.status === 'scan_completed') {
             text.textContent = 'Scan selesai. Menampilkan preview...';

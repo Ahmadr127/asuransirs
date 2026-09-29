@@ -30,9 +30,9 @@ class ScanRequest extends FormRequest
         return [
             'jenis_tarif_id.required' => 'Jenis tarif wajib dipilih.',
             'jenis_tarif_id.exists' => 'Jenis tarif tidak ditemukan di master.',
-            'file.required' => 'File Excel wajib diupload.',
+            'file.required' => 'File Excel wajib diupload. Jika file sudah dipilih tapi pesan ini muncul, ukurannya kemungkinan melebihi batas server PHP (upload_max_filesize/post_max_size).',
             'file.mimes' => 'Format file harus .xlsx, .xls, atau .csv.',
-            'file.max' => 'Ukuran file maksimal 20 MB.',
+            'file.max' => 'Ukuran file maksimal 20 MB. Kecilkan file (mis. pecah per 50 ribu baris) lalu coba lagi.',
         ];
     }
 }

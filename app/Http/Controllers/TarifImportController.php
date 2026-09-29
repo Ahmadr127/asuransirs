@@ -13,6 +13,7 @@ use App\Models\ImportBatch;
 use App\Models\JenisTarif;
 use App\Services\TarifImport\TarifImportColumnMapper;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Maatwebsite\Excel\Facades\Excel;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
@@ -47,19 +48,57 @@ class TarifImportController extends Controller
         $jenisTarifId = (int) $request->validated()['jenis_tarif_id'];
         $file = $request->file('file');
 
-        $storedPath = $file->store('tarif-imports');
+        // File lolos validasi tapi corrupt / melebihi limit PHP (upload_max_filesize /
+        // post_max_size) sehingga tidak terbaca — beri alasan, bukan error generik.
+        if (! $file || ! $file->isValid()) {
+            $phpError = $file ? $file->getError() : UPLOAD_ERR_NO_FILE;
+            $reason = match ($phpError) {
+                UPLOAD_ERR_INI_SIZE, UPLOAD_ERR_FORM_SIZE => 'ukuran file melebihi batas server PHP (upload_max_filesize/post_max_size). Kecilkan file atau minta admin menaikkan limit.',
+                UPLOAD_ERR_PARTIAL => 'upload terputus di tengah jalan (koneksi). Coba lagi.',
+                UPLOAD_ERR_NO_FILE => 'tidak ada file yang diterima server. Jika file sudah dipilih, kemungkinan ukurannya melebihi batas server PHP.',
+                default => 'file tidak terbaca oleh server (kode error '.$phpError.').',
+            };
 
-        $batch = ImportBatch::create([
-            'user_id' => auth()->id(),
-            'filename' => $file->getClientOriginalName(),
-            'path' => $storedPath,
-            'jenis_tarif_id' => $jenisTarifId,
-            'status' => ImportBatch::STATUS_PENDING_SCAN,
-        ]);
+            return back()->withInput()->with('error', 'Upload gagal: '.$reason);
+        }
 
-        ScanTarifImport::dispatch($batch->id);
+        try {
+            $storedPath = $file->store('tarif-imports');
+        } catch (\Throwable $e) {
+            Log::error('Upload tarif gagal saat menyimpan file', [
+                'filename' => $file->getClientOriginalName(),
+                'size' => $file->getSize(),
+                'error' => $e->getMessage(),
+            ]);
 
-        return redirect()->route('tarif-import.batches.show', $batch);
+            return back()->withInput()->with('error', 'Upload gagal saat menyimpan file ke storage: '.$e->getMessage());
+        }
+
+        try {
+            $batch = ImportBatch::create([
+                'user_id' => auth()->id(),
+                'filename' => $file->getClientOriginalName(),
+                'path' => $storedPath,
+                'jenis_tarif_id' => $jenisTarifId,
+                'status' => ImportBatch::STATUS_PENDING_SCAN,
+            ]);
+
+            ScanTarifImport::dispatch($batch->id);
+        } catch (\Throwable $e) {
+            Log::error('Upload tarif gagal saat membuat batch/antrean', [
+                'filename' => $file->getClientOriginalName(),
+                'path' => $storedPath ?? null,
+                'error' => $e->getMessage(),
+            ]);
+            if (isset($storedPath) && Storage::exists($storedPath)) {
+                Storage::delete($storedPath);
+            }
+
+            return back()->withInput()->with('error', 'Upload gagal saat mengantrekan scan (database/queue): '.$e->getMessage());
+        }
+
+        return redirect()->route('tarif-import.batches.show', $batch)
+            ->with('info', "File {$batch->filename} berhasil diupload (batch #{$batch->id}) dan scan dijadwalkan. Jika progress tidak bergerak dalam 1–2 menit, kemungkinan queue worker tidak berjalan.");
     }
 
     /**
@@ -217,6 +256,7 @@ class TarifImportController extends Controller
                 'is_terminal' => $b->isTerminal(),
                 'is_scan_active' => $b->isScanActive(),
                 'is_import_active' => $b->isImportActive(),
+                'created_at' => $b->created_at?->toDateTimeString(),
                 'updated_at' => $b->updated_at?->toDateTimeString(),
             ])->values(),
         ]);

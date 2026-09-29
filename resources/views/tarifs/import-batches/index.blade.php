@@ -67,7 +67,13 @@
                             <div class="mt-1 p-1.5 bg-gray-50 border border-gray-200 rounded text-gray-700 break-words">{{ \Illuminate\Support\Str::limit($batch->scan_error_message, 300) }}</div>
                         @endif
                     @else
+                        @php($waitMins = $batch->created_at ? (int) $batch->created_at->diffInMinutes(now()) : 0)
                         <span class="text-gray-400">Menunggu worker...</span>
+                        @if(in_array($batch->status, [\App\Models\ImportBatch::STATUS_PENDING_SCAN, \App\Models\ImportBatch::STATUS_PENDING_IMPORT], true) && $waitMins >= 2)
+                            <div class="mt-1 p-1.5 bg-yellow-50 border border-yellow-200 rounded text-yellow-800 break-words" data-batch-stuck>
+                                Sudah menunggu {{ $waitMins }} mnt tanpa progress — kemungkinan queue worker tidak berjalan. Jalankan <code class="font-mono">php artisan queue:work --timeout=3600 --memory=1024 --tries=1 --sleep=3</code>.
+                            </div>
+                        @endif
                     @endif
                 </td>
                 <td class="px-4 py-3 whitespace-nowrap" data-batch-actions>
@@ -188,6 +194,19 @@
             if (badge) {
                 badge.textContent = b.status_label || String(b.status).toUpperCase();
                 badge.className = `inline-flex px-2 py-0.5 text-xs font-semibold rounded-full ${badgeClass[b.status] || badgeClass.pending_import}`;
+            }
+
+            // Hint antrean macet: pending lama tanpa progress → worker kemungkinan mati.
+            const resultCell = row.querySelector('[data-batch-result]');
+            if (resultCell && ['pending_scan', 'pending_import'].includes(b.status) && b.created_at && !resultCell.querySelector('[data-batch-stuck]')) {
+                const waitedMin = Math.floor((Date.now() - new Date(String(b.created_at).replace(' ', 'T'))) / 60000);
+                if (waitedMin >= 2) {
+                    const hint = document.createElement('div');
+                    hint.setAttribute('data-batch-stuck', '');
+                    hint.className = 'mt-1 p-1.5 bg-yellow-50 border border-yellow-200 rounded text-yellow-800 break-words';
+                    hint.textContent = `Sudah menunggu ${waitedMin} mnt tanpa progress — kemungkinan queue worker tidak berjalan. Jalankan php artisan queue:work --timeout=3600 --memory=1024 --tries=1 --sleep=3.`;
+                    resultCell.appendChild(hint);
+                }
             }
         });
 

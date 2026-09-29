@@ -19,22 +19,28 @@
             </a>
         </x-slot>
 
-        <form action="{{ route('tarif-import.scan') }}" method="POST" enctype="multipart/form-data" class="p-4 grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
+        <form id="tarif-scan-form" action="{{ route('tarif-import.scan') }}" method="POST" enctype="multipart/form-data" class="p-4 grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
             @csrf
-            <x-searchable-dropdown
-                name="jenis_tarif_id"
-                label="Jenis Tarif"
-                :options="$jenisTarifs->map(fn($j) => (object)['id' => $j->id, 'label' => $j->code . ' — ' . $j->name])"
-                label-field="label"
-                :selected="old('jenis_tarif_id', $result['jenis_tarif_id'] ?? null)"
-                placeholder="Pilih Jenis Tarif..."
-                :required="true"
-            />
+            <div>
+                <x-searchable-dropdown
+                    name="jenis_tarif_id"
+                    label="Jenis Tarif"
+                    :options="$jenisTarifs->map(fn($j) => (object)['id' => $j->id, 'label' => $j->code . ' — ' . $j->name])"
+                    label-field="label"
+                    :selected="old('jenis_tarif_id', $result['jenis_tarif_id'] ?? null)"
+                    placeholder="Pilih Jenis Tarif..."
+                    :required="true"
+                />
+                @error('jenis_tarif_id')
+                    <p class="mt-1 text-xs text-red-500">{{ $message }}</p>
+                @enderror
+            </div>
             <div>
                 <label for="file" class="block text-sm font-semibold text-sp-navy mb-1">File Excel <span class="text-red-500">*</span></label>
                 <input id="file" name="file" type="file" accept=".xlsx,.xls,.csv" required
                     class="w-full text-sm px-3 py-2 border rounded-md outline-none transition-colors bg-white border-gray-300 focus:ring-2 focus:ring-sp-primary/20 focus:border-sp-primary file:mr-3 file:px-3 file:py-1.5 file:text-xs file:font-semibold file:border file:border-gray-300 file:rounded-md file:bg-gray-50 hover:file:bg-gray-100">
-                <p class="mt-1 text-xs text-gray-500">Format .xlsx / .xls / .csv, maks 20 MB. Header 11 kolom sesuai template.</p>
+                <p class="mt-1 text-xs text-gray-500">Format .xlsx / .xls / .csv, maks 20 MB. Header 11 kolom sesuai template. <span id="file-info" class="font-medium text-gray-700"></span></p>
+                <p id="file-client-error" class="hidden mt-1 text-xs font-medium text-red-600"></p>
                 @error('file')
                     <p class="mt-1 text-xs text-red-500">{{ $message }}</p>
                 @enderror
@@ -45,6 +51,20 @@
                 </button>
             </div>
         </form>
+        @if($errors->any() || session('error'))
+            <div class="mx-4 mb-4 px-4 py-3 text-sm text-red-700 bg-red-50 border border-red-200 rounded-md">
+                <p class="font-semibold">Upload gagal — penyebabnya:</p>
+                <ul class="mt-1 list-disc list-inside space-y-0.5">
+                    @if(session('error'))
+                        <li>{{ session('error') }}</li>
+                    @endif
+                    @foreach($errors->all() as $err)
+                        <li>{{ $err }}</li>
+                    @endforeach
+                </ul>
+                <p class="mt-2 text-xs text-red-600">Tips: pastikan jenis tarif dipilih, format .xlsx/.xls/.csv, ukuran &le; 20 MB, dan header 11 kolom persis seperti template.</p>
+            </div>
+        @endif
     </x-card>
 
 
@@ -225,4 +245,47 @@
         @endif
     @endif
 </div>
+
+@push('scripts')
+<script>
+(function () {
+    const form = document.getElementById('tarif-scan-form');
+    const input = document.getElementById('file');
+    const info = document.getElementById('file-info');
+    const errBox = document.getElementById('file-client-error');
+    if (!form || !input) return;
+    const MAX = 20 * 1024 * 1024;
+    const fmtMB = b => (b / 1024 / 1024).toFixed(1) + ' MB';
+
+    function showErr(msg) {
+        if (!errBox) return;
+        errBox.textContent = msg;
+        errBox.classList.remove('hidden');
+    }
+    function clearErr() {
+        if (!errBox) return;
+        errBox.textContent = '';
+        errBox.classList.add('hidden');
+    }
+
+    input.addEventListener('change', () => {
+        clearErr();
+        const f = input.files && input.files[0];
+        if (info) info.textContent = f ? ('Dipilih: ' + f.name + ' (' + fmtMB(f.size) + ')') : '';
+        if (f && f.size > MAX) {
+            showErr('Upload akan gagal: file ' + fmtMB(f.size) + ' melebihi batas 20 MB. Kecilkan/pecah file lalu coba lagi.');
+        }
+    });
+
+    form.addEventListener('submit', (e) => {
+        clearErr();
+        const f = input.files && input.files[0];
+        if (f && f.size > MAX) {
+            e.preventDefault();
+            showErr('Upload dibatalkan: file ' + fmtMB(f.size) + ' melebihi batas 20 MB. Kecilkan/pecah file lalu coba lagi.');
+        }
+    });
+})();
+</script>
+@endpush
 @endsection
