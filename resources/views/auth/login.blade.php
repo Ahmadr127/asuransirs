@@ -1,6 +1,6 @@
 @extends('layouts.auth')
 
-@section('title', 'Login - Bridging A')
+@section('title', 'Login - Mapping Tarif')
 
 @section('content')
 <div class="min-h-screen w-full flex">
@@ -12,8 +12,8 @@
                 <div class="rounded-2xl border border-green-200 bg-white shadow-md p-4 mb-3">
                     <img src="{{ asset('images/logo.png') }}" alt="Logo" class="h-16 object-contain" />
                 </div>
-                <h2 class="text-2xl font-bold text-gray-800">Bridging Asuransi</h2>
-                <p class="text-sm text-gray-600">Bridging Asuransi</p>
+                <h2 class="text-2xl font-bold text-gray-800">Mapping Tarif</h2>
+                <p class="text-sm text-gray-600">Mapping Tarif</p>
             </div>
 
             <!-- Login Card -->
@@ -107,7 +107,7 @@
 
                 <!-- Footer -->
                 <div class="mt-6 text-center text-sm text-gray-500">
-                    <p>© {{ date('Y') }} Bridging Asuransi. All rights reserved.</p>
+                    <p>© {{ date('Y') }} Mapping Tarif. All rights reserved.</p>
                 </div>
             </div>
         </div>
@@ -129,9 +129,9 @@
             </div>
 
             <!-- App Name -->
-            <h1 class="text-5xl font-bold mb-4 text-center">Bridging Asuransi</h1>
+            <h1 class="text-5xl font-bold mb-4 text-center">Mapping Tarif</h1>
             {{-- <p class="text-xl text-green-100 text-center max-w-md">
-                Bridging Asuransi Starterpack
+                Mapping Tarif Starterpack
             </p> --}}
         </div>
     </div>

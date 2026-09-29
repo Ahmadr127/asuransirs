@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="csrf-token" content="{{ csrf_token() }}">
-    <title>@yield('title', 'Bridging Asuransi')</title>
+    <title>@yield('title', 'Mapping Tarif')</title>
     @include('layouts.partials.tailwind-cdn')
 
     <link rel="icon" type="image/x-icon" href="{{ asset('images/logo.png') }}">
@@ -48,7 +48,7 @@
                 <div class="flex items-center gap-2 overflow-hidden">
                     <img src="{{ asset('images/logo.png') }}" alt="Logo" class="sidebar-brand-logo h-[1.875rem] w-auto object-contain flex-shrink-0">
                     {{-- Use CSS-driven visibility instead of x-show --}}
-                    <span class="sidebar-text sidebar-brand-text truncate">Bridging Asuransi</span>
+                    <span class="sidebar-text sidebar-brand-text truncate">Mapping Tarif</span>
                 </div>
             </div>
 
