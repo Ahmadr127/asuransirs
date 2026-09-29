@@ -1,7 +1,7 @@
 @props(['token', 'mappingKey', 'group'])
 @php $uid = 'nf_'.md5((string) $mappingKey); @endphp
 
-<div class="border border-red-200 bg-red-50 rounded-md p-3" data-nf-root>
+<div class="border border-slate-300 bg-slate-50 rounded-md p-3" data-nf-root>
     <p class="text-sm"><span class="font-semibold">Description:</span> {{ $group['description'] !== '' ? $group['description'] : '-' }} &bull; <span class="font-semibold">Kelas:</span> {{ $group['kelas'] !== '' ? $group['kelas'] : '-' }} &bull; <span class="text-gray-500">{{ count($group['rows']) }} row</span>
         @if(!empty($group['resolved']))
             <span class="ml-1 inline-flex items-center px-1.5 py-0.5 text-xs font-semibold text-green-700 bg-green-100 rounded">sudah dipetakan → {{ $group['resolved']['service_code'] }} (kelas bawaan Excel)</span>

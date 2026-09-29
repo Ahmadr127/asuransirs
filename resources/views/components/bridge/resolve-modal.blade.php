@@ -64,7 +64,7 @@
                                 @php
                                     $resolvedCode = $group['resolved']['service_code'] ?? '';
                                 @endphp
-                                <div class="border border-red-200 bg-red-50 rounded-md p-3" data-rm-root data-rm-desc="{{ $group['description'] }}">
+                                <div class="border border-slate-300 bg-slate-50 rounded-md p-3" data-rm-root data-rm-desc="{{ $group['description'] }}">
                                     <p class="text-sm"><span class="font-semibold">Description:</span> {{ $group['description'] !== '' ? $group['description'] : '-' }} &bull; <span class="font-semibold">Kelas:</span> {{ $group['kelas'] !== '' ? $group['kelas'] : '-' }} &bull; <span class="text-gray-500">{{ count($group['rows']) }} row</span></p>
                                     @if(!empty($group['tariff_ref']['label']))
                                         <p class="mt-1 text-xs text-gray-600"><i class="bi bi-calculator"></i> Tarif efektif (pembanding): <span class="font-mono font-semibold">{{ $group['tariff_ref']['label'] }}</span></p>

@@ -67,7 +67,7 @@
     }
 @endphp
 
-<p class="px-4 pt-3 text-xs text-gray-500"><i class="bi bi-cursor-click"></i> Klik baris berstatus <span class="font-semibold text-yellow-700">AMBIGUOUS</span> / <span class="font-semibold text-red-700">NOT_FOUND</span> untuk melihat detail analisa.</p>
+<p class="px-4 pt-3 text-xs text-gray-500"><i class="bi bi-cursor-click"></i> Klik baris berstatus <span class="font-semibold text-yellow-700">AMBIGUOUS</span> / <span class="font-semibold text-slate-600">NOT_FOUND</span> untuk melihat detail analisa.</p>
 <x-table :columns="['Row', 'Status', 'Old Code', 'Description', 'Old Class Code', 'Kelas', 'Tarif Efektif', 'New Code', 'New Class Code']" empty="Tidak ada baris.">
     @foreach($rows as $row)
     @php $clickable = in_array($row['status'] ?? '', ['AMBIGUOUS', 'NOT_FOUND'], true) || !empty($row['suggestions']); @endphp
@@ -219,7 +219,7 @@
             if (d.status === 'MATCHED' && d.suggestions && d.suggestions.length) {
                 html += '<div class="text-xs bg-green-50 border border-green-200 rounded-md p-2.5">Baris ini <span class="font-bold">valid (MATCHED)</span> karena seluruh saran berkode sama (<span class="font-mono font-bold">' + esc(d.new_service_code || '-') + '</span>). Saran dan analisa tetap ditampilkan — ubah via “Petakan Manual” bila tidak setuju.</div>';
             } else if (d.status === 'NOT_FOUND') {
-                html += '<div class="text-xs bg-red-50 border border-red-200 rounded-md p-2.5">Kode kelas master untuk baris ini: <span class="font-mono font-bold">' + esc(d.new_class_code || '(tidak dikenali — ikut bawaan Excel)') + '</span>. Cari service yang benar lewat “Petakan Manual” (ketik ≥ 2 huruf untuk menyaring, klik untuk saran paling mirip description) dan gunakan tarif efektif <span class="font-mono font-bold">' + esc(effectiveLabel(d)) + '</span> sebagai pembanding.</div>';
+                html += '<div class="text-xs bg-slate-50 border border-slate-200 rounded-md p-2.5">Kode kelas master untuk baris ini: <span class="font-mono font-bold">' + esc(d.new_class_code || '(tidak dikenali — ikut bawaan Excel)') + '</span>. Cari service yang benar lewat “Petakan Manual” (ketik ≥ 2 huruf untuk menyaring, klik untuk saran paling mirip description) dan gunakan tarif efektif <span class="font-mono font-bold">' + esc(effectiveLabel(d)) + '</span> sebagai pembanding.</div>';
             }
             if (d.suggestions && d.suggestions.length) {
                 html += '<div><p class="text-xs font-semibold text-gray-600 mb-1">Rekomendasi (' + d.suggestions.length + ')</p><p class="mb-1 text-[11px] text-gray-500">% = kecocokan <span class="font-semibold">kelas + tarif</span>, bukan kemiripan nama tindakan — periksa kolom Teks.</p><div class="border border-gray-200 rounded-md overflow-hidden">';

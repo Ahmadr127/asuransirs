@@ -5,6 +5,6 @@
     <x-stats label="Matched" :value="$summary['matched'] ?? 0" icon="bi-check-circle" color="bg-green-600" />
     <x-stats label="Ambiguous" :value="$summary['ambiguous'] ?? 0" icon="bi-question-circle" color="bg-yellow-500" />
     <x-stats label="Ada Saran" :value="$summary['suggested'] ?? 0" icon="bi-magic" color="bg-teal-600" />
-    <x-stats label="Not Found" :value="$summary['not_found'] ?? 0" icon="bi-x-circle" color="bg-red-600" />
+    <x-stats label="Not Found" :value="$summary['not_found'] ?? 0" icon="bi-x-circle" color="bg-slate-500" />
     <x-stats label="Invalid" :value="$summary['invalid'] ?? 0" icon="bi-exclamation-triangle" color="bg-orange-500" />
 </div>
