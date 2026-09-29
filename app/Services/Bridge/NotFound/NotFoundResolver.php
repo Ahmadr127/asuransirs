@@ -33,11 +33,7 @@ final class NotFoundResolver
         ?float $effectiveTariff = null,
         int $limit = 20,
     ): array {
-        // Pola room charge ("Room Charge KELAS 2" -> "KAMAR PERAWATAN
-        // KELAS 2") ditulis ulang menjadi frasa kanonis master dan dipakai
-        // langsung — tanpa lewat ekstraksi inti (bedah-bahasa + angka level
-        // yang terbuang di tokenisasi membuat query mentah tak berguna).
-        // Bukan pola room -> pola visite -> ekstraksi inti seperti semula.
+   
         $searchDesc = RoomChargeQueryRule::rewrite($description, $className)
             ?? VisiteQueryRule::rewrite($description)
             ?? $this->coreAction($description);
@@ -73,17 +69,10 @@ final class NotFoundResolver
 
         $pairedCodes = [];
         $ranked = [];
-        // Bobot IDF per token query (di atas pool recall): token langka
-        // ("varicocele") lebih menentukan daripada token umum
-        // ("laparoscopy") bila tier + jumlah cocok seri — kasus Row 25.
+
         $idfs = $this->idfWeights($descTokens, $services);
         $descTotal = count($descTokens);
-        // Sinyal specialty + role dibaca dari description MENTAH (masih
-        // memuat prefix "BEDAH UROLOGI" dan kata peran "anasthesy"):
-        // specialty kuat mengalahkan tarif (Row 21: urologi vs anak/umum),
-        // role hanya pemecah seri di bawah tarif agar perilaku Row 31
-        // (operator menang via tarif walau query menyebut anasthesy)
-        // tetap hijau.
+
         $querySpec = self::detectSpecialty($description);
         $roleHint = self::detectRole($description);
         foreach ($pairs as $pair) {
@@ -263,29 +252,18 @@ final class NotFoundResolver
             return $a['_order'] <=> $b['_order'];
         });
 
-        // Aturan sibling KAMAR (mode default, tanpa ketikan user): bila
-        // baris Excel adalah tarif kamar operasi, jawabannya adalah
-        // pasangan "Kamar Operasi & Sarana" dari prosedur (service) yang
-        // paling cocok teksnya — bukan pair operator/anestesi walau
-        // tarifnya lebih dekat. Contoh: dari keluarga OKURO-O/A/K yang
-        // naik adalah OKURO-K.
+
         $ranked = KamarSiblingRule::promote($ranked, $roleHint, $queryTokens);
 
         return array_map(function ($row) {
             unset($row['_order'], $row['eff_q_tier'], $row['eff_desc_tier'], $row['q_tier'], $row['q_matched'], $row['q_exact'], $row['desc_exact']);
-            // Sinyal teks dipertahankan dengan nama publik agar UI bisa
-            // memecah "% rekomendasi" (kelas+tarif) dari kecocokan teks,
-            // dan processor bisa mensyaratkan bukti teks minimal (P5).
+
 
             return $row;
         }, $this->diverseSlice($ranked, $limit));
     }
 
-    /**
-     * Tier efektif: demosi 2 tingkat bila specialty kandidat TERBUKTI
-     * beda dari query (keduanya terdeteksi dan berbeda). Tanpa info di
-     * salah satu sisi → tier mentah (netral, bukan penalti).
-     */
+   
     protected function effTier(int $tier, ?string $querySpec, ?string $candSpec): int
     {
         if ($tier > 0 && $querySpec !== null && $candSpec !== null && $querySpec !== $candSpec) {
@@ -295,15 +273,7 @@ final class NotFoundResolver
         return $tier;
     }
 
-    /**
-     * Ambil $limit teratas dengan batas maks 3 pasangan per kode service.
-     * Tanpa ini, 10 slot rekomendasi bisa banjir oleh 1-2 kode yang punya
-     * banyak pasangan kelas (kasus Row 18: 10 baris OKANK semua) sehingga
-     * prosedur yang benar (OKURO) tak terlihat sama sekali.
-     *
-     * @param  array<int, array<string, mixed>>  $ranked  sudah terurut
-     * @return array<int, array<string, mixed>>
-     */
+   
     protected function diverseSlice(array $ranked, int $limit): array
     {
         $counts = [];
@@ -323,11 +293,7 @@ final class NotFoundResolver
         return $out;
     }
 
-    /**
-     * Kata generik yang dibuang saat membangun query prosedur jangkar —
-     * nilai default; efektif dibaca dari config('bridge.search.
-     * sibling_generic').
-     */
+
     private const SIBLING_GENERIC = [
         'golongan', 'tindakan', 'medis', 'besar', 'khusus',
         'kecil', 'sedang', 'umum', 'layanan', 'jasa',
@@ -343,15 +309,7 @@ final class NotFoundResolver
         return is_array($configured) && $configured !== [] ? array_values($configured) : self::SIBLING_GENERIC;
     }
 
-    /**
-     * True bila description adalah tarif kamar TANPA prosedur
-     * ("Kamar Operasi", "BIAYA KAMAR OPERASI"): role kamar terdeteksi
-     * tetapi setelah kata generik dibuang tak tersisa token prosedur.
-     * Baris seperti ini butuh jangkar prosedur dari baris se-kasus di
-     * file yang sama (fase jangkar di processor). Beda dengan "BEDAH
-     * UROLOGI - Varicocelectomy - Kamar Operasi" (prosedur ada di baris
-     * yang sama → false, jalur sibling promotion biasa).
-     */
+
     public static function isBareKamar(string $description): bool
     {
         if (self::detectRole($description) !== 'kamar') {
@@ -366,14 +324,7 @@ final class NotFoundResolver
         return true;
     }
 
-    /**
-     * Saran saudara kamar dari prosedur jangkar: description master
-     * prosedur (mis. "... Varicocelectomy - Dokter Operator" milik baris
-     * se-kasus) dipangkas ekor perannya, dibangun query sintetis
-     * "<spesialisasi + inti> - Kamar Operasi", lalu seluruh mesin
-     * suggest() dipakai ulang — termasuk sibling promotion, diversity,
-     * dan sinyal teks. Tanpa inti prosedur yang tersisa: [].
-     */
+
     public function suggestKamarSibling(
         string $anchorDesc,
         ?string $className = null,
@@ -414,12 +365,7 @@ final class NotFoundResolver
         );
     }
 
-    /**
-     * Pola specialty [pattern, kanonis] — nilai default; efektif dibaca
-     * dari config('bridge.search.specialties'). Urutan penting (frasa
-     * dulu). "umum" hanya via frasa "bedah umum" agar "dokter umum"
-     * (role) tidak terbaca sebagai spesialisasi.
-     */
+
     private const SPECIALTY_PATTERNS = [
         ['/bedah\s+anak/iu', 'anak'],
         ['/\banak\b/iu', 'anak'],
@@ -440,10 +386,7 @@ final class NotFoundResolver
         ['/kulit|kelamin|dermato|venereologi/iu', 'kulit'],
     ];
 
-    /**
-     * Deteksi spesialisasi dari teks bebas (description Excel mentah atau
-     * description master). Pola dari config, null bila tak dikenali.
-     */
+
     public static function detectSpecialty(string $text): ?string
     {
         $norm = BridgeServiceSearch::normalize($text);
@@ -491,16 +434,7 @@ final class NotFoundResolver
         return null;
     }
 
-    /**
-     * Skor procedure + specialty satu kandidat (dipakai SEBELUM sinyal
-     * kelas/tarif): specialty sama +2, specialty beda -2 (penalti),
-     * tanpa info specialty 0; kualitas procedure per token: kata master
-     * memuat utuh token +1,5 (bentuk penuh "varicocelectomy" mengalahkan
-     * "varicocele"), kata persis +1, token memuat kata +0,75, prefix
-     * biasa +0,5.
-     *
-     * @param  array<int, string>  $tokens  token isi query
-     */
+
     protected function specScore(array $tokens, ?string $querySpec, string $hayDesc): float
     {
         $score = 0.0;
@@ -542,13 +476,6 @@ final class NotFoundResolver
         return $score;
     }
 
-    /**
-     * Buang segmen kurung (...) / [...] HANYA bila berisi penanda dokter
-     * (dr/dokter/Sp./spesialis/konsulen/FIPM/FIPP/Ph.D/dll). Kurung berisi
-     * singkatan klinis ("(EKG)"), ukuran ("(18 mm)"), atau kode
-     * ("(OST-22104-0139)") dipertahankan — menghapusnya membuang token
-     * pembeda (Row 7: "ekg" hilang sehingga TPJ004 tak terbedakan).
-     */
     public static function stripDoctorMentions(string $text): string
     {
         return (string) preg_replace(
@@ -558,14 +485,7 @@ final class NotFoundResolver
         );
     }
 
-    /**
-     * Bobot IDF per token di atas pool recall: log((N+1)/(df+1)) + 1.
-     * Token yang muncul di sedikit kandidat bernilai lebih tinggi.
-     *
-     * @param  array<int, string>  $tokens
-     * @param  array<int, array{service_description: ?string}>  $services
-     * @return array<string, float>
-     */
+
     protected function idfWeights(array $tokens, array $services): array
     {
         $n = count($services);
@@ -620,45 +540,17 @@ final class NotFoundResolver
         return is_array($configured) && $configured !== [] ? array_values($configured) : self::PERSONNEL_NOISE;
     }
 
-    /**
-     * Daftar penanda personel — nilai default; efektif dibaca dari
-     * config('bridge.search.personnel_noise').
-     */
+
     private const PERSONNEL_NOISE = [
         'narkose', 'sedasi', 'bius', 'dokter', 'operator',
         'bidan', 'spesialis', 'dpjp', 'konsulen',
     ];
 
-    /**
-     * Ekstraksi inti tindakan: buang kurung (...) / [...] HANYA bila
-     * berisi penanda dokter (nama + gelar: dr/dokter/Sp./FIPM/...) —
-     * singkatan klinis seperti "(EKG)" dipertahankan sebagai token
-     * (Row 7). Lalu potong sejak kata-noise, lalu tangani delimiter
-     * TEPAT " - " (spasi-hyphen-spasi, bukan "-" umum) sebagai SINYAL
-     * STRUKTUR tambahan:
-     * - segmen PERTAMA = PREFIX SPESIALISASI bila memuat kata "bedah"
-     *   ("BEDAH UMUM", "BEDAH TULANG / ORTOHOPEDI") lalu dibuang;
-     * - segmen terakhir = ROLE/KONTEKS hanya bila dikenali (daftar
-     *   eksplisit: Dokter Operator/Anestesi/..., Kamar/Ruang Operasi,
-     *   ... — dalam bentuk ternormalisasi), lalu dibuang;
-     * - sisa segmen DIGABUNG tanpa asumsi posisi (bukan "selalu segmen
-     *   ke-2/ke-3/terakhir") — similarity existing yang memverifikasi
-     *   mana yang cocok, exact/phrase/token tetap penentu utama.
-     * Sisa 1 token utama (mis. "Varicocelectomy" setelah prefix + nama
-     * dokter dibuang, Row 18) tetap dipakai — JANGAN fallback ke
-     * description mentah karena justru mengembalikan nama dokter +
-     * prefix generik ke query. Fallback mentah hanya bila tidak ada
-     * token utama sama sekali; kekosongan recall sudah ditangani
-     * percobaan ulang di suggest().
-     */
+   
     protected function coreAction(string $description): string
     {
         $core = self::stripDoctorMentions($description);
-        // Personel (dokter/operator/..., daftar di config) dipotong HANYA
-        // sebagai kualifikasi akhir — setelah koma atau " - ". Di tengah
-        // frasa ("Konsultasi Dokter Umum", Row 15) dipertahankan karena
-        // bagian nama tindakan. Keluarga anestesi tak pernah dipotong
-        // (sinyal komponen, Row 21) karena tak ada di daftar personel.
+        
         $personnelAlt = implode('|', array_map(
             fn ($w) => preg_quote($w, '/'),
             self::personnelNoise()
@@ -674,11 +566,7 @@ final class NotFoundResolver
                 fn ($s) => $s !== ''
             ));
             if (count($segments) >= 2) {
-                // Prefix spesialisasi ("BEDAH UMUM - ...",
-                // "BEDAH TULANG / ORTOHOPEDI - ..."): segmen pertama yang
-                // memuat kata "bedah" dibuang agar token generik tidak
-                // mencemari query dan mendongkrak kandidat salah (Row 25:
-                // "BEDAH UMUM" membuat Appendektomi Bedah Anak menang).
+              
                 $firstNorm = ' '.BridgeServiceSearch::normalize((string) $segments[0]).' ';
                 if (str_contains($firstNorm, ' bedah ')) {
                     array_shift($segments);
@@ -686,8 +574,7 @@ final class NotFoundResolver
                 if ($segments === []) {
                     return $this->fallbackCore($core, $description);
                 }
-                // Role yang dikenali (bentuk sudah dinormalisasi, karena
-                // "&" hilang saat normalisasi: "kamar operasi sarana").
+       
                 $roles = [
                     'dokter operator', 'dokter anestesi', 'dokter umum',
                     'dokter spesialis', 'dokter', 'kamar operasi',
