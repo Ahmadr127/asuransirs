@@ -142,7 +142,7 @@ class BridgeTarifController extends Controller
         }
 
         return redirect()->route('bridge.download', $generated['download_token'])
-            ->with('success', 'Excel hasil Bridge siap diunduh ('.$generated['changed'].' dari '.$generated['total'].' row diubah).');
+            ->with('success', 'Excel hasil Mapping Tarif siap diunduh ('.$generated['changed'].' dari '.$generated['total'].' row diubah).');
     }
 
     public function download(string $token): BinaryFileResponse|\Illuminate\Http\RedirectResponse

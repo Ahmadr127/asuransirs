@@ -1,6 +1,6 @@
 @extends('layouts.app')
 
-@section('title', 'Hasil Mapping Bridge Tarif')
+@section('title', 'Hasil Mapping Tarif')
 
 @section('content')
 <div class="w-full mx-auto flex flex-col gap-4">

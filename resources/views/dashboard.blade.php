@@ -12,7 +12,7 @@
                     <i class="bi bi-book"></i> Buku Tarif
                 </a>
                 <a href="{{ route('bridge.index') }}" class="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-semibold text-sp-navy rounded-md border border-gray-300 bg-white hover:bg-gray-50 transition-colors">
-                    <i class="bi bi-arrow-left-right"></i> Bridge Tarif
+                    <i class="bi bi-arrow-left-right"></i> Mapping Tarif
                 </a>
             </div>
         </x-card>

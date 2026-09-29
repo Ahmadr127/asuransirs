@@ -1,5 +1,5 @@
 <x-card padding="false">
-    <x-slot name="title">Bridge Tarif</x-slot>
+    <x-slot name="title">Mapping Tarif</x-slot>
     <x-slot name="subtitle">Upload Excel lama, mapping otomatis ke master Tarif (SERVICECODE DESCRIPTION + KELAS), lalu generate Excel baru</x-slot>
 
     <form action="{{ route('bridge.scan') }}" method="POST" enctype="multipart/form-data" class="p-4 flex flex-col md:flex-row gap-4 items-end">

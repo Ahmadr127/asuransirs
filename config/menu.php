@@ -99,7 +99,7 @@ return [
                 'permission' => 'manage_tarifs',
             ],
             [
-                'label' => 'Bridge Tarif',
+                'label' => 'Mapping Tarif',
                 'icon' => 'bi-arrow-left-right',
                 'route' => 'bridge.index',
                 'route_pattern' => 'bridge.*',
