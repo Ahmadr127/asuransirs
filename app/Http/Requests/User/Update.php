@@ -29,7 +29,7 @@ class Update extends FormRequest
             'nik' => 'nullable|string|max:50|unique:users,nik,' . $userId,
             'username' => 'required|string|max:255|unique:users,username,' . $userId,
             'email' => 'required|string|email|max:255|unique:users,email,' . $userId,
-            'password' => 'nullable|string|min:8|confirmed',
+            'password' => 'nullable|string|confirmed',
             'role_id' => 'required|exists:roles,id'
         ];
     }

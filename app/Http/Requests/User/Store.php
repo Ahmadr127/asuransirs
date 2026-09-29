@@ -26,7 +26,7 @@ class Store extends FormRequest
             'nik' => 'nullable|string|max:50|unique:users',
             'username' => 'required|string|max:255|unique:users',
             'email' => 'required|string|email|max:255|unique:users',
-            'password' => 'required|string|min:8|confirmed',
+            'password' => 'required|string|confirmed',
             'role_id' => 'required|exists:roles,id'
         ];
     }
