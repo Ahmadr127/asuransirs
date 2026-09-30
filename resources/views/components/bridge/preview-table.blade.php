@@ -70,11 +70,23 @@
     }
 @endphp
 
+<div data-pv-wrap>
 <p class="px-4 pt-3 text-xs text-gray-500"><i class="bi bi-cursor-click"></i> Klik baris berstatus <span class="font-semibold text-yellow-700">AMBIGUOUS</span> / <span class="font-semibold text-slate-600">NOT_FOUND</span> untuk melihat detail analisa.</p>
+<div class="px-4 pt-2 pb-1 flex flex-col sm:flex-row sm:items-center gap-2">
+    <div class="relative flex-1">
+        <i class="bi bi-search absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm"></i>
+        <input type="text" data-pv-search autocomplete="off" spellcheck="false"
+            placeholder="Cari semua kolom — kode, description, kelas, tarif, status…"
+            class="w-full pl-9 pr-8 py-1.5 text-sm border border-gray-300 rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-sp-primary/20 focus:border-sp-primary transition-colors">
+        <button type="button" data-pv-clear title="Bersihkan pencarian"
+            class="hidden absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 text-base leading-none px-1">&times;</button>
+    </div>
+    <p class="text-xs text-gray-500 whitespace-nowrap" data-pv-count></p>
+</div>
 <x-table :columns="['Row', 'Status', 'Old Code', 'Old Description', 'Old Class Code', 'Kelas', 'Tarif Efektif', 'New Code', 'New Description', 'New Class Code']" empty="Tidak ada baris." maxHeight="520px">
     @foreach($rows as $row)
     @php $clickable = in_array($row['status'] ?? '', ['AMBIGUOUS', 'NOT_FOUND'], true) || !empty($row['suggestions']); @endphp
-    <tr @if($clickable) data-ba-open="{{ $row['excel_row'] }}" title="Klik untuk lihat detail analisa" @endif
+    <tr data-pv-row @if($clickable) data-ba-open="{{ $row['excel_row'] }}" title="Klik untuk lihat detail analisa" @endif
         class="hover:bg-gray-50 transition-colors @if($clickable) cursor-pointer hover:bg-blue-50/60 @endif">
         <td class="px-4 py-3 whitespace-nowrap text-xs text-gray-500">{{ $row['excel_row'] }}</td>
         <td class="px-4 py-3 whitespace-nowrap">
@@ -93,7 +105,69 @@
         <td class="px-4 py-3 whitespace-nowrap font-mono text-xs font-semibold bg-blue-50">{{ $row['new_class_code'] ?? '-' }}</td>
     </tr>
     @endforeach
+    <tr data-pv-empty class="hidden">
+        <td colspan="10" class="px-4 py-8 text-center text-gray-500 text-sm">Tidak ada baris yang cocok dengan pencarian.</td>
+    </tr>
 </x-table>
+</div>
+
+@once
+@push('scripts')
+<script>
+(function () {
+    // Filter client-side tabel preview: satu kata kunci mencari ke
+    // SELURUH teks baris (semua kolom). Case-insensitive.
+    function initScope(scope) {
+        var input = scope.querySelector('[data-pv-search]');
+        if (!input || input.dataset.pvBound) return;
+        input.dataset.pvBound = '1';
+        var clear = scope.querySelector('[data-pv-clear]');
+        var count = scope.querySelector('[data-pv-count]');
+        var rows = Array.prototype.slice.call(scope.querySelectorAll('[data-pv-row]'));
+        var empty = scope.querySelector('[data-pv-empty]');
+        var total = rows.length;
+
+        function renderCount(visible) {
+            if (count) count.textContent = 'Menampilkan ' + visible + ' dari ' + total + ' baris';
+        }
+
+        function apply() {
+            var q = input.value.trim().toLowerCase();
+            var visible = 0;
+            rows.forEach(function (tr) {
+                var hit = q === '' || tr.textContent.toLowerCase().indexOf(q) !== -1;
+                tr.classList.toggle('hidden', !hit);
+                if (hit) visible++;
+            });
+            if (empty) empty.classList.toggle('hidden', visible !== 0);
+            if (clear) clear.classList.toggle('hidden', q === '');
+            renderCount(visible);
+            // Kembali ke atas area scroll tabel agar hasil terlihat.
+            var scroller = scope.querySelector('[style*="max-height"]');
+            if (scroller) scroller.scrollTop = 0;
+        }
+
+        input.addEventListener('input', apply);
+        if (clear) clear.addEventListener('click', function () {
+            input.value = '';
+            apply();
+            input.focus();
+        });
+        renderCount(total);
+    }
+
+    function initAll() {
+        document.querySelectorAll('[data-pv-wrap]').forEach(initScope);
+    }
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initAll);
+    } else {
+        initAll();
+    }
+})();
+</script>
+@endpush
+@endonce
 
 @if(!empty($analysisStore))
 <div data-ba-modal class="hidden fixed inset-0 z-50 flex items-center justify-center p-4">
