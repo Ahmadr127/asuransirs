@@ -68,6 +68,11 @@ class BridgeTarifProcessor
                 $choice = $resolutions[$normalized['mapping_key']];
                 $resolved['status'] = TarifBridgeResolver::STATUS_MATCHED;
                 $resolved['new_service_code'] = mb_strtoupper(trim($choice['service_code']));
+                $resolved['new_service_description'] = $this->descriptionForChoice(
+                    $resolved['candidates'],
+                    $choice,
+                    $isManual
+                );
                 // Grup manual (NOT_FOUND): kelas tidak dipilih ulang —
                 // otomatis dari master via nama kelas; bila nama kelas
                 // tidak ada di master, pertahankan bawaan Excel.
@@ -124,6 +129,7 @@ class BridgeTarifProcessor
                 'status' => $resolved['status'],
                 'new_service_code' => $resolved['new_service_code'],
                 'new_class_code' => $resolved['new_class_code'],
+                'new_service_description' => $resolved['new_service_description'] ?? null,
                 'suggested_applied' => $resolved['suggested_applied'] ?? false,
             ];
 
@@ -132,6 +138,7 @@ class BridgeTarifProcessor
                     'status' => $resolved['status'],
                     'new_service_code' => $resolved['new_service_code'],
                     'new_class_code' => $resolved['new_class_code'],
+                    'new_service_description' => $resolved['new_service_description'] ?? null,
                     // Detail analisa per baris untuk modal UI (hanya
                     // AMBIGUOUS/NOT_FOUND/INVALID yang memakainya).
                     'candidates' => $resolved['candidates'] ?? [],
@@ -213,6 +220,8 @@ class BridgeTarifProcessor
                 continue;
             }
             $groups[$key]['top_service'] = $top['service_code'];
+            $groups[$key]['top_service_description'] = TarifBridgeResolver::candidateDescription($top)
+                ?? $this->resolver->repository()->serviceDescription((string) $top['service_code']);
             $codes = array_values(array_filter(array_unique(array_map(
                 fn ($s) => mb_strtoupper(trim((string) ($s['service_code'] ?? ''))),
                 $group['suggestions']
@@ -222,9 +231,11 @@ class BridgeTarifProcessor
                 $groups[$key]['consensus'] = true;
             }
             $topClass = trim((string) ($top['class_code'] ?? ''));
+            $topDesc = $groups[$key]['top_service_description'] ?? null;
             foreach ($group['rows'] as $excelRow) {
                 if (isset($decisions[$excelRow])) {
                     $decisions[$excelRow]['new_service_code'] = $top['service_code'];
+                    $decisions[$excelRow]['new_service_description'] = $topDesc;
                     $decisions[$excelRow]['suggested_applied'] = true;
                     if ($consensus) {
                         $decisions[$excelRow]['status'] = TarifBridgeResolver::STATUS_MATCHED;
@@ -253,10 +264,12 @@ class BridgeTarifProcessor
                 }
                 if (isset($groups[$key]['top_service'])) {
                     $preview[$i]['new_service_code'] = $groups[$key]['top_service'];
+                    $preview[$i]['new_service_description'] = $groups[$key]['top_service_description'] ?? null;
                     $preview[$i]['suggested_applied'] = true;
                     $preview[$i]['suggested'] = [
                         'service_code' => $groups[$key]['top_service'],
                         'class_code' => $groups[$key]['suggestions'][0]['class_code'] ?? null,
+                        'service_description' => $groups[$key]['top_service_description'] ?? null,
                     ];
                 }
                 if (! empty($groups[$key]['consensus'])) {
@@ -567,6 +580,31 @@ class BridgeTarifProcessor
         }
 
         return mb_strtoupper($oldCode);
+    }
+
+    /** @param  array<int, array>  $candidates */
+    protected function descriptionForChoice(array $candidates, mixed $choice, bool $manual): ?string
+    {
+        $serviceCode = mb_strtoupper(trim((string) ($choice['service_code'] ?? '')));
+        if ($serviceCode === '') {
+            return null;
+        }
+        if (! $manual) {
+            $classCode = mb_strtoupper(trim((string) ($choice['class_code'] ?? '')));
+            foreach ($candidates as $candidate) {
+                if (mb_strtoupper(trim((string) ($candidate['service_code'] ?? ''))) === $serviceCode
+                    && mb_strtoupper(trim((string) ($candidate['class_code'] ?? ''))) === $classCode
+                ) {
+                    $desc = TarifBridgeResolver::candidateDescription($candidate);
+                    if ($desc !== null) {
+                        return $desc;
+                    }
+                    break;
+                }
+            }
+        }
+
+        return $this->resolver->repository()->serviceDescription($serviceCode);
     }
 
     /** @param  array<int, array>  $candidates */

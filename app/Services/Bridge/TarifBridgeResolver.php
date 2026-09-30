@@ -66,7 +66,7 @@ class TarifBridgeResolver
 
     /**
      * @param  array<string, mixed>  $normalized  hasil RowNormalizer
-     * @return array{status: string, candidates: array, new_service_code: ?string, new_class_code: ?string, suggested: ?array, suggested_applied: bool, analysis: ?string}
+     * @return array{status: string, candidates: array, new_service_code: ?string, new_class_code: ?string, new_service_description: ?string, suggested: ?array, suggested_applied: bool, analysis: ?string}
      */
     public function resolve(array $normalized): array
     {
@@ -84,6 +84,7 @@ class TarifBridgeResolver
                 'candidates' => [],
                 'new_service_code' => null,
                 'new_class_code' => $masterClassCode,
+                'new_service_description' => null,
                 'suggested' => null,
                 'suggested_applied' => false,
                 'analysis' => 'Baris tidak lengkap: description atau kelas kosong setelah normalisasi, sehingga tidak bisa dicari di master. Lengkapi kedua kolom tersebut di Excel lalu scan ulang.',
@@ -98,6 +99,7 @@ class TarifBridgeResolver
                 'candidates' => [],
                 'new_service_code' => null,
                 'new_class_code' => $masterClassCode,
+                'new_service_description' => null,
                 'suggested' => null,
                 'suggested_applied' => false,
                 'analysis' => $this->notFound()->explain($normalized, $masterClassCode),
@@ -117,6 +119,7 @@ class TarifBridgeResolver
                 'candidates' => $disambiguated->ranked,
                 'new_service_code' => $suggested['service_code'] ?? null,
                 'new_class_code' => $suggested['class_code'] ?? $masterClassCode,
+                'new_service_description' => self::candidateDescription($suggested),
                 'suggested' => $suggested,
                 'suggested_applied' => $suggested !== null,
                 'analysis' => $disambiguated->reason,
@@ -128,9 +131,29 @@ class TarifBridgeResolver
             'candidates' => $candidates,
             'new_service_code' => $candidates[0]['service_code'],
             'new_class_code' => $candidates[0]['class_code'],
+            'new_service_description' => self::candidateDescription($candidates[0]),
             'suggested' => null,
             'suggested_applied' => false,
             'analysis' => null,
         ];
+    }
+
+    /**
+     * Description master dari satu kandidat/saran: services.description
+     * (fallback services.name). null bila keduanya kosong.
+     *
+     * @param  array<string, mixed>|null  $candidate
+     */
+    public static function candidateDescription(?array $candidate): ?string
+    {
+        if (! is_array($candidate)) {
+            return null;
+        }
+        $desc = trim((string) ($candidate['service_description'] ?? ''));
+        if ($desc === '') {
+            $desc = trim((string) ($candidate['service_name'] ?? ''));
+        }
+
+        return $desc !== '' ? $desc : null;
     }
 }

@@ -6,16 +6,18 @@ use PhpOffice\PhpSpreadsheet\IOFactory;
 
 /**
  * Menulis Excel hasil Bridge: struktur + data original dipertahankan,
- * hanya SERVICECODE dan SERVICECODE KELAS yang diganti sesuai mapping.
- * SERVICECODE diganti untuk row MATCHED + row AMBIGUOUS yang sarannya
- * langsung dimasukkan (suggested_applied). Kolom PROVID / PROVIDER_NAME
+ * hanya SERVICECODE, SERVICECODE DESCRIPTION, dan SERVICECODE KELAS
+ * yang diganti sesuai mapping master.
+ * SERVICECODE + DESCRIPTION diganti untuk row MATCHED + row
+ * AMBIGUOUS/NOT_FOUND yang sarannya langsung dimasukkan
+ * (suggested_applied). Kolom PROVID / PROVIDER_NAME
  * yang kosong diisi provider default (config bridge); sel yang sudah
  * terisi tidak diubah.
  */
 class BridgeTarifExcelWriter
 {
     /**
-     * @param  array<int, array{status: string, new_service_code: ?string, new_class_code: ?string, suggested_applied?: bool}>  $decisions  excel_row => keputusan
+     * @param  array<int, array{status: string, new_service_code: ?string, new_class_code: ?string, new_service_description?: ?string, suggested_applied?: bool}>  $decisions  excel_row => keputusan
      * @param  array<string, int>  $map  field => index kolom
      */
     public static function write(string $inputPath, string $outputPath, array $decisions, array $map): void
@@ -25,21 +27,27 @@ class BridgeTarifExcelWriter
             $sheet = $spreadsheet->getActiveSheet();
             $codeCol = $map[BridgeTarifExcelReader::FIELD_SERVICE_CODE];
             $classCol = $map[BridgeTarifExcelReader::FIELD_SERVICE_CLASS_CODE];
+            $descCol = $map[BridgeTarifExcelReader::FIELD_SERVICE_DESCRIPTION] ?? null;
             $providerCodeCol = $map[BridgeTarifExcelReader::FIELD_PROVIDER_CODE] ?? null;
             $providerNameCol = $map[BridgeTarifExcelReader::FIELD_PROVIDER_NAME] ?? null;
             $defaultProviderCode = trim((string) config('bridge.provider_code'));
             $defaultProviderName = trim((string) config('bridge.provider_name'));
 
             foreach ($decisions as $excelRow => $decision) {
-                // SERVICECODE diganti untuk row MATCHED + row AMBIGUOUS
-                // yang sarannya langsung dimasukkan; SERVICECODE KELAS
-                // diganti kapan pun kode master-nya ketemu (termasuk row
-                // yang service-nya masih AMBIGUOUS/NOT_FOUND).
-                if (($decision['status'] === TarifBridgeResolver::STATUS_MATCHED
+                // SERVICECODE + DESCRIPTION diganti untuk row MATCHED +
+                // row AMBIGUOUS/NOT_FOUND yang sarannya langsung
+                // dimasukkan; SERVICECODE KELAS diganti kapan pun kode
+                // master-nya ketemu (termasuk row yang service-nya masih
+                // AMBIGUOUS/NOT_FOUND).
+                $replaceService = ($decision['status'] === TarifBridgeResolver::STATUS_MATCHED
                         || ! empty($decision['suggested_applied']))
-                    && $decision['new_service_code'] !== null
-                ) {
+                    && $decision['new_service_code'] !== null;
+                if ($replaceService) {
                     $sheet->setCellValue([$codeCol + 1, $excelRow], $decision['new_service_code']);
+                    $newDesc = trim((string) ($decision['new_service_description'] ?? ''));
+                    if ($descCol !== null && $newDesc !== '') {
+                        $sheet->setCellValue([$descCol + 1, $excelRow], $decision['new_service_description']);
+                    }
                 }
                 if ($decision['new_class_code'] !== null) {
                     $sheet->setCellValue([$classCol + 1, $excelRow], $decision['new_class_code']);

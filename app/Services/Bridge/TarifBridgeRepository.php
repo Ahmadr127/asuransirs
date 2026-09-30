@@ -22,6 +22,9 @@ class TarifBridgeRepository
     /** @var array<string, string>|null kode kelas (upper+trim) => kode */
     protected ?array $classCodeMap = null;
 
+    /** @var array<string, string> kode service (upper+trim) => description master */
+    protected array $serviceDescMap = [];
+
     public function preload(): self
     {
         if ($this->loaded) {
@@ -59,6 +62,14 @@ class TarifBridgeRepository
                     if ($tariff !== null && $tariff <= 0) {
                         $tariff = null;
                     }
+                    $serviceCodeKey = mb_strtoupper(trim((string) $row->service_code));
+                    $masterDesc = trim((string) ($row->service_description ?? ''));
+                    if ($masterDesc === '') {
+                        $masterDesc = trim((string) ($row->service_name ?? ''));
+                    }
+                    if ($masterDesc !== '' && ! isset($this->serviceDescMap[$serviceCodeKey])) {
+                        $this->serviceDescMap[$serviceCodeKey] = $masterDesc;
+                    }
 
                     foreach ($serviceKeys as $serviceKey) {
                         $mapKey = $serviceKey.'|'.$classKey;
@@ -66,6 +77,7 @@ class TarifBridgeRepository
                             $this->map[$mapKey][$pairKey] = [
                                 'service_code' => mb_strtoupper(trim((string) $row->service_code)),
                                 'service_name' => $row->service_name,
+                                'service_description' => $masterDesc !== '' ? $masterDesc : (string) ($row->service_description ?? ''),
                                 'class_code' => mb_strtoupper(trim((string) $row->class_code)),
                                 'class_name' => $row->class_name,
                                 // Satu pair bisa punya banyak tarif (beda
@@ -113,7 +125,7 @@ class TarifBridgeRepository
      * Kandidat (pasangan service+class unik) untuk satu mapping key,
      * terurut deterministik. [] bila tidak ada.
      *
-     * @return array<int, array{service_code: string, service_name: string, class_code: string, class_name: string, tariff: ?float, tariffs: array<int, float>}>
+     * @return array<int, array{service_code: string, service_name: string, service_description: string, class_code: string, class_name: string, tariff: ?float, tariffs: array<int, float>}>
      */
     public function candidatesFor(string $mappingKey): array
     {
@@ -123,6 +135,41 @@ class TarifBridgeRepository
         usort($pairs, fn ($a, $b) => [$a['service_code'], $a['class_code']] <=> [$b['service_code'], $b['class_code']]);
 
         return $pairs;
+    }
+
+    /**
+     * Description master untuk satu kode service (services.description,
+     * fallback services.name). Dipakai mengisi New Description saat
+     * generate + preview. null bila service tidak ada / deskripsi kosong.
+     */
+    public function serviceDescription(string $serviceCode): ?string
+    {
+        $this->preload();
+        $key = mb_strtoupper(trim($serviceCode));
+        if ($key === '') {
+            return null;
+        }
+        if (isset($this->serviceDescMap[$key])) {
+            return $this->serviceDescMap[$key];
+        }
+        $row = DB::table('services')
+            ->whereRaw('UPPER(TRIM(code)) = ?', [$key])
+            ->select(['name', 'description'])
+            ->first();
+        if ($row === null) {
+            return null;
+        }
+        $desc = trim((string) ($row->description ?? ''));
+        if ($desc === '') {
+            $desc = trim((string) ($row->name ?? ''));
+        }
+        if ($desc !== '') {
+            $this->serviceDescMap[$key] = $desc;
+
+            return $desc;
+        }
+
+        return null;
     }
 
     /**

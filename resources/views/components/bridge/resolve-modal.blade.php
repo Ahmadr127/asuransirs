@@ -42,12 +42,16 @@
                                         class="mt-2 w-full px-3 py-1.5 text-sm border border-gray-300 rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-sp-primary/20 focus:border-sp-primary transition-colors">
                                         <option value="">— belum dipilih —</option>
                                         @foreach($group['candidates'] as $candidate)
-                                            {{-- Nama service yang sama persis dengan description grup tidak
-                                                 diulang (sudah tampil sekali di header); hanya nama yang
-                                                 beda yang ditampilkan agar kandidat tetap bisa dibedakan. --}}
-                                            @php $hideName = \App\Services\Bridge\BridgeTarifRowNormalizer::normalizeKey($candidate['service_name'] ?? '') === \App\Services\Bridge\BridgeTarifRowNormalizer::normalizeKey($group['description']); @endphp
+                                            {{-- Description master (New Description) yang sama persis dengan description grup tidak
+                                                 diulang (sudah tampil sekali di header); hanya yang beda yang
+                                                 ditampilkan agar kandidat tetap bisa dibedakan. --}}
+                                            @php
+                                                $candDesc = $candidate['service_description'] ?? $candidate['service_name'] ?? $candidate['service_code'];
+                                                $hideName = \App\Services\Bridge\BridgeTarifRowNormalizer::normalizeKey($candDesc) === \App\Services\Bridge\BridgeTarifRowNormalizer::normalizeKey($group['description'])
+                                                    || \App\Services\Bridge\BridgeTarifRowNormalizer::normalizeKey($candidate['service_name'] ?? '') === \App\Services\Bridge\BridgeTarifRowNormalizer::normalizeKey($group['description']);
+                                            @endphp
                                             <option value="{{ $candidate['service_code'] }}|{{ $candidate['class_code'] }}"
-                                                @selected(!empty($group['resolved']) && $group['resolved']['service_code'] === $candidate['service_code'] && $group['resolved']['class_code'] === $candidate['class_code'])>{{ $candidate['service_code'] }}@if(!$hideName) | {{ $candidate['service_name'] ?? $candidate['service_code'] }}@endif | {{ $candidate['class_code'] }}@if(!empty($candidate['tariff'])) | Rp {{ number_format((float) $candidate['tariff'], 0, ',', '.') }}@endif</option>
+                                                @selected(!empty($group['resolved']) && $group['resolved']['service_code'] === $candidate['service_code'] && $group['resolved']['class_code'] === $candidate['class_code'])>{{ $candidate['service_code'] }}@if(!$hideName) | {{ $candDesc }}@endif | {{ $candidate['class_code'] }}@if(!empty($candidate['tariff'])) | Rp {{ number_format((float) $candidate['tariff'], 0, ',', '.') }}@endif</option>
                                         @endforeach
                                     </select>
                                 </div>

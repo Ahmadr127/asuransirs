@@ -56,10 +56,13 @@
                 'text_idf' => isset($s['text_idf']) && is_numeric($s['text_idf']) ? round((float) $s['text_idf'], 3) : null,
             ], array_slice($row['suggestions'] ?? [], 0, 10)),
             'mapping_key' => $row['mapping_key'] ?? '',
+            'new_service_code' => $row['new_service_code'] ?? null,
+            'new_service_description' => $row['new_service_description'] ?? null,
             'new_class_code' => $row['new_class_code'] ?? null,
             'analysis' => $row['analysis'] ?? null,
             'suggested' => $suggested ? [
                 'service_code' => $suggested['service_code'] ?? '-',
+                'service_description' => $suggested['service_description'] ?? $suggested['service_name'] ?? null,
                 'class_code' => $suggested['class_code'] ?? '-',
             ] : null,
             'candidates' => $candidates,
@@ -68,7 +71,7 @@
 @endphp
 
 <p class="px-4 pt-3 text-xs text-gray-500"><i class="bi bi-cursor-click"></i> Klik baris berstatus <span class="font-semibold text-yellow-700">AMBIGUOUS</span> / <span class="font-semibold text-slate-600">NOT_FOUND</span> untuk melihat detail analisa.</p>
-<x-table :columns="['Row', 'Status', 'Old Code', 'Description', 'Old Class Code', 'Kelas', 'Tarif Efektif', 'New Code', 'New Class Code']" empty="Tidak ada baris.">
+<x-table :columns="['Row', 'Status', 'Old Code', 'Old Description', 'Old Class Code', 'Kelas', 'Tarif Efektif', 'New Code', 'New Description', 'New Class Code']" empty="Tidak ada baris.">
     @foreach($rows as $row)
     @php $clickable = in_array($row['status'] ?? '', ['AMBIGUOUS', 'NOT_FOUND'], true) || !empty($row['suggestions']); @endphp
     <tr @if($clickable) data-ba-open="{{ $row['excel_row'] }}" title="Klik untuk lihat detail analisa" @endif
@@ -81,11 +84,12 @@
             @endif
         </td>
         <td class="px-4 py-3 whitespace-nowrap font-mono text-xs bg-gray-50">{{ $row['service_code'] !== '' ? $row['service_code'] : '-' }}</td>
-        <td class="px-4 py-3 text-xs max-w-xs truncate">{{ $row['service_description'] !== '' ? $row['service_description'] : '-' }}</td>
+        <td class="px-4 py-3 text-xs max-w-xs truncate" title="{{ $row['service_description'] !== '' ? $row['service_description'] : '-' }}">{{ $row['service_description'] !== '' ? $row['service_description'] : '-' }}</td>
         <td class="px-4 py-3 whitespace-nowrap font-mono text-xs bg-gray-50">{{ $row['service_class_code'] !== '' ? $row['service_class_code'] : '-' }}</td>
         <td class="px-4 py-3 whitespace-nowrap text-xs">{{ $row['class_name'] !== '' ? $row['class_name'] : '-' }}</td>
         <td class="px-4 py-3 whitespace-nowrap text-xs font-mono bg-teal-50/50">@if(isset($row['effective_tariff']) && is_numeric($row['effective_tariff'])) Rp {{ number_format((float) $row['effective_tariff'], 0, ',', '.') }}@else<span class="text-gray-300">—</span>@endif</td>
         <td class="px-4 py-3 whitespace-nowrap font-mono text-xs font-semibold bg-blue-50">{{ $row['new_service_code'] ?? '-' }}</td>
+        <td class="px-4 py-3 text-xs max-w-xs truncate font-semibold bg-blue-50" title="{{ $row['new_service_description'] ?? '-' }}">{{ $row['new_service_description'] ?? '-' }}</td>
         <td class="px-4 py-3 whitespace-nowrap font-mono text-xs font-semibold bg-blue-50">{{ $row['new_class_code'] ?? '-' }}</td>
     </tr>
     @endforeach
@@ -202,7 +206,8 @@
         var html = '<div class="flex flex-col gap-3 text-sm">'
             + '<div class="grid grid-cols-2 md:grid-cols-3 gap-2 text-xs">'
             + '<div class="border rounded-md p-2"><p class="font-semibold text-gray-500">Old Code</p><p class="font-mono">' + esc(d.service_code || '-') + '</p></div>'
-            + '<div class="border rounded-md p-2"><p class="font-semibold text-gray-500">Description</p><p>' + esc(d.service_description || '-') + '</p></div>'
+            + '<div class="border rounded-md p-2"><p class="font-semibold text-gray-500">Old Description</p><p>' + esc(d.service_description || '-') + '</p></div>'
+            + '<div class="border rounded-md p-2 border-blue-300 bg-blue-50"><p class="font-semibold text-blue-700">New Description</p><p>' + esc(d.new_service_description || '-') + '</p></div>'
             + '<div class="border rounded-md p-2"><p class="font-semibold text-gray-500">Old Class Code</p><p class="font-mono">' + esc(d.service_class_code || '-') + '</p></div>'
             + '<div class="border rounded-md p-2"><p class="font-semibold text-gray-500">Kelas</p><p>' + esc(d.class_name || '-') + '</p></div>'
             + '<div class="border rounded-md p-2"><p class="font-semibold text-gray-500">Tarif Excel</p><p class="font-mono">' + excelTariff + '</p></div>'
