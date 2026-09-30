@@ -31,7 +31,7 @@
             <x-bridge.resolve-modal :token="$result['token']" :groups="$result['groups']" />
         @endif
 
-        <x-bridge.preview-table :rows="$result['preview']" />
+        <x-bridge.preview-table :rows="$result['preview']" :resolve-token="!empty($result['groups']) ? $result['token'] : null" />
     </x-card>
 </div>
 @endsection

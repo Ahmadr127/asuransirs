@@ -8,13 +8,6 @@
 
 @if($totalGroups > 0)
 <div data-rm-scope>
-<div class="px-4 pb-4">
-    <button type="button" data-rm-open
-        class="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-semibold text-white rounded-md bg-blue-600 hover:bg-blue-700 transition-colors">
-        <i class="bi bi-pencil-square"></i> Petakan Manual
-    </button>
-    <p class="mt-1 text-xs text-gray-500">Satu grup berlaku untuk seluruh row dengan description + kelas sama.</p>
-</div>
 
 <div data-rm-modal class="hidden fixed inset-0 z-50 flex items-center justify-center p-4">
     <div class="absolute inset-0 bg-gray-100 bg-opacity-80" data-rm-close></div>
