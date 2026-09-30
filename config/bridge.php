@@ -30,6 +30,21 @@ return [
     'surgery' => [
         'excluded_words' => [
             'pisau',
+            'foto',
+            'benang',
+            'gunting',
+            'pinset',
+            'klem',
+            'jarum',
+            'hecting',
+            'catgut',
+            'masker',
+            'baju',
+            'topi',
+            'doek',
+            'sarung',
+            'handscoen',
+            'handschoen',
         ],
     ],
 

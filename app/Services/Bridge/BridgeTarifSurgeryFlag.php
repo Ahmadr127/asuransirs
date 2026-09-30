@@ -22,6 +22,21 @@ final class BridgeTarifSurgeryFlag
      */
     public const EXCLUDED_KEYWORDS = [
         'pisau',
+        'benang',
+        'foto',
+        'gunting',
+        'pinset',
+        'klem',
+        'jarum',
+        'hecting',
+        'catgut',
+        'masker',
+        'baju',
+        'topi',
+        'doek',
+        'sarung',
+        'handscoen',
+        'handschoen',
     ];
 
     /** @return array<int, string> */
