@@ -412,6 +412,44 @@ class BridgeTarifTest extends TestCase
         $this->assertSame('catatan-a', $row[6]);
     }
 
+    public function test_generate_fills_surgery_flag_and_drops_los_column(): void
+    {
+        $this->createMaster('KMR01', 'Kamar Operasi X', 'Kamar Operasi & Sarana Bedah', 'KL2', 'KELAS 2');
+        $header = ['PROVID', 'SERVICECODE', 'SERVICECODE DESCRIPTION', 'SERVICECODE KELAS', 'KELAS', 'RUANG BEDAH (SURGERY)/NON RUANG BEDAH (NON SURGERY)', 'TARIFF', 'NOTE', 'LoS'];
+
+        $token = $this->scanOk([
+            ['PRV1', 'OLD-KMR', 'Kamar Operasi & Sarana Bedah', 'OLD-K2', 'KELAS 2', '', 100000, 'a', 3],
+            ['PRV1', 'OLD-MRI', 'MRI BRAIN', 'OLD-K1', 'KELAS 1', '', 100000, 'b', 1],
+        ], $header);
+
+        $gen = $this->actingAs($this->user)->post(route('bridge.generate'), ['token' => $token]);
+        $gen->assertRedirect(route('bridge.download', $token));
+
+        $dl = $this->actingAs($this->user)->get(route('bridge.download', $token));
+        $dl->assertOk();
+
+        $out = tempnam(sys_get_temp_dir(), 'bout').'.xlsx';
+        file_put_contents($out, $dl->streamedContent() ?: $dl->getContent());
+        $sheet = IOFactory::load($out)->getActiveSheet()->toArray(null, true, true, false);
+        $headers = array_values($sheet[0]);
+
+        // Kolom LoS dibuang dari file hasil.
+        $this->assertNotContains('LoS', $headers);
+        $this->assertCount(8, $headers);
+
+        $surgeryIdx = array_search('RUANG BEDAH (SURGERY)/NON RUANG BEDAH (NON SURGERY)', $headers, true);
+        $this->assertNotFalse($surgeryIdx);
+        $codeIdx = array_search('SERVICECODE', $headers, true);
+        $this->assertNotFalse($codeIdx);
+
+        $rowKmr = array_values($sheet[1]);
+        $rowMri = array_values($sheet[2]);
+        $this->assertSame('KMR01', $rowKmr[$codeIdx]);
+        $this->assertSame('OK', $rowKmr[$surgeryIdx]);
+        $this->assertSame('MRI001', $rowMri[$codeIdx]);
+        $this->assertSame('NON OK', $rowMri[$surgeryIdx]);
+    }
+
     public function test_scan_and_generate_create_no_masters(): void
     {
         $before = [Provider::count(), Service::count(), ServiceClass::count(), Tarif::count()];

@@ -27,6 +27,12 @@ class BridgeTarifExcelReader
     public const FIELD_QUANTITY = 'QUANTITY';
 
     /**
+     * Kolom bendera ruang bedah: "RUANG BEDAH (SURGERY)/..." — diisi
+     * OK / NON OK saat generate berdasarkan deskripsi. Opsional.
+     */
+    public const FIELD_SURGERY_FLAG = 'SURGERYFLAG';
+
+    /**
      * Normalisasi nama header: trim, lowercase, buang non-alfanumerik.
      * "SERVICECODE DESCRIPTION" / "ServiceCode_Description" -> "servicecodedescription".
      */
@@ -71,8 +77,15 @@ class BridgeTarifExcelReader
             $hasTotalBilled = str_contains($norm, 'total')
                 && (str_contains($norm, 'bill') || str_contains($norm, 'tagih'));
             $hasQuantity = str_contains($norm, 'qty') || str_contains($norm, 'quantity');
+            // Kolom bendera ruang bedah (opsional, diisi saat generate):
+            // "RUANG BEDAH (SURGERY)/ RUANG NON BEDAH (NON SURGERY)"
+            // (varian legacy memakai ")" sebelum NON — normalisasi
+            // membuang tanda itu sehingga deteksi tetap kena).
+            $hasSurgeryFlag = str_contains($norm, 'ruang') && str_contains($norm, 'surgery');
 
-            if ($hasTariff && ! isset($map[self::FIELD_TARIFF])) {
+            if ($hasSurgeryFlag && ! isset($map[self::FIELD_SURGERY_FLAG])) {
+                $map[self::FIELD_SURGERY_FLAG] = $index;
+            } elseif ($hasTariff && ! isset($map[self::FIELD_TARIFF])) {
                 $map[self::FIELD_TARIFF] = $index;
             } elseif ($hasTotalBilled && ! isset($map[self::FIELD_TOTAL_BILLED])) {
                 $map[self::FIELD_TOTAL_BILLED] = $index;

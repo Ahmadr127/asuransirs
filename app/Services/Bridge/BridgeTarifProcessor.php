@@ -282,6 +282,32 @@ class BridgeTarifProcessor
             }
         }
 
+        // Bendera RUANG BEDAH per row untuk file hasil: OK bila
+        // deskripsi yang tertulis (new bila service diganti, selain
+        // itu bawaan Excel) menyebut pemakaian ruang operasi, selain
+        // itu NON OK. Dihitung terakhir agar mencakup saran manual,
+        // saran NOT_FOUND, dan konsensus.
+        $byRow = [];
+        foreach ($normalizedList as $normalized) {
+            $byRow[(int) ($normalized['excel_row'] ?? 0)] = $normalized;
+        }
+        foreach ($decisions as $excelRow => $decision) {
+            $oldDesc = (string) ($byRow[(int) $excelRow]['service_description'] ?? '');
+            $replaced = (($decision['status'] ?? '') === TarifBridgeResolver::STATUS_MATCHED
+                    || ! empty($decision['suggested_applied']))
+                && trim((string) ($decision['new_service_code'] ?? '')) !== '';
+            $flagDesc = ($replaced && trim((string) ($decision['new_service_description'] ?? '')) !== '')
+                ? (string) $decision['new_service_description']
+                : $oldDesc;
+            $decisions[$excelRow]['surgery_flag'] = BridgeTarifSurgeryFlag::label(null, $flagDesc);
+        }
+        foreach ($preview as $i => $row) {
+            $key = (int) ($row['excel_row'] ?? 0);
+            if (isset($decisions[$key]['surgery_flag'])) {
+                $preview[$i]['surgery_flag'] = $decisions[$key]['surgery_flag'];
+            }
+        }
+
         // Tandai grup yang sudah dipilih user.
         foreach ($groups as $key => $group) {
             if (isset($resolutions[$key])

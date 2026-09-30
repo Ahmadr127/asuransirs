@@ -40,31 +40,53 @@ class TarifExportService
     }
 
     /**
+     * Kolom yang tidak boleh ikut ke file export (perbandingan
+     * case-insensitive terhadap nama header). Berlaku untuk XLSX
+     * maupun CSV karena keduanya memakai headings()/toRow().
+     */
+    public const EXCLUDED_COLUMNS = ['LoS'];
+
+    /**
+     * Label kolom Surgery Type di file export: 'OK' bila nama/deskripsi
+     * service memuat kata "tindakan" atau "bedah", selain itu 'NON OK'.
+     * Aturan tunggal di BridgeTarifSurgeryFlag (sama dengan export bridge).
+     */
+    public static function surgeryLabel(?string $name, ?string $description): string
+    {
+        return \App\Services\Bridge\BridgeTarifSurgeryFlag::label($name, $description);
+    }
+
+    /**
      * @param  iterable<int, Tarif>  $tarifs
      */
     public static function toRow(Tarif $tarif): array
     {
-        return [
-            $tarif->jenisTarif->name ?? '-',
-            $tarif->service->code ?? '-',
-            $tarif->service->name ?? '-',
-            $tarif->service->description ?? '-',
-            $tarif->provider->code ?? '-',
-            $tarif->provider->name ?? '-',
-            $tarif->serviceClass->code ?? '-',
-            $tarif->serviceClass->name ?? '-',
-            $tarif->surgery_type ?? '-',
-            $tarif->helper ?? '-',
-            $tarif->tariff,
-            $tarif->valid_date_from->format('Y-m-d'),
-            $tarif->end_date_to->format('Y-m-d'),
-            $tarif->status,
+        $row = [
+            'Jenis' => $tarif->jenisTarif->name ?? '-',
+            'Service Code' => $tarif->service->code ?? '-',
+            'Service Name' => $tarif->service->name ?? '-',
+            'Service Description' => $tarif->service->description ?? '-',
+            'Provider Code' => $tarif->provider->code ?? '-',
+            'Provider Name' => $tarif->provider->name ?? '-',
+            'Kode Kelas' => $tarif->serviceClass->code ?? '-',
+            'Kelas' => $tarif->serviceClass->name ?? '-',
+            'Surgery Type' => self::surgeryLabel($tarif->service->name ?? null, $tarif->service->description ?? null),
+            'Helper' => $tarif->helper ?? '-',
+            'Tarif' => $tarif->tariff,
+            'Berlaku Dari' => $tarif->valid_date_from->format('Y-m-d'),
+            'Berlaku Sampai' => $tarif->end_date_to->format('Y-m-d'),
+            'Status' => $tarif->status,
         ];
+
+        return array_values(array_intersect_key($row, array_flip(self::headings())));
     }
 
     public static function headings(): array
     {
-        return ['Jenis', 'Service Code', 'Service Name', 'Service Description', 'Provider Code', 'Provider Name', 'Kode Kelas', 'Kelas', 'Surgery Type', 'Helper', 'Tarif', 'Berlaku Dari', 'Berlaku Sampai', 'Status'];
+        return array_values(array_filter(
+            ['Jenis', 'Service Code', 'Service Name', 'Service Description', 'Provider Code', 'Provider Name', 'Kode Kelas', 'Kelas', 'Surgery Type', 'Helper', 'Tarif', 'Berlaku Dari', 'Berlaku Sampai', 'Status'],
+            fn ($h) => ! in_array(mb_strtolower(trim($h)), self::EXCLUDED_COLUMNS, true)
+        ));
     }
 
     /**
