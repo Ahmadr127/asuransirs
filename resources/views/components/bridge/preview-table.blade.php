@@ -1,4 +1,4 @@
-@props(['rows' => [], 'resolveToken' => null])
+@props(['rows' => []])
 
 @php
     // Store JSON untuk modal analisa per baris: hanya row AMBIGUOUS /
@@ -72,15 +72,7 @@
 
 <div data-pv-wrap>
 <div class="px-4 pt-3 pb-1 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-    <div class="flex flex-col sm:flex-row sm:items-center gap-2">
-        @if($resolveToken)
-            <button type="button" data-rm-open
-                class="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-semibold text-white rounded-md bg-blue-600 hover:bg-blue-700 transition-colors self-start">
-                <i class="bi bi-pencil-square"></i> Petakan Manual
-            </button>
-        @endif
-        <p class="text-xs text-gray-500"><i class="bi bi-cursor-click"></i> Klik baris berstatus <span class="font-semibold text-yellow-700">AMBIGUOUS</span> / <span class="font-semibold text-slate-600">NOT_FOUND</span> untuk melihat detail analisa.</p>
-    </div>
+    <p class="text-xs text-gray-500"><i class="bi bi-cursor-click"></i> Klik baris berstatus <span class="font-semibold text-yellow-700">AMBIGUOUS</span> / <span class="font-semibold text-slate-600">NOT_FOUND</span> untuk melihat detail analisa.</p>
     <div class="relative w-full sm:w-80 sm:flex-shrink-0">
         <i class="bi bi-search absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm"></i>
         <input type="text" data-pv-search autocomplete="off" spellcheck="false"
