@@ -71,18 +71,18 @@
 @endphp
 
 <div data-pv-wrap>
-<p class="px-4 pt-3 text-xs text-gray-500"><i class="bi bi-cursor-click"></i> Klik baris berstatus <span class="font-semibold text-yellow-700">AMBIGUOUS</span> / <span class="font-semibold text-slate-600">NOT_FOUND</span> untuk melihat detail analisa.</p>
-<div class="px-4 pt-2 pb-1 flex flex-col sm:flex-row sm:items-center gap-2">
-    <div class="relative flex-1">
+<div class="px-4 pt-3 pb-1 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+    <p class="text-xs text-gray-500"><i class="bi bi-cursor-click"></i> Klik baris berstatus <span class="font-semibold text-yellow-700">AMBIGUOUS</span> / <span class="font-semibold text-slate-600">NOT_FOUND</span> untuk melihat detail analisa.</p>
+    <div class="relative w-full sm:w-80 sm:flex-shrink-0">
         <i class="bi bi-search absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm"></i>
         <input type="text" data-pv-search autocomplete="off" spellcheck="false"
-            placeholder="Cari semua kolom — kode, description, kelas, tarif, status…"
+            placeholder="Cari semua kolom…"
             class="w-full pl-9 pr-8 py-1.5 text-sm border border-gray-300 rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-sp-primary/20 focus:border-sp-primary transition-colors">
         <button type="button" data-pv-clear title="Bersihkan pencarian"
             class="hidden absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 text-base leading-none px-1">&times;</button>
     </div>
-    <p class="text-xs text-gray-500 whitespace-nowrap" data-pv-count></p>
 </div>
+<p class="px-4 pb-1 text-xs text-gray-500 text-right" data-pv-count></p>
 <x-table :columns="['Row', 'Status', 'Old Code', 'Old Description', 'Old Class Code', 'Kelas', 'Tarif Efektif', 'New Code', 'New Description', 'New Class Code']" empty="Tidak ada baris." maxHeight="520px">
     @foreach($rows as $row)
     @php $clickable = in_array($row['status'] ?? '', ['AMBIGUOUS', 'NOT_FOUND'], true) || !empty($row['suggestions']); @endphp
