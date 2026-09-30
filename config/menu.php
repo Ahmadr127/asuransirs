@@ -108,7 +108,7 @@ return [
             [
                 'label' => 'Master & Tarif',
                 'icon' => 'bi-cash-coin',
-                'permissions' => ['manage_tarif_masters', 'manage_tarifs'],
+                'permissions' => ['manage_tarif_masters', 'manage_tarifs', 'manage_helpers'],
                 'children' => [
                     [
                         'label' => 'Jenis Tarif',
@@ -137,6 +137,13 @@ return [
                         'route' => 'classes.index',
                         'route_pattern' => 'classes.*',
                         'permission' => 'manage_tarif_masters',
+                    ],
+                    [
+                        'label' => 'Helper',
+                        'icon' => 'bi-percent',
+                        'route' => 'helpers.index',
+                        'route_pattern' => 'helpers.*',
+                        'permission' => 'manage_helpers',
                     ],
                     [
                         'label' => 'Import Excel',

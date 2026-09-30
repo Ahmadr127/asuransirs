@@ -3,6 +3,7 @@
 use App\Http\Controllers\ActivityLogController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\HelperController;
 use App\Http\Controllers\JenisTarifController;
 use App\Http\Controllers\OrganizationTypeController;
 use App\Http\Controllers\OrganizationUnitController;
@@ -93,6 +94,11 @@ Route::middleware('auth')->group(function () {
         Route::resource('providers', ProviderController::class);
         Route::resource('services', ServiceController::class);
         Route::resource('classes', ServiceClassController::class)->parameters(['classes' => 'serviceClass']);
+    });
+
+    // Helper Master Data routes (aturan persentase billing bedah)
+    Route::middleware('permission:manage_helpers')->group(function () {
+        Route::resource('helpers', HelperController::class);
     });
 
     // Tarif Management routes
