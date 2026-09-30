@@ -404,7 +404,8 @@ class BridgeTarifTest extends TestCase
 
         $row = array_values($sheet[1]);
         $this->assertSame('MRI001', $row[1]);
-        $this->assertSame('MRI BRAIN', $row[2]);
+        // Description ikut diganti dari master (services.description).
+        $this->assertSame('MRI Otak Tanpa Kontras', $row[2]);
         $this->assertSame('MRI-K1', $row[3]);
         $this->assertSame('KELAS 1', $row[4]);
         $this->assertSame('PRV1', $row[0]);

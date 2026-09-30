@@ -71,7 +71,7 @@
 @endphp
 
 <p class="px-4 pt-3 text-xs text-gray-500"><i class="bi bi-cursor-click"></i> Klik baris berstatus <span class="font-semibold text-yellow-700">AMBIGUOUS</span> / <span class="font-semibold text-slate-600">NOT_FOUND</span> untuk melihat detail analisa.</p>
-<x-table :columns="['Row', 'Status', 'Old Code', 'Old Description', 'Old Class Code', 'Kelas', 'Tarif Efektif', 'New Code', 'New Description', 'New Class Code']" empty="Tidak ada baris.">
+<x-table :columns="['Row', 'Status', 'Old Code', 'Old Description', 'Old Class Code', 'Kelas', 'Tarif Efektif', 'New Code', 'New Description', 'New Class Code']" empty="Tidak ada baris." maxHeight="520px">
     @foreach($rows as $row)
     @php $clickable = in_array($row['status'] ?? '', ['AMBIGUOUS', 'NOT_FOUND'], true) || !empty($row['suggestions']); @endphp
     <tr @if($clickable) data-ba-open="{{ $row['excel_row'] }}" title="Klik untuk lihat detail analisa" @endif

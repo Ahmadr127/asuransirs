@@ -6,6 +6,7 @@
     'perPageOptions' => [5, 10, 25, 50, 100],
     'showNumber' => false,
     'numberLabel' => 'No',
+    'maxHeight' => null,
 ])
 
 @php
@@ -16,12 +17,12 @@
 @endphp
 
 <div {{ $attributes->merge(['class' => 'bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden']) }}>
-    <div class="overflow-x-auto">
+    <div class="{{ $maxHeight ? 'overflow-auto' : 'overflow-x-auto' }}" @if($maxHeight) style="max-height: {{ $maxHeight }};" @endif>
         <table class="w-full text-sm min-w-max">
-            <thead>
+            <thead class="@if($maxHeight) sticky top-0 z-10 bg-gray-100 shadow-[0_1px_0_0_#e5e7eb] @endif">
                 <tr class="bg-gray-100">
                     @foreach($displayColumns as $column)
-                        <th class="px-4 py-2.5 text-left font-semibold text-gray-700 whitespace-nowrap {{ (is_string($column) ? $column : ($column['label'] ?? '')) === $numberLabel ? 'w-12 text-center' : '' }}">
+                        <th class="px-4 py-2.5 text-left font-semibold text-gray-700 whitespace-nowrap bg-gray-100 @if($maxHeight) sticky top-0 z-10 @endif {{ (is_string($column) ? $column : ($column['label'] ?? '')) === $numberLabel ? 'w-12 text-center' : '' }}">
                             {{ is_array($column) ? ($column['label'] ?? '') : $column }}
                         </th>
                     @endforeach
