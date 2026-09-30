@@ -17,6 +17,24 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Pengecualian bendera RUANG BEDAH (OK / NON OK)
+    |--------------------------------------------------------------------------
+    |
+    | Deskripsi yang memuat kata "tindakan"/"bedah" menjadi OK, KECUALI
+    | bila memuat salah satu kata di bawah ini (nama alat/bahan, mis.
+    | "Pisau Bedah") — perbandingan whole-word, case-insensitive.
+    | Tambah kata baru di sini tanpa menyentuh kode.
+    |
+    */
+
+    'surgery' => [
+        'excluded_words' => [
+            'pisau',
+        ],
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Kamus pencarian NOT_FOUND (jangka panjang: edit di sini, bukan kode)
     |--------------------------------------------------------------------------
     |

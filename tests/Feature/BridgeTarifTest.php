@@ -420,6 +420,7 @@ class BridgeTarifTest extends TestCase
         $token = $this->scanOk([
             ['PRV1', 'OLD-KMR', 'Kamar Operasi & Sarana Bedah', 'OLD-K2', 'KELAS 2', '', 100000, 'a', 3],
             ['PRV1', 'OLD-MRI', 'MRI BRAIN', 'OLD-K1', 'KELAS 1', '', 100000, 'b', 1],
+            ['PRV1', 'OLD-PIS', 'Aesculap Pisau Bedah no.15 - JS', 'OLD-K1', 'KELAS 1', '', 50000, 'c', 2],
         ], $header);
 
         $gen = $this->actingAs($this->user)->post(route('bridge.generate'), ['token' => $token]);
@@ -444,10 +445,14 @@ class BridgeTarifTest extends TestCase
 
         $rowKmr = array_values($sheet[1]);
         $rowMri = array_values($sheet[2]);
+        $rowPis = array_values($sheet[3]);
         $this->assertSame('KMR01', $rowKmr[$codeIdx]);
         $this->assertSame('OK', $rowKmr[$surgeryIdx]);
         $this->assertSame('MRI001', $rowMri[$codeIdx]);
         $this->assertSame('NON OK', $rowMri[$surgeryIdx]);
+        // Nama alat ("Pisau Bedah") dikecualikan walau memuat "bedah".
+        $this->assertSame('OLD-PIS', $rowPis[$codeIdx]);
+        $this->assertSame('NON OK', $rowPis[$surgeryIdx]);
     }
 
     public function test_scan_and_generate_create_no_masters(): void
