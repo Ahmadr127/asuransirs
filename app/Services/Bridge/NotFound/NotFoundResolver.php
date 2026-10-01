@@ -63,6 +63,12 @@ final class NotFoundResolver
      * dipakai (termasuk fallback ke description asli bila rewrite
      * menghasilkan kosong). Untuk modal analisa row.
      *
+     * $forceSpec: paksa spesialisasi query (kanonis config specialties).
+     * Dipakai jalur sibling kamar: spesialisasi dibaca dari anchor
+     * prosedur (kata "umum" dkk. adalah stopword sehingga tak survive
+     * tokenisasi query sibling). null = deteksi dari description seperti
+     * biasa.
+     *
      * @return array{services: array, search_query: string, search_rule: string}
      */
     public function suggestWithMeta(
@@ -71,6 +77,7 @@ final class NotFoundResolver
         ?string $className = null,
         ?float $effectiveTariff = null,
         int $limit = 20,
+        ?string $forceSpec = null,
     ): array {
         $meta = $this->searchQueryFor($description, $className);
         $searchDesc = $meta['query'];
@@ -116,8 +123,13 @@ final class NotFoundResolver
         $idfs = $this->idfWeights($descTokens, $services);
         $descTotal = count($descTokens);
 
-        $querySpec = self::detectSpecialty($description);
+        $querySpec = $forceSpec ?? self::detectSpecialty($description);
         $roleHint = self::detectRole($description);
+        // Peran efektif untuk role_match: peran eksplisit bila disebut,
+        // bila tidak pakai default AnesthesiaRoleRule (ada sinyal
+        // anestesi → anestesi, selain itu operator). $roleHint asli tetap
+        // dipakai untuk promosi sibling kamar di bawah.
+        $effRole = $roleHint ?? AnesthesiaRoleRule::preferredRole($searchDesc);
         foreach ($pairs as $pair) {
             $key = mb_strtoupper(trim($pair['service_code']));
             $service = $byCode[$key] ?? null;
@@ -179,13 +191,16 @@ final class NotFoundResolver
                 'desc_matched' => $descMatched,
                 'desc_exact' => $descExact,
                 'desc_total' => $descTotal,
+                'desc_extras' => BridgeServiceSearch::unmatchedExtras(
+                    $descTokens, (string) ($service['service_description'] ?? '')
+                ),
                 'eff_q_tier' => $effQier,
                 'eff_desc_tier' => $effDescTier,
                 'spec_score' => $this->specScore(
                     $descTokens, $querySpec, (string) ($service['service_description'] ?? '')
                 ),
-                'role_match' => ($roleHint !== null
-                    && self::detectRole((string) ($service['service_description'] ?? '')) === $roleHint) ? 1 : 0,
+                'role_match' => ($effRole !== null
+                    && self::detectRole((string) ($service['service_description'] ?? '')) === $effRole) ? 1 : 0,
                 'text_idf' => $descTier > 0
                     ? $this->matchedIdf($descTokens, (string) ($service['service_description'] ?? ''), $idfs)
                     : 0.0,
@@ -237,13 +252,16 @@ final class NotFoundResolver
                 'desc_matched' => $descMatched,
                 'desc_exact' => $descExact,
                 'desc_total' => $descTotal,
+                'desc_extras' => BridgeServiceSearch::unmatchedExtras(
+                    $descTokens, (string) ($service['service_description'] ?? '')
+                ),
                 'eff_q_tier' => $effQier,
                 'eff_desc_tier' => $effDescTier,
                 'spec_score' => $this->specScore(
                     $descTokens, $querySpec, (string) ($service['service_description'] ?? '')
                 ),
-                'role_match' => ($roleHint !== null
-                    && self::detectRole((string) ($service['service_description'] ?? '')) === $roleHint) ? 1 : 0,
+                'role_match' => ($effRole !== null
+                    && self::detectRole((string) ($service['service_description'] ?? '')) === $effRole) ? 1 : 0,
                 'text_idf' => $descTier > 0
                     ? $this->matchedIdf($descTokens, (string) ($service['service_description'] ?? ''), $idfs)
                     : 0.0,
@@ -276,10 +294,12 @@ final class NotFoundResolver
                     return $b[$k] <=> $a[$k];
                 }
             }
-            // Seri teks: token langka menang sebelum sinyal kelas/tarif —
-            // mis. "varicocele" mengalahkan "laparoscopy" pada Row 25.
-            if (abs($a['text_idf'] - $b['text_idf']) > 1e-9) {
-                return $b['text_idf'] <=> $a['text_idf'];
+            // Presisi: atribut master yang tak dicari user (kata tak
+            // cocok) makin sedikit makin baik — exact action tanpa
+            // embel-embel menang atas yang beratribut ekstra.
+            // Hitungan token generik, tanpa daftar atribut apa pun.
+            if ($a['desc_extras'] !== $b['desc_extras']) {
+                return $a['desc_extras'] <=> $b['desc_extras'];
             }
             // Kelas + tarif hanya validasi sekunder: tak boleh mengalahkan
             // kecocokan procedure + specialty + component di atas.
@@ -290,6 +310,11 @@ final class NotFoundResolver
             $db = $b['_tariff_diff'] ?? PHP_FLOAT_MAX;
             if ($da !== $db) {
                 return $da <=> $db;
+            }
+            // Sinyal kelangkaan token (IDF pool): sekunder, di bawah
+            // kelas/tarif — bukan penentu utama relevansi.
+            if (abs($a['text_idf'] - $b['text_idf']) > 1e-9) {
+                return $b['text_idf'] <=> $a['text_idf'];
             }
 
             return $a['_order'] <=> $b['_order'];
@@ -412,6 +437,20 @@ final class NotFoundResolver
         if ($tokens === []) {
             $tokens = BridgeServiceSearch::contentWords($proc);
         }
+        // Token pendek (<= 2 huruf, mis. "II" dari "Khusus II") dibuang
+        // bila ada token utama — cermin aturan recall prefilter: token
+        // semacam ini hanya mengencerkan query tanpa membedakan prosedur.
+        $long = array_values(array_filter($tokens, fn ($t) => mb_strlen($t) > 2));
+        if ($long !== []) {
+            $tokens = $long;
+        }
+        // Penanda spesialisasi jangan sampai hilang: kata seperti "umum"
+        // adalah stopword (dibuang contentWords) padahal ia pembeda famili
+        // ("Bedah Umum" vs "Bedah Anak"). Spesialisasi anchor diteruskan
+        // sebagai $forceSpec agar ranking (demosi + spec_score) tetap
+        // tahu famili yang dicari — murni dari config specialties yang
+        // sudah ada, tanpa daftar baru.
+        $spec = self::detectSpecialty($anchorDesc);
         if ($tokens === []) {
             return ['services' => [], 'search_query' => $anchorDesc, 'search_rule' => 'kamar_sibling_empty'];
         }
@@ -423,6 +462,7 @@ final class NotFoundResolver
             $className,
             $effectiveTariff,
             $limit,
+            $spec,
         );
 
         return ['services' => $meta['services'], 'search_query' => $siblingQuery, 'search_rule' => 'kamar_sibling'];

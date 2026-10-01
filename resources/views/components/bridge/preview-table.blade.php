@@ -312,9 +312,6 @@
                 + '</p>'
                 + '<p class="font-mono font-semibold text-violet-900 break-words mt-0.5">' + esc(d.search_query) + '</p></div>';
         }
-        if (d.analysis) {
-            html += '<div class="text-xs bg-gray-50 border border-gray-200 rounded-md p-2.5 text-gray-700">' + esc(d.analysis) + '</div>';
-        }
         if (d.status === 'AMBIGUOUS') {
             html += '<div><p class="text-xs font-semibold text-gray-600 mb-1">Perbandingan Kandidat (' + d.candidates.length + ')</p>'
                 + '<div class="mb-1.5 text-xs bg-teal-50 border border-teal-300 rounded-md px-2.5 py-1.5">Tarif Pembanding (efektif): <span class="font-bold font-mono">' + esc(effectiveLabel(d)) + '</span> <span class="text-teal-700">— Sumber: ' + esc(d.tariff_source_label || 'tidak tersedia') + '</span></div>'
@@ -322,8 +319,6 @@
         } else {
             if (d.status === 'MATCHED' && d.suggestions && d.suggestions.length) {
                 html += '<div class="text-xs bg-green-50 border border-green-200 rounded-md p-2.5">Baris ini <span class="font-bold">valid (MATCHED)</span> karena seluruh saran berkode sama (<span class="font-mono font-bold">' + esc(d.new_service_code || '-') + '</span>). Saran dan analisa tetap ditampilkan — ubah via “Petakan Manual” bila tidak setuju.</div>';
-            } else if (d.status === 'NOT_FOUND') {
-                html += '<div class="text-xs bg-slate-50 border border-slate-200 rounded-md p-2.5">Kode kelas master untuk baris ini: <span class="font-mono font-bold">' + esc(d.new_class_code || '(tidak dikenali — ikut bawaan Excel)') + '</span>. Cari service yang benar lewat “Petakan Manual” (ketik ≥ 2 huruf untuk menyaring, klik untuk saran paling mirip description) dan gunakan tarif efektif <span class="font-mono font-bold">' + esc(effectiveLabel(d)) + '</span> sebagai pembanding.</div>';
             }
             if (d.suggestions && d.suggestions.length) {
                 html += '<div><p class="text-xs font-semibold text-gray-600 mb-1">Rekomendasi (' + d.suggestions.length + ')</p><p class="mb-1 text-[11px] text-gray-500">% = kecocokan <span class="font-semibold">kelas + tarif</span>, bukan kemiripan nama tindakan — periksa kolom Teks.</p><div class="border border-gray-200 rounded-md overflow-hidden">';

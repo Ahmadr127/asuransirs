@@ -15,11 +15,12 @@ use App\Models\Service;
  * - Query dinormalisasi (lowercase, trim, spasi ganda -> satu) lalu
  *   ditokenisasi per whitespace. Token < 2 huruf dibuang; numerik
  *   >= 2 digit ("22", "75x75") tetap lolos.
-  * - Recall: prefilter LIKE PER TOKEN (OR) di DB, pool max 500 —
-  *   LIKE tidak pernah dipakai untuk frasa utuh ("LIKE '%kamar
-  *   operasi%'") dan tidak menentukan urutan. Token keluarga peran
-  *   ("anestesi") dikeluarkan dari recall (recallTokens) agar tidak
-  *   membanjiri pool. Pipeline:
+ * - Recall: prefilter LIKE PER TOKEN (OR) di DB dengan isi kuota
+ *   TERURUT SKOR trigram (PostgreSQL + index GIN) — LIKE tidak pernah
+ *   dipakai untuk frasa utuh ("LIKE '%kamar
+ *   operasi%'") dan tidak menentukan urutan akhir. Token keluarga peran
+ *   ("anestesi") dikeluarkan dari recall (recallTokens) agar tidak
+ *   membanjiri pool. Pipeline:
  *   description -> hapus [...] -> normalize -> tokenize ->
  *   SQL broad recall -> rank PHP -> filter threshold -> sort -> LIMIT.
  * - Ranking (relevance) dihitung di PHP per kandidat, HANYA terhadap
@@ -33,6 +34,12 @@ use App\Models\Service;
  *     0 = tidak ada yang cocok (tidak ditampilkan)
  *   Dalam tier yang sama: lebih banyak token cocok dulu, lalu kode.
  *   Jumlah token selalu memengaruhi ranking: 4/4 > 2/4 > 1/4.
+ * - Sumbu ranking tersendiri: kecocokan KODE (codeScore 0/1/2) diurut
+ *   sebelum tier description agar pencarian kode ("CT001", "KMK2")
+ *   diranking berdasarkan code; presisi (unmatchedExtras: kata master
+ *   yang tak dicari, makin kecil makin baik) menjadi tie-break sebelum
+ *   kode ASC agar atribut tambahan yang tak dicari tidak mengalahkan
+ *   exact action.
  * - Mode default (klik tanpa mengetik) KETAT: partial tanpa satu pun
  *   whole-word match persis dibuang (prefix-only tidak cukup).
  *   Bila ketat menghasilkan kosong dan token >= 3, dilonggarkan sekali.
@@ -268,6 +275,73 @@ class BridgeServiceSearch
     }
 
     /**
+     * Skor kecocokan kode service terhadap query mentah, TANPA daftar kata:
+     * 2 = kode sama persis (spasi diabaikan, mis. "CT001"),
+     * 1 = salah satunya mengawali yang lain (mis. "CT00" ~ "CT001"),
+     * 0 = tidak ada hubungan kode. Dipakai sebagai sumbu ranking
+     * tersendiri agar pencarian kode diranking berdasarkan code,
+     * bukan tenggelam di ranking description.
+     */
+    public static function codeScore(string $queryRaw, ?string $code): int
+    {
+        $q = (string) preg_replace('/\s+/', '', self::normalize($queryRaw));
+        $c = (string) preg_replace('/\s+/', '', self::normalize((string) $code));
+        if ($q === '' || $c === '') {
+            return 0;
+        }
+        if ($c === $q) {
+            return 2;
+        }
+        if (str_starts_with($c, $q) || str_starts_with($q, $c)) {
+            return 1;
+        }
+
+        return 0;
+    }
+
+    /**
+     * Jumlah kata description master yang TIDAK dicari user (presisi):
+     * kata description (panjang ≥2 / digit) yang tak cocok dengan satu
+     * pun token query. Makin kecil makin baik — kandidat yang action-nya
+     * persis tanpa atribut tambahan yang tak dicari menang atas yang
+     * beratribut ekstra. Murni hitungan token, tanpa daftar kata,
+     * tanpa stopword (kata taksonomi yang sama-sama ada di semua
+     * kandidat sekeluarga saling meniadakan; yang membedakan justru
+     * kata atribut pembeda seperti peran/komponen).
+     *
+     * @param  array<int, string>  $queryTokens
+     */
+    public static function unmatchedExtras(array $queryTokens, ?string $haystack): int
+    {
+        if ($queryTokens === []) {
+            return 0;
+        }
+        $normHay = self::normalize((string) $haystack);
+        if ($normHay === '') {
+            return 0;
+        }
+        $hayWords = array_values(array_filter(
+            explode(' ', $normHay),
+            fn ($w) => mb_strlen($w) >= 2 || ctype_digit($w)
+        ));
+        $extras = 0;
+        foreach ($hayWords as $word) {
+            $hit = false;
+            foreach ($queryTokens as $token) {
+                if (self::tokenMatches($token, $word)) {
+                    $hit = true;
+                    break;
+                }
+            }
+            if (! $hit) {
+                $extras++;
+            }
+        }
+
+        return $extras;
+    }
+
+    /**
      * Nilai relevance [tier, matched, hasExact] token query terhadap
      * satu teks data. $hasExact = ada token yang sama persis dengan
      * kata data (whole-word, bukan sekadar prefix) — dipakai sebagai
@@ -380,17 +454,23 @@ class BridgeServiceSearch
      * normalisasi (mis. description "Steri Green S-22 75x75" vs master
      * "Steri Green S 22 75x75" — keduanya ternormalisasi identik).
      *
+     * Elemen ke-4 = codeScore (0/1/2, lihat codeScore()): sumbu
+     * ranking tersendiri untuk pencarian kode ("CT001", "KMK2").
+     *
      * @param  array<int, string>  $queryTokens
-     * @return array{int, int, bool} [tier, jumlah token cocok, ada exact-word]
+     * @return array{int, int, bool, int} [tier, jumlah token cocok, ada exact-word, skor kode]
      */
     public static function rankCandidate(array $queryTokens, string $queryRaw, string $code, ?string $name, ?string $description): array
     {
+        $codeScore = self::codeScore($queryRaw, $code);
         $normQuery = self::normalize($queryRaw);
         if ($normQuery !== '' && self::normalize((string) $description) === $normQuery) {
-            return [self::TIER_EXACT, count($queryTokens), true];
+            return [self::TIER_EXACT, count($queryTokens), true, $codeScore];
         }
 
-        return self::rank($queryTokens, (string) $description);
+        [$tier, $matched, $hasExact] = self::rank($queryTokens, (string) $description);
+
+        return [$tier, $matched, $hasExact, $codeScore];
     }
 
     /**
@@ -416,21 +496,26 @@ class BridgeServiceSearch
 
         $scored = [];
         foreach ($rows as $service) {
-            [$tier, $matched] = self::rankCandidate(
+            [$tier, $matched, , $codeScore] = self::rankCandidate(
                 $queryTokens, $query, $service->code, $service->name, $service->description
             );
-            if ($tier > 0) {
-                $scored[] = [$tier, $matched, (string) $service->code, $service];
+            if ($tier > 0 || $codeScore > 0) {
+                $scored[] = [$codeScore, $tier, $matched,
+                    self::unmatchedExtras($queryTokens, (string) $service->description),
+                    (string) $service->code, $service];
             }
         }
 
-        usort($scored, fn ($a, $b) => [$b[0], $b[1], $a[2]] <=> [$a[0], $a[1], $b[2]]);
+        // Urutan evidence: kecocokan kode dulu (pencarian "CT001"/"KMK2"),
+        // lalu tier + coverage description, lalu presisi (extras kecil dulu),
+        // lalu kode ASC agar deterministik.
+        usort($scored, fn ($a, $b) => [$b[0], $b[1], $b[2], $a[3], $a[4]] <=> [$a[0], $a[1], $a[2], $b[3], $b[4]]);
 
         return array_map(
             fn ($row) => [
-                'service_code' => $row[3]->code,
-                'service_name' => $row[3]->name,
-                'service_description' => $row[3]->description,
+                'service_code' => $row[5]->code,
+                'service_name' => $row[5]->name,
+                'service_description' => $row[5]->description,
             ],
             array_slice($scored, 0, $limit)
         );
@@ -474,7 +559,7 @@ class BridgeServiceSearch
 
         $scored = [];
         foreach ($rows as $service) {
-            [$descTier, $descMatched, $descExact] = self::rankCandidate(
+            [$descTier, $descMatched, $descExact, $descCode] = self::rankCandidate(
                 $descTokens, $description, $service->code, $service->name, $service->description
             );
             // Bentuk penuh kata master ("varicocelectomy" memuat
@@ -482,15 +567,20 @@ class BridgeServiceSearch
             // gerbang ketat di bawah.
             $descExtended = $descExact || self::extendsToken($descTokens, (string) $service->description);
             if ($queryTokens !== []) {
-                [$qTier, $qMatched] = self::rankCandidate(
+                [$qTier, $qMatched, , $qCode] = self::rankCandidate(
                     $queryTokens, $query, $service->code, $service->name, $service->description
                 );
-                if ($qTier === 0) {
+                if ($qTier === 0 && $qCode === 0) {
                     continue;
                 }
-                $scored[] = [$qTier, $qMatched, $descTier, $descMatched, $descExtended, (string) $service->code, $service];
-            } elseif ($descTier > 0) {
-                $scored[] = [0, 0, $descTier, $descMatched, $descExtended, (string) $service->code, $service];
+                $scored[] = [$qTier, $qMatched, $descTier, $descMatched, $descExtended,
+                    max($qCode, $descCode),
+                    self::unmatchedExtras($descTokens, (string) $service->description),
+                    (string) $service->code, $service];
+            } elseif ($descTier > 0 || $descCode > 0) {
+                $scored[] = [0, 0, $descTier, $descMatched, $descExtended, $descCode,
+                    self::unmatchedExtras($descTokens, (string) $service->description),
+                    (string) $service->code, $service];
             }
         }
 
@@ -508,17 +598,24 @@ class BridgeServiceSearch
             // else: fallback longgar (prefix partial diizinkan).
         }
 
-        usort($scored, fn ($a, $b) => [$b[0], $b[1], $b[2], $b[3], $a[5]] <=> [$a[0], $a[1], $a[2], $a[3], $b[5]]);
+        usort($scored, fn ($a, $b) => [$b[0], $b[1], $b[2], $b[3], $b[5], $a[6], $a[7]] <=> [$a[0], $a[1], $a[2], $a[3], $a[5], $b[6], $b[7]]);
 
         return array_map(
             fn ($row) => [
-                'service_code' => $row[6]->code,
-                'service_name' => $row[6]->name,
-                'service_description' => $row[6]->description,
+                'service_code' => $row[8]->code,
+                'service_name' => $row[8]->name,
+                'service_description' => $row[8]->description,
             ],
             array_slice($scored, 0, $limit)
         );
     }
+
+    /**
+     * Batas aman memori (bukan penentu relevansi): keanggotaan pool
+     * ditentukan urutan skor trigram per token di bawah, bukan
+     * urutan heap arbitrer.
+     */
+    public const MAX_CANDIDATES = 1000;
 
     /**
      * Recall pool: baris yang mengandung SALAH SATU token (OR) — hanya
@@ -526,14 +623,18 @@ class BridgeServiceSearch
      * kandidat juga wajib mengandung salah satu tokennya.
      * Token pendek (<= 2 huruf, mis. "II") dikeluarkan dari recall bila
      * ada token utama: LIKE '%ii%' mengenai ribuan baris dan bisa
-     * mendesak kandidat relevan keluar dari pool 500.
+     * mendesak kandidat relevan keluar dari pool.
      *
      * Kuota per token: tiap token mengambil jatahnya sendiri
      * (ceil(500/jumlah token)) lalu digabung — token langka ("reposisi",
      * "varicocele") dijamin kebagian pool walau token umum ("tulang",
      * "anestesi") cocok ribuan baris (kasus produksi Row 21 & Row 40:
-     * baris exact hilang total dari saran). Tanpa ORDER BY, LIMIT global
-     * selalu mengembalikan baris terlama dan menggusur yang langka.
+     * baris exact hilang total dari saran).
+     *
+     * Isi tiap kuota TERURUT SKOR trigram (PostgreSQL, memakai index
+     * GIN yang sudah ada untuk LIKE; fallback tanpa urutan di driver
+     * lain seperti sqlite) sehingga kandidat teratas per token adalah
+     * yang paling mirip — bukan baris terlama di heap.
      *
      * @param  array<int, string>  $orTokens
      * @param  array<int, string>|null  $andTokens
@@ -558,6 +659,8 @@ class BridgeServiceSearch
         }
         $quota = (int) max(50, ceil(500 / max(1, count($orTokens))));
 
+        $rankedPrefilter = Service::query()->getConnection()->getDriverName() === 'pgsql';
+
         $merged = [];
         foreach ($orTokens as $token) {
             $like = '%'.$token.'%';
@@ -577,15 +680,21 @@ class BridgeServiceSearch
                     }
                 });
             }
+            if ($rankedPrefilter) {
+                $query->orderByRaw(
+                    'GREATEST(similarity(LOWER(description), ?), similarity(LOWER(name), ?), similarity(LOWER(code), ?)) DESC',
+                    [$token, $token, $token]
+                );
+            }
 
             foreach ($query->limit($quota)->get(['code', 'name', 'description']) as $service) {
                 $merged[mb_strtoupper(trim((string) $service->code))] = $service;
             }
-            if (count($merged) >= 500) {
+            if (count($merged) >= self::MAX_CANDIDATES) {
                 break;
             }
         }
 
-        return collect(array_values($merged))->take(500)->values();
+        return collect(array_values($merged))->take(self::MAX_CANDIDATES)->values();
     }
 }
