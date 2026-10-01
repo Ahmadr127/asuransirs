@@ -25,6 +25,9 @@ class TarifBridgeRepository
     /** @var array<string, string> kode service (upper+trim) => description master */
     protected array $serviceDescMap = [];
 
+    /** @var array<string, ?string> memo "SERVICE|CLASS" => kode jenis mayoritas */
+    protected array $jenisCache = [];
+
     public function preload(): self
     {
         if ($this->loaded) {
@@ -206,6 +209,33 @@ class TarifBridgeRepository
         return DB::table('services')
             ->whereRaw('UPPER(TRIM(code)) = ?', [$serviceCode])
             ->exists();
+    }
+
+    /**
+     * Kode jenis mayoritas satu pasangan service+class (satu query kecil,
+     * di-memo per key). Dipakai mengisi New Code kategori
+     * (obat/alkes/makanan) tanpa membebani preload.
+     */
+    public function pairJenis(string $serviceCode, string $classCode): ?string
+    {
+        $key = mb_strtoupper(trim($serviceCode)).'|'.mb_strtoupper(trim($classCode));
+        if (! array_key_exists($key, $this->jenisCache)) {
+            $row = DB::table('tarifs')
+                ->join('services as s', 's.id', '=', 'tarifs.service_id')
+                ->join('classes as c', 'c.id', '=', 'tarifs.class_id')
+                ->leftJoin('jenis_tarifs as jt', 'jt.id', '=', 'tarifs.jenis_tarif_id')
+                ->whereRaw('UPPER(TRIM(s.code)) = ?', [mb_strtoupper(trim($serviceCode))])
+                ->whereRaw('UPPER(TRIM(c.code)) = ?', [mb_strtoupper(trim($classCode))])
+                ->selectRaw("UPPER(TRIM(COALESCE(jt.code, ''))) AS jc")
+                ->selectRaw('COUNT(*) AS n')
+                ->groupBy('jc')
+                ->orderByDesc('n')
+                ->first();
+            $jc = trim((string) ($row->jc ?? ''));
+            $this->jenisCache[$key] = $jc !== '' ? $jc : null;
+        }
+
+        return $this->jenisCache[$key];
     }
 
     /**

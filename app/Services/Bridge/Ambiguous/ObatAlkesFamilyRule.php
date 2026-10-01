@@ -3,17 +3,16 @@
 namespace App\Services\Bridge\Ambiguous;
 
 /**
- * Satu file kondisi famili obat/alkes untuk jalur AMBIGUOUS.
+ * Satu file kondisi famili obat/alkes/makanan untuk jalur AMBIGUOUS.
  *
- * Kode lama Excel untuk obat/alat kesehatan sering generik ("OBAT")
- * atau berseri ("OBT...", "ALK...", "ALKES..."), sementara master
- * memuat seri ganda untuk barang yang sama (mis. OBT02429 vs
- * ALK00415 "Isorane" dengan tarif beda jauh karena satuan berbeda).
- * Bila kode lama memetakan ke famili OBT/ALK, kandidat se-famili
- * diutamakan — tarif saja tidak boleh menyeberangkan famili.
- *
- * Tanpa pola famili pada kode lama: tidak berpengaruh sama sekali
- * (semua kandidat bernilai 0) sehingga perilaku lama persis.
+ * - familyOf/matches: kode lama Excel ("OBAT", "OBT...", "ALK...",
+ *   "MAKANAN", "MKN...") memetakan ke famili OBT/ALK/MKN; kandidat
+ *   se-famili diutamakan di ranking. Tanpa pola famili: tidak
+ *   berpengaruh sama sekali.
+ * - categoryForJenis: kategori tarif ("obat" → "OBAT",
+ *   "makanan" → "MAKANAN", "alkes"/"alat kesehatan" →
+ *   "ALAT KESEHATAN") dipakai mengisi New Code. Batas kata dipakai
+ *   agar "peralatan" tidak terbaca sebagai alat kesehatan.
  */
 final class ObatAlkesFamilyRule
 {
@@ -21,10 +20,12 @@ final class ObatAlkesFamilyRule
 
     public const FAMILY_ALK = 'ALK';
 
+    public const FAMILY_MKN = 'MKN';
+
     /**
-     * Famili kode lama (OBT/ALK), null bila tidak berpola famili.
+     * Famili kode lama (OBT/ALK/MKN), null bila tidak berpola famili.
      * "OBAT" → OBT (mengandung kata OBAT); "OBT..." → OBT;
-     * "ALK...", "ALKES..." → ALK.
+     * "ALK...", "ALKES..." → ALK; "MAKANAN"/"MKN..." → MKN.
      */
     public static function familyOf(?string $code): ?string
     {
@@ -37,6 +38,9 @@ final class ObatAlkesFamilyRule
         }
         if (str_starts_with($norm, self::FAMILY_ALK)) {
             return self::FAMILY_ALK;
+        }
+        if (str_starts_with($norm, self::FAMILY_MKN) || str_contains($norm, 'MAKAN')) {
+            return self::FAMILY_MKN;
         }
 
         return null;
@@ -53,5 +57,24 @@ final class ObatAlkesFamilyRule
         $norm = (string) preg_replace('/[^A-Z0-9]/', '', mb_strtoupper(trim((string) $candidateCode)));
 
         return $norm !== '' && str_starts_with($norm, $family);
+    }
+
+    /**
+     * Label kategori dari jenis tarif, null untuk kategori lain.
+     */
+    public static function categoryForJenis(?string $jenis): ?string
+    {
+        $norm = ' '.(string) preg_replace('/[^A-Z0-9]+/', ' ', mb_strtoupper(trim((string) $jenis))).' ';
+        if (str_contains($norm, ' OBAT ')) {
+            return 'OBAT';
+        }
+        if (str_contains($norm, ' MAKAN')) {
+            return 'MAKANAN';
+        }
+        if (str_contains($norm, ' ALKES ') || str_contains($norm, ' ALAT ')) {
+            return 'ALAT KESEHATAN';
+        }
+
+        return null;
     }
 }

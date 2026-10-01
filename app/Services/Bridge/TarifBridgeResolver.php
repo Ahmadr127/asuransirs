@@ -5,6 +5,7 @@ namespace App\Services\Bridge;
 use App\Services\Bridge\Ambiguous\AmbiguousRanker;
 use App\Services\Bridge\Ambiguous\AmbiguousRepository;
 use App\Services\Bridge\Ambiguous\AmbiguousResolver;
+use App\Services\Bridge\Ambiguous\ObatAlkesFamilyRule;
 use App\Services\Bridge\NotFound\NotFoundRepository;
 use App\Services\Bridge\NotFound\NotFoundResolver;
 
@@ -128,11 +129,20 @@ class TarifBridgeResolver
             // status tetap AMBIGUOUS, suggested tetap null agar
             // badge/ringkasan "ada saran" tidak ikut terhitung).
             $top = $suggested ?? ($disambiguated->ranked[0] ?? null);
+            // Kategori tarif menentukan New Code: obat → "OBAT",
+            // makanan → "MAKANAN", alkes → "ALAT KESEHATAN".
+            // Kategori lain memakai kode kandidat seperti semula.
+            $topCode = $top['service_code'] ?? null;
+            $topJenis = $this->repository->pairJenis(
+                (string) ($top['service_code'] ?? ''),
+                (string) ($top['class_code'] ?? '')
+            );
+            $topCode = ObatAlkesFamilyRule::categoryForJenis($topJenis) ?? $topCode;
 
             return [
                 'status' => self::STATUS_AMBIGUOUS,
                 'candidates' => $disambiguated->ranked,
-                'new_service_code' => $top['service_code'] ?? null,
+                'new_service_code' => $topCode,
                 'new_class_code' => $suggested['class_code'] ?? $masterClassCode,
                 'new_service_description' => self::candidateDescription($top),
                 'suggested' => $suggested,
@@ -143,10 +153,17 @@ class TarifBridgeResolver
             ];
         }
 
+        // Kategori tarif menentukan New Code: obat → "OBAT",
+        // makanan → "MAKANAN", alkes → "ALAT KESEHATAN".
+        $matchedCode = $candidates[0]['service_code'];
+        $matchedCode = ObatAlkesFamilyRule::categoryForJenis(
+            $this->repository->pairJenis($matchedCode, $candidates[0]['class_code'] ?? '')
+        ) ?? $matchedCode;
+
         return [
             'status' => self::STATUS_MATCHED,
             'candidates' => $candidates,
-            'new_service_code' => $candidates[0]['service_code'],
+            'new_service_code' => $matchedCode,
             'new_class_code' => $candidates[0]['class_code'],
             'new_service_description' => self::candidateDescription($candidates[0]),
             'suggested' => null,

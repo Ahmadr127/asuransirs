@@ -2,6 +2,8 @@
 
 namespace App\Services\Bridge;
 
+use App\Services\Bridge\Ambiguous\ObatAlkesFamilyRule;
+
 /**
  * Loop baris Excel: normalisasi -> resolve -> kumpulkan ringkasan,
  * grup ambigu (per mapping key), dan sampel preview.
@@ -225,7 +227,12 @@ class BridgeTarifProcessor
             if ((int) ($top['desc_matched'] ?? 0) < 2 && ! $strongSingle) {
                 continue;
             }
-            $groups[$key]['top_service'] = $top['service_code'];
+            $groups[$key]['top_service'] = ObatAlkesFamilyRule::categoryForJenis(
+                $this->resolver->repository()->pairJenis(
+                    (string) ($top['service_code'] ?? ''),
+                    (string) ($top['class_code'] ?? '')
+                )
+            ) ?? $top['service_code'];
             $groups[$key]['top_service_description'] = TarifBridgeResolver::candidateDescription($top)
                 ?? $this->resolver->repository()->serviceDescription((string) $top['service_code']);
             $codes = array_values(array_filter(array_unique(array_map(
