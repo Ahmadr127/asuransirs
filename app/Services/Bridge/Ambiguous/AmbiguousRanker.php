@@ -53,6 +53,10 @@ final class AmbiguousRanker
         if ($excelTariff !== null && $excelTariff <= 0) {
             $excelTariff = null;
         }
+        // Famili obat/alkes dari kode lama Excel ("OBAT" → OBT, "ALK.."
+        // → ALK): kandidat se-famili diutamakan. null bila kode lama tak
+        // berpola famili — maka semua kandidat 0 dan urutan persis lama.
+        $family = ObatAlkesFamilyRule::familyOf((string) ($normalized['service_code'] ?? ''));
 
         $ranked = [];
         foreach ($candidates as $candidate) {
@@ -65,11 +69,17 @@ final class AmbiguousRanker
             $ranked[] = array_merge($candidate, [
                 '_class_match' => $classMatch,
                 '_tariff_diff' => $tariffDiff,
+                '_family_match' => ObatAlkesFamilyRule::matches($family, (string) ($candidate['service_code'] ?? '')) ? 1 : 0,
                 '_score' => $classMatch * self::WEIGHT_CLASS + $tariffScore * self::WEIGHT_TARIFF,
             ]);
         }
 
         usort($ranked, function ($a, $b) {
+            // Famili dulu (hanya berpengaruh bila kode lama berpola
+            // OBT/ALK), lalu skor kelas+tarif seperti semula.
+            if ($a['_family_match'] !== $b['_family_match']) {
+                return $b['_family_match'] <=> $a['_family_match'];
+            }
             if ($a['_score'] !== $b['_score']) {
                 return $b['_score'] <=> $a['_score'];
             }
@@ -112,10 +122,27 @@ final class AmbiguousRanker
         $second = $ranked[1];
         $bestDiff = $best['_tariff_diff'] ?? null;
         $secondDiff = $second['_tariff_diff'] ?? null;
-        if ($bestDiff === null || $bestDiff > self::TARIFF_EXACT_TOLERANCE) {
+        if ($bestDiff === null) {
             return null;
         }
         if (($best['_class_match'] ?? 0) < ($second['_class_match'] ?? 0)) {
+            return null;
+        }
+        // Famili obat/alkes: kandidat se-famili kode lama yang tarifnya
+        // juga paling dekat langsung disarankan (walau di luar toleransi
+        // 1%) — famili + tarif searah adalah bukti cukup. Selisih di bawah
+        // 5pp dianggap noise (kasus Row 70: OBT 3,45% vs ALK 3,42%,
+        // beda 0,03pp) sehingga famili yang memutuskan; bila tarif
+        // runner-up jelas lebih dekat (> 5pp), saran ditahan untuk
+        // manual karena tarif sungguh kontradiksi famili.
+        $bestFam = ($best['_family_match'] ?? 0) === 1;
+        $secondFam = ($second['_family_match'] ?? 0) === 1;
+        if ($bestFam && ! $secondFam && ($secondDiff === null || ($secondDiff - $bestDiff) > -self::TARIFF_MIN_GAP)) {
+            $best['_decided_by'] = 'family';
+
+            return $best;
+        }
+        if ($bestDiff > self::TARIFF_EXACT_TOLERANCE) {
             return null;
         }
         $requiredGap = $bestDiff <= 1e-9 ? self::TARIFF_MIN_GAP_WHEN_EXACT : self::TARIFF_MIN_GAP;
@@ -154,6 +181,10 @@ final class AmbiguousRanker
         );
         $base = "Ditemukan {$n} kandidat master dengan description + kelas yang sama setelah normalisasi, sehingga baris ini berstatus AMBIGUOUS dan tidak otomatis dipetakan. ";
         $base .= 'Kandidat diurutkan berdasarkan kecocokan kode kelas lama Excel (bobot 1,0) dan kedekatan tarif efektif vs tarif master (bobot 2,0). ';
+        $family = ObatAlkesFamilyRule::familyOf((string) ($normalized['service_code'] ?? ''));
+        if ($family !== null) {
+            $base .= "Kode lama Excel berpola obat/alkes ({$family}), sehingga kandidat se-famili diutamakan di urutan teratas. ";
+        }
 
         if ($excelTariff === null || $excelTariff <= 0) {
             return $base.'Tarif tidak tersedia (TARIFF kosong dan TOTAL BILLED ÷ QUANTITY tidak bisa dihitung) sehingga pembanding tarif tidak digunakan — urutan hanya mengandalkan kecocokan kelas lalu kode service. Lengkapi tarif atau pilih manual.';
@@ -166,6 +197,9 @@ final class AmbiguousRanker
             $reason = "selisih tarif {$pct} terhadap tarif efektif Rp ".number_format($excelTariff, 0, ',', '.')." sumber {$sourceLabel}, paling dekat dan gap jelas dari kandidat lain";
             if (($suggested['_decided_by'] ?? null) === 'top_rank') {
                 $reason = "tarif seri dalam toleransi (selisih {$pct}), diambil peringkat teratas ranking";
+            }
+            if (($suggested['_decided_by'] ?? null) === 'family') {
+                $reason = "famili kode {$family} sama dengan pola kode lama Excel dan tarifnya paling dekat (selisih {$pct})";
             }
 
             return $base."Rekomendasi: {$code} ({$reason}). Rekomendasi ini langsung masuk ke New Code, tetapi status tetap AMBIGUOUS — periksa dan timpa via manual bila tidak setuju.";

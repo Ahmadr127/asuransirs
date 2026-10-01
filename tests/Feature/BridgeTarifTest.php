@@ -10,6 +10,7 @@ use App\Models\Service;
 use App\Models\ServiceClass;
 use App\Models\Tarif;
 use App\Models\User;
+use App\Services\Bridge\Ambiguous\AmbiguousRanker;
 use App\Services\Bridge\BridgeTarifService;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Cache;
@@ -2364,6 +2365,56 @@ class BridgeTarifTest extends TestCase
         $this->assertCount(2, $row['candidates']);
         $this->assertNull($row['suggested']);
         $this->assertNotEmpty($row['analysis']);
+    }
+
+    public function test_ambiguous_obat_old_code_prefers_obt_family(): void
+    {
+        // Kode lama "OBAT" + 2 kandidat se-deskripsi beda seri: OBT
+        // menang walau tarifnya lebih jauh dari ALK, dan langsung
+        // disarankan karena famili + tarif searah.
+        $ranker = new AmbiguousRanker();
+        $candidates = [
+            ['service_code' => 'ALK00415', 'service_name' => 'Isorane', 'class_code' => 'KL1', 'class_name' => 'KELAS 1', 'tariffs' => [2564100.0], 'tariff' => 2564100.0],
+            ['service_code' => 'OBT02429', 'service_name' => 'Isorane', 'class_code' => 'KL1', 'class_name' => 'KELAS 1', 'tariffs' => [11189.0], 'tariff' => 11189.0],
+        ];
+        $normalized = ['service_code' => 'OBAT', 'service_class_code' => '4', 'effective_tariff' => 9590.0, 'tariff' => 9590.0, 'tariff_source' => 'excel'];
+
+        $ranked = $ranker->rank($candidates, $normalized);
+        $this->assertSame('OBT02429', $ranked[0]['service_code']);
+        $this->assertSame(1, $ranked[0]['_family_match']);
+        $this->assertSame(0, $ranked[1]['_family_match']);
+
+        $suggested = $ranker->shouldAutoMatch($ranked, $normalized);
+        $this->assertNotNull($suggested);
+        $this->assertSame('OBT02429', $suggested['service_code']);
+        $this->assertSame('family', $suggested['_decided_by']);
+
+        // Kontrol: kode lama tanpa pola famili → perilaku tarif semula.
+        $plain = $normalized;
+        $plain['service_code'] = 'OLD-X';
+        $rankedPlain = $ranker->rank($candidates, $plain);
+        $this->assertSame(0, $rankedPlain[0]['_family_match']);
+        $this->assertSame(0, $rankedPlain[1]['_family_match']);
+    }
+
+    public function test_ambiguous_obat_family_wins_tariff_noise(): void
+    {
+        // Row 70: OBT 3,45% vs ALK 3,42% (beda 0,03pp = noise) — famili
+        // OBT yang memutuskan saran, bukan selisih terkecil.
+        $ranker = new AmbiguousRanker();
+        $candidates = [
+            ['service_code' => 'ALK00400', 'service_name' => 'Infusan Ring As SP-JS', 'class_code' => 'KL1', 'class_name' => 'KELAS 1', 'tariffs' => [12278.0], 'tariff' => 12278.0],
+            ['service_code' => 'OBT02252', 'service_name' => 'Infusan Ring As SP-JS', 'class_code' => 'KL1', 'class_name' => 'KELAS 1', 'tariffs' => [12275.0], 'tariff' => 12275.0],
+        ];
+        $normalized = ['service_code' => 'OBAT', 'service_class_code' => '4', 'effective_tariff' => 12713.0, 'tariff' => 12713.0, 'tariff_source' => 'excel'];
+
+        $ranked = $ranker->rank($candidates, $normalized);
+        $this->assertSame('OBT02252', $ranked[0]['service_code']);
+
+        $suggested = $ranker->shouldAutoMatch($ranked, $normalized);
+        $this->assertNotNull($suggested);
+        $this->assertSame('OBT02252', $suggested['service_code']);
+        $this->assertSame('family', $suggested['_decided_by']);
     }
 
     public function test_notfound_preview_has_analysis(): void

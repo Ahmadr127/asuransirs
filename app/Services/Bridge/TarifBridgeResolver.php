@@ -122,13 +122,19 @@ class TarifBridgeResolver
             // ke file hasil generate; user tetap bisa menimpa via manual.
             $disambiguated = $this->ambiguous->resolve($normalized, $candidates);
             $suggested = $disambiguated->suggested;
+            // New Code tidak boleh kosong: bila tak ada saran yang cukup
+            // yakin, service + description diisi peringkat teratas sebagai
+            // acuan (kelas tetap dari master via nama kelas seperti semula;
+            // status tetap AMBIGUOUS, suggested tetap null agar
+            // badge/ringkasan "ada saran" tidak ikut terhitung).
+            $top = $suggested ?? ($disambiguated->ranked[0] ?? null);
 
             return [
                 'status' => self::STATUS_AMBIGUOUS,
                 'candidates' => $disambiguated->ranked,
-                'new_service_code' => $suggested['service_code'] ?? null,
+                'new_service_code' => $top['service_code'] ?? null,
                 'new_class_code' => $suggested['class_code'] ?? $masterClassCode,
-                'new_service_description' => self::candidateDescription($suggested),
+                'new_service_description' => self::candidateDescription($top),
                 'suggested' => $suggested,
                 'suggested_applied' => $suggested !== null,
                 'analysis' => $disambiguated->reason,
