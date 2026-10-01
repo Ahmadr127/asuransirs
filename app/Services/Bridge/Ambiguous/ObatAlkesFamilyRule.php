@@ -72,7 +72,10 @@ final class ObatAlkesFamilyRule
             return 'MAKANAN';
         }
         if (str_contains($norm, ' ALKES ') || str_contains($norm, ' ALAT ')) {
-            return 'ALAT KESEHATAN';
+            return 'ALKES';
+        }
+        if (str_contains($norm, ' BHP ')) {
+            return 'BHP';
         }
 
         return null;
