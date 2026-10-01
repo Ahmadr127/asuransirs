@@ -22,6 +22,8 @@ final class ObatAlkesFamilyRule
 
     public const FAMILY_MKN = 'MKN';
 
+    public const FAMILY_BHP = 'BHP';
+
     /**
      * Famili kode lama (OBT/ALK/MKN), null bila tidak berpola famili.
      * "OBAT" → OBT (mengandung kata OBAT); "OBT..." → OBT;
@@ -41,6 +43,9 @@ final class ObatAlkesFamilyRule
         }
         if (str_starts_with($norm, self::FAMILY_MKN) || str_contains($norm, 'MAKAN')) {
             return self::FAMILY_MKN;
+        }
+        if (str_starts_with($norm, self::FAMILY_BHP)) {
+            return self::FAMILY_BHP;
         }
 
         return null;
