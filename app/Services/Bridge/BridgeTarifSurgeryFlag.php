@@ -67,12 +67,33 @@ final class BridgeTarifSurgeryFlag
 
     /**
      * True bila header kolom adalah kolom LoS (Length of Stay) yang
-     * wajib dibuang dari file hasil generate.
+     * dipertahankan di file hasil generate (teks days dibersihkan).
      */
     public static function isLosHeader(?string $header): bool
     {
         $norm = BridgeTarifExcelReader::normalizeHeader((string) $header);
 
         return $norm === 'los' || str_contains($norm, 'lengthofstay');
+    }
+
+    /**
+     * Bersihkan value kolom LoS: buang teks "day"/"days"
+     * case-insensitive bila ada. "3 days" -> "3", "5 Days" -> "5",
+     * "2days" -> "2". Value tanpa teks tersebut dikembalikan
+     * apa adanya (trim).
+     */
+    public static function cleanLosValue(mixed $value): string
+    {
+        $text = trim((string) $value);
+        if ($text === '') {
+            return '';
+        }
+        if (! preg_match('/days?/i', $text)) {
+            return $text;
+        }
+        $cleaned = (string) preg_replace('/days?/i', '', $text);
+        $cleaned = (string) preg_replace('/\s+/', ' ', trim($cleaned));
+
+        return trim($cleaned, " \t\n\r\0\x0B-.,");
     }
 }

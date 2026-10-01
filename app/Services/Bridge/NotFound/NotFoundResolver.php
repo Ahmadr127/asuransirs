@@ -26,6 +26,28 @@ final class NotFoundResolver
         return NotFoundResult::manual();
     }
 
+    /**
+     * Keyword pencarian yang dipakai untuk satu description: hasil
+     * rewrite RoomCharge / Visite, atau inti tindakan (coreAction).
+     * Dipakai modal analisa row agar user tahu query apa yang
+     * sebenarnya dijalankan saat mencari saran master.
+     *
+     * @return array{query: string, rule: string} rule: room_charge|visite|core
+     */
+    public function searchQueryFor(string $description, ?string $className = null): array
+    {
+        $room = RoomChargeQueryRule::rewrite($description, $className);
+        if ($room !== null) {
+            return ['query' => $room, 'rule' => 'room_charge'];
+        }
+        $visite = VisiteQueryRule::rewrite($description);
+        if ($visite !== null) {
+            return ['query' => $visite, 'rule' => 'visite'];
+        }
+
+        return ['query' => $this->coreAction($description), 'rule' => 'core'];
+    }
+
     public function suggest(
         string $description,
         ?string $query = null,
@@ -33,18 +55,35 @@ final class NotFoundResolver
         ?float $effectiveTariff = null,
         int $limit = 20,
     ): array {
-   
-        $searchDesc = RoomChargeQueryRule::rewrite($description, $className)
-            ?? VisiteQueryRule::rewrite($description)
-            ?? $this->coreAction($description);
+        return $this->suggestWithMeta($description, $query, $className, $effectiveTariff, $limit)['services'];
+    }
+
+    /**
+     * Sama seperti suggest(), plus keyword pencarian yang efektif
+     * dipakai (termasuk fallback ke description asli bila rewrite
+     * menghasilkan kosong). Untuk modal analisa row.
+     *
+     * @return array{services: array, search_query: string, search_rule: string}
+     */
+    public function suggestWithMeta(
+        string $description,
+        ?string $query = null,
+        ?string $className = null,
+        ?float $effectiveTariff = null,
+        int $limit = 20,
+    ): array {
+        $meta = $this->searchQueryFor($description, $className);
+        $searchDesc = $meta['query'];
+        $searchRule = $meta['rule'];
 
         $services = BridgeServiceSearch::similar($searchDesc, $query, $limit * 2);
         if ($services === [] && $searchDesc !== $description) {
             $searchDesc = $description;
+            $searchRule = 'fallback_original';
             $services = BridgeServiceSearch::similar($searchDesc, $query, $limit * 2);
         }
         if ($services === []) {
-            return [];
+            return ['services' => [], 'search_query' => $searchDesc, 'search_rule' => $searchRule];
         }
         $className = $className !== null && trim($className) !== '' ? trim($className) : null;
         $effectiveTariff = is_numeric($effectiveTariff) && (float) $effectiveTariff > 0
@@ -52,7 +91,11 @@ final class NotFoundResolver
             : null;
 
         if ($className === null && $effectiveTariff === null) {
-            return array_slice($services, 0, $limit);
+            return [
+                'services' => array_slice($services, 0, $limit),
+                'search_query' => $searchDesc,
+                'search_rule' => $searchRule,
+            ];
         }
 
         $byCode = [];
@@ -255,12 +298,14 @@ final class NotFoundResolver
 
         $ranked = KamarSiblingRule::promote($ranked, $roleHint, $queryTokens);
 
-        return array_map(function ($row) {
+        $services = array_map(function ($row) {
             unset($row['_order'], $row['eff_q_tier'], $row['eff_desc_tier'], $row['q_tier'], $row['q_matched'], $row['q_exact'], $row['desc_exact']);
 
 
             return $row;
         }, $this->diverseSlice($ranked, $limit));
+
+        return ['services' => $services, 'search_query' => $searchDesc, 'search_rule' => $searchRule];
     }
 
    
@@ -331,6 +376,21 @@ final class NotFoundResolver
         ?float $effectiveTariff = null,
         int $limit = 10,
     ): array {
+        return $this->suggestKamarSiblingWithMeta($anchorDesc, $className, $effectiveTariff, $limit)['services'];
+    }
+
+    /**
+     * Sama seperti suggestKamarSibling(), plus keyword pencarian
+     * efektif. Untuk modal analisa row.
+     *
+     * @return array{services: array, search_query: string, search_rule: string}
+     */
+    public function suggestKamarSiblingWithMeta(
+        string $anchorDesc,
+        ?string $className = null,
+        ?float $effectiveTariff = null,
+        int $limit = 10,
+    ): array {
         $proc = self::stripDoctorMentions($anchorDesc);
         $proc = trim($proc);
         if (str_contains($proc, ' - ')) {
@@ -353,16 +413,19 @@ final class NotFoundResolver
             $tokens = BridgeServiceSearch::contentWords($proc);
         }
         if ($tokens === []) {
-            return [];
+            return ['services' => [], 'search_query' => $anchorDesc, 'search_rule' => 'kamar_sibling_empty'];
         }
 
-        return $this->suggest(
-            implode(' ', $tokens).' - Kamar Operasi',
+        $siblingQuery = implode(' ', $tokens).' - Kamar Operasi';
+        $meta = $this->suggestWithMeta(
+            $siblingQuery,
             null,
             $className,
             $effectiveTariff,
             $limit,
         );
+
+        return ['services' => $meta['services'], 'search_query' => $siblingQuery, 'search_rule' => 'kamar_sibling'];
     }
 
 

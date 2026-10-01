@@ -11,9 +11,11 @@ use PhpOffice\PhpSpreadsheet\IOFactory;
  * SERVICECODE + DESCRIPTION diganti untuk row MATCHED + row
  * AMBIGUOUS/NOT_FOUND yang sarannya langsung dimasukkan
  * (suggested_applied). Kolom RUANG BEDAH diisi OK / NON OK untuk
- * semua row berdasarkan deskripsi. Kolom LoS dibuang dari file
- * hasil. Kolom PROVID / PROVIDER_NAME yang kosong diisi provider
- * default (config bridge); sel yang sudah terisi tidak diubah.
+ * semua row berdasarkan deskripsi. Kolom LoS dipertahankan; bila
+ * value-nya memuat teks "days"/"day" maka teks tersebut dibuang
+ * (mis. "3 days" -> "3"). Kolom PROVID / PROVIDER_NAME yang kosong
+ * diisi provider default (config bridge); sel yang sudah terisi
+ * tidak diubah.
  */
 class BridgeTarifExcelWriter
 {
@@ -54,8 +56,7 @@ class BridgeTarifExcelWriter
                 if ($decision['new_class_code'] !== null) {
                     $sheet->setCellValue([$classCol + 1, $excelRow], $decision['new_class_code']);
                 }
-                // RUANG BEDAH: OK / NON OK untuk semua row (flag sudah
-                // dihitung processor dari deskripsi yang tertulis).
+
                 if ($surgeryCol !== null && isset($decision['surgery_flag'])) {
                     $sheet->setCellValue([$surgeryCol + 1, $excelRow], $decision['surgery_flag']);
                 }
@@ -72,9 +73,7 @@ class BridgeTarifExcelWriter
                 }
             }
 
-            // Kolom LoS dibuang dari file hasil (terakhir agar index
-            // kolom $map yang dipakai di atas tidak bergeser).
-            self::removeLosColumns($sheet);
+            self::cleanLosColumns($sheet);
 
             $writer = IOFactory::createWriter($spreadsheet, 'Xlsx');
             $writer->save($outputPath);
@@ -83,25 +82,30 @@ class BridgeTarifExcelWriter
         }
     }
 
-    /**
-     * Hapus kolom LoS (Length of Stay) dari sheet berdasarkan header
-     * baris 1. Dari kanan ke kiri agar index tidak bergeser.
-     *
-     * @param  \PhpOffice\PhpSpreadsheet\Worksheet\Worksheet  $sheet
-     */
-    protected static function removeLosColumns($sheet): void
+ 
+    protected static function cleanLosColumns($sheet): void
     {
         $highest = $sheet->getHighestColumn();
         $maxCol = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::columnIndexFromString($highest);
+        $highestRow = $sheet->getHighestRow();
         $losCols = [];
         for ($col = 1; $col <= $maxCol; $col++) {
             if (BridgeTarifSurgeryFlag::isLosHeader((string) $sheet->getCell([$col, 1])->getValue())) {
                 $losCols[] = $col;
             }
         }
-        rsort($losCols);
         foreach ($losCols as $col) {
-            $sheet->removeColumnByIndex($col);
+            for ($row = 2; $row <= $highestRow; $row++) {
+                $cell = $sheet->getCell([$col, $row]);
+                $value = $cell->getValue();
+                if ($value === null || $value === '') {
+                    continue;
+                }
+                $cleaned = BridgeTarifSurgeryFlag::cleanLosValue($value);
+                if ($cleaned !== trim((string) $value)) {
+                    $sheet->setCellValue([$col, $row], $cleaned);
+                }
+            }
         }
     }
 }

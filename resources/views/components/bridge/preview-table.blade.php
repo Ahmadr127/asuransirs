@@ -60,6 +60,9 @@
             'new_service_description' => $row['new_service_description'] ?? null,
             'new_class_code' => $row['new_class_code'] ?? null,
             'analysis' => $row['analysis'] ?? null,
+            // Keyword pencarian efektif untuk saran master (NOT_FOUND).
+            'search_query' => $row['search_query'] ?? null,
+            'search_rule' => $row['search_rule'] ?? null,
             'suggested' => $suggested ? [
                 'service_code' => $suggested['service_code'] ?? '-',
                 'service_description' => $suggested['service_description'] ?? $suggested['service_name'] ?? null,
@@ -275,6 +278,17 @@
         if (q === null || q === undefined || q === '') return '-';
         return esc(String(q));
     }
+    // Label asal keyword pencarian saran master (NOT_FOUND).
+    function searchRuleLabel(rule) {
+        return {
+            'room_charge': 'Room Charge → Kamar Perawatan',
+            'visite': 'Visite → frasa kanonis',
+            'core': 'Inti tindakan',
+            'fallback_original': 'Deskripsi asli (fallback)',
+            'kamar_sibling': 'Saudara kamar (jangkar prosedur)',
+            'kamar_sibling_empty': 'Saudara kamar (jangkar kosong)'
+        }[rule] || rule;
+    }
     function renderBody(d) {
         var excelTariff = excelTariffLabel(d);
         var html = '<div class="flex flex-col gap-3 text-sm">'
@@ -290,6 +304,17 @@
             + '<div class="border rounded-md p-2"><p class="font-semibold text-gray-500">Quantity</p><p class="font-mono">' + qtyLabel(d.quantity) + '</p></div>'
             + '<div class="border rounded-md p-2"><p class="font-semibold text-gray-500">Mapping Key</p><p class="font-mono break-all">' + esc(d.mapping_key || '-') + '</p></div>'
             + '</div>';
+        // Keyword pencarian yang dipakai untuk saran master + teks analisa.
+        if (d.search_query) {
+            html += '<div class="border border-violet-300 bg-violet-50 rounded-md p-2.5 text-xs">'
+                + '<p class="font-semibold text-violet-700">Keyword Pencarian Saran'
+                + (d.search_rule ? ' <span class="font-normal text-violet-500">(' + esc(searchRuleLabel(d.search_rule)) + ')</span>' : '')
+                + '</p>'
+                + '<p class="font-mono font-semibold text-violet-900 break-words mt-0.5">' + esc(d.search_query) + '</p></div>';
+        }
+        if (d.analysis) {
+            html += '<div class="text-xs bg-gray-50 border border-gray-200 rounded-md p-2.5 text-gray-700">' + esc(d.analysis) + '</div>';
+        }
         if (d.status === 'AMBIGUOUS') {
             html += '<div><p class="text-xs font-semibold text-gray-600 mb-1">Perbandingan Kandidat (' + d.candidates.length + ')</p>'
                 + '<div class="mb-1.5 text-xs bg-teal-50 border border-teal-300 rounded-md px-2.5 py-1.5">Tarif Pembanding (efektif): <span class="font-bold font-mono">' + esc(effectiveLabel(d)) + '</span> <span class="text-teal-700">— Sumber: ' + esc(d.tariff_source_label || 'tidak tersedia') + '</span></div>'

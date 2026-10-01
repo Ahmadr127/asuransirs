@@ -66,7 +66,7 @@ class TarifBridgeResolver
 
     /**
      * @param  array<string, mixed>  $normalized  hasil RowNormalizer
-     * @return array{status: string, candidates: array, new_service_code: ?string, new_class_code: ?string, new_service_description: ?string, suggested: ?array, suggested_applied: bool, analysis: ?string}
+     * @return array{status: string, candidates: array, new_service_code: ?string, new_class_code: ?string, new_service_description: ?string, suggested: ?array, suggested_applied: bool, analysis: ?string, search_query: ?string, search_rule: ?string}
      */
     public function resolve(array $normalized): array
     {
@@ -88,12 +88,19 @@ class TarifBridgeResolver
                 'suggested' => null,
                 'suggested_applied' => false,
                 'analysis' => 'Baris tidak lengkap: description atau kelas kosong setelah normalisasi, sehingga tidak bisa dicari di master. Lengkapi kedua kolom tersebut di Excel lalu scan ulang.',
+                'search_query' => null,
+                'search_rule' => null,
             ];
         }
 
         $candidates = $this->repository->candidatesFor($normalized['mapping_key']);
 
         if ($candidates === []) {
+            $searchMeta = $this->notFound()->searchQueryFor(
+                (string) ($normalized['service_description'] ?? ''),
+                trim((string) ($normalized['class_name'] ?? '')) !== '' ? (string) $normalized['class_name'] : null
+            );
+
             return [
                 'status' => self::STATUS_NOT_FOUND,
                 'candidates' => [],
@@ -103,6 +110,8 @@ class TarifBridgeResolver
                 'suggested' => null,
                 'suggested_applied' => false,
                 'analysis' => $this->notFound()->explain($normalized, $masterClassCode),
+                'search_query' => $searchMeta['query'],
+                'search_rule' => $searchMeta['rule'],
             ];
         }
 
@@ -123,6 +132,8 @@ class TarifBridgeResolver
                 'suggested' => $suggested,
                 'suggested_applied' => $suggested !== null,
                 'analysis' => $disambiguated->reason,
+                'search_query' => null,
+                'search_rule' => null,
             ];
         }
 
@@ -135,6 +146,8 @@ class TarifBridgeResolver
             'suggested' => null,
             'suggested_applied' => false,
             'analysis' => null,
+            'search_query' => null,
+            'search_rule' => null,
         ];
     }
 

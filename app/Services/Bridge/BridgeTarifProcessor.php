@@ -145,6 +145,9 @@ class BridgeTarifProcessor
                     'suggested' => $resolved['suggested'] ?? null,
                     'suggested_applied' => $resolved['suggested_applied'] ?? false,
                     'analysis' => $resolved['analysis'] ?? null,
+                    // Keyword pencarian efektif (NOT_FOUND) untuk modal analisa.
+                    'search_query' => $resolved['search_query'] ?? null,
+                    'search_rule' => $resolved['search_rule'] ?? null,
                 ]);
             }
         }
@@ -166,13 +169,16 @@ class BridgeTarifProcessor
             }
             $tariff = $groups[$key]['tariff_ref']['tariff'] ?? null;
             $kelas = trim((string) ($group['kelas'] ?? ''));
-            $groups[$key]['suggestions'] = $this->resolver->notFound()->suggest(
+            $meta = $this->resolver->notFound()->suggestWithMeta(
                 (string) $group['description'],
                 null,
                 $kelas !== '' ? $kelas : null,
                 is_numeric($tariff) ? (float) $tariff : null,
                 10,
             );
+            $groups[$key]['suggestions'] = $meta['services'];
+            $groups[$key]['search_query'] = $meta['search_query'];
+            $groups[$key]['search_rule'] = $meta['search_rule'];
         }
 
         // Fase JANGKAR se-kasus (kasus 868-1): grup kamar TANPA prosedur
@@ -257,6 +263,12 @@ class BridgeTarifProcessor
             if (($row['status'] ?? '') === TarifBridgeResolver::STATUS_NOT_FOUND) {
                 $key = $row['mapping_key'];
                 $preview[$i]['suggestions'] = $groups[$key]['suggestions'] ?? [];
+                // Keyword pencarian efektif milik grup (hasil rewrite +
+                // fallback aktual) menimpa perkiraan saat resolve.
+                if (isset($groups[$key]['search_query'])) {
+                    $preview[$i]['search_query'] = $groups[$key]['search_query'];
+                    $preview[$i]['search_rule'] = $groups[$key]['search_rule'] ?? null;
+                }
                 if (! empty($groups[$key]['anchor_note'])) {
                     $preview[$i]['analysis'] = trim(
                         (string) ($preview[$i]['analysis'] ?? '').' '.$groups[$key]['anchor_note']
@@ -462,16 +474,19 @@ class BridgeTarifProcessor
             }
             $tariff = $groups[$key]['tariff_ref']['tariff'] ?? null;
             $kelas = trim((string) ($group['kelas'] ?? ''));
-            $sibling = $this->resolver->notFound()->suggestKamarSibling(
+            $siblingMeta = $this->resolver->notFound()->suggestKamarSiblingWithMeta(
                 $anchorDesc,
                 $kelas !== '' ? $kelas : null,
                 is_numeric($tariff) ? (float) $tariff : null,
                 10,
             );
+            $sibling = $siblingMeta['services'];
             if ($sibling === []) {
                 continue;
             }
             $groups[$key]['suggestions'] = $sibling;
+            $groups[$key]['search_query'] = $siblingMeta['search_query'];
+            $groups[$key]['search_rule'] = $siblingMeta['search_rule'];
             $groups[$key]['anchor_note'] = 'Prosedur '.$anchor['service_code']
                 .' diambil dari baris '.$anchor['excel_row']
                 .($anchor['old_code'] !== '' ? ' ('.$anchor['old_code'].')' : '')
