@@ -247,7 +247,7 @@ class BridgeTarifProcessor
             $topDesc = $groups[$key]['top_service_description'] ?? null;
             foreach ($group['rows'] as $excelRow) {
                 if (isset($decisions[$excelRow])) {
-                    $decisions[$excelRow]['new_service_code'] = $top['service_code'];
+                    $decisions[$excelRow]['new_service_code'] = $groups[$key]['top_service'];
                     $decisions[$excelRow]['new_service_description'] = $topDesc;
                     $decisions[$excelRow]['suggested_applied'] = true;
                     if ($consensus) {
