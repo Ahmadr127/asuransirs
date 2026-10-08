@@ -469,6 +469,77 @@ class BridgeTarifTest extends TestCase
         $this->assertSame($before, [Provider::count(), Service::count(), ServiceClass::count(), Tarif::count()]);
     }
 
+    public function test_generate_output_filename_uses_patient_identity_columns(): void
+    {
+        $header = ['PROVID', 'SERVICECODE', 'SERVICECODE DESCRIPTION', 'SERVICECODE KELAS', 'KELAS', 'TARIFF', 'CLIENT NAME', 'CLIENTS DOB (month, day, year)', 'SERVICE_DATE_FROM'];
+        $token = $this->scanOk([
+            ['PRV1', 'OLD-MRI', 'MRI BRAIN', 'OLD-K1', 'KELAS 1', 100000, 'Budi Santoso', '15/08/1990', '08/10/2026'],
+        ], $header);
+
+        $gen = $this->actingAs($this->user)->post(route('bridge.generate'), ['token' => $token]);
+        $gen->assertRedirect(route('bridge.download', $token));
+
+        $dl = $this->actingAs($this->user)->get(route('bridge.download', $token));
+        $dl->assertOk();
+        $this->assertStringContainsString(
+            'PRV1_15081990_08102026_Budi_Santoso.xlsx',
+            (string) $dl->headers->get('Content-Disposition')
+        );
+    }
+
+    public function test_generate_output_filename_tolerates_header_variants(): void
+    {
+        $header = ['KODE PROVIDER', 'SERVICECODE', 'SERVICECODE DESCRIPTION', 'SERVICECODE KELAS', 'KELAS', 'TARIFF', 'CLIENTS NAME', 'TGLLAHIR', 'TGL MASUK'];
+        $token = $this->scanOk([
+            ['PRV9', 'OLD-MRI', 'MRI BRAIN', 'OLD-K1', 'KELAS 1', 100000, 'Siti Aminah', '02-01-1985', '09-10-2026'],
+        ], $header);
+
+        $gen = $this->actingAs($this->user)->post(route('bridge.generate'), ['token' => $token]);
+        $gen->assertRedirect(route('bridge.download', $token));
+
+        $dl = $this->actingAs($this->user)->get(route('bridge.download', $token));
+        $dl->assertOk();
+        $this->assertStringContainsString(
+            'PRV9_02011985_09102026_Siti_Aminah.xlsx',
+            (string) $dl->headers->get('Content-Disposition')
+        );
+    }
+
+    public function test_generate_output_filename_with_full_provid_claim_header(): void
+    {
+        $header = ['PROVID', 'PROVIDER_NAME', 'SERVICECODE', 'SERVICECODE DESCRIPTION', 'SERVICECODE KELAS', 'KELAS', 'RUANG BEDAH (SURGERY)/ RUANG NON BEDAH )NON SURGERY)', 'HELPER', 'TARIFF', 'TARIFF DESCRIPTION', 'QUANTITY', 'TOTAL BILLED', 'GIVEN DATE (month, day, year)', 'HEAMODIALISA/CHEMOTHERAPY/ODC/PHYSIOTHERAPY/RADIOTHERAPY', 'HEAMODIALISA/CHEMOTHERAPY/ODC/PHYSIOTHERAPY/RADIOTHERAPY DESCRIPTION', 'ICD_X_DIAGNOSIS_PRIMARY', 'ICD_X_DESC_PRIMARY', 'ICD_X_DIAGNOSIS_SECONDARY', 'ICD_X_DESC_SECONDARY', 'PHYSICIAN NAME', 'PHYSICIAN DESCRIPTION (UMUM IGD/dpjp/dpjp konsulen)', 'CLIENT NAME', 'CLIENTS DOB (month, day, year)', 'CLIENTS SEX', 'CLIENTS ADDRESS', 'CLIENTS MEMBER ID', 'CLIENTS MR NUMBER', 'CLIENTS INVOICE NUMBER', 'CLIENTS REGISTER NUMBER', 'CLIENTS OTHER NUMBER', 'SERVICE_DATE_FROM', 'SERVICE_DATE_TO', 'LoS'];
+        $token = $this->scanOk([
+            ['HANSEN1', 'RS Hansen', 'OLD-MRI', 'MRI BRAIN', 'OLD-K1', 'KELAS 1', 'NON SURGERY', 'HLP', 250000, 'Tarif MRI', 1, 250000, '08/10/2026', '', '', 'A09', 'Diarrhoea', '', '', 'dr. Andi', 'UMUM', 'Hansen Siregar', '20/05/1980', 'L', 'Jl. Merdeka 1', 'M123', 'MR456', 'INV789', 'REG012', 'OTH345', '08/10/2026', '10/10/2026', '3 days'],
+        ], $header);
+
+        $gen = $this->actingAs($this->user)->post(route('bridge.generate'), ['token' => $token]);
+        $gen->assertRedirect(route('bridge.download', $token));
+
+        $dl = $this->actingAs($this->user)->get(route('bridge.download', $token));
+        $dl->assertOk();
+        $this->assertStringContainsString(
+            'HANSEN1_20051980_08102026_Hansen_Siregar.xlsx',
+            (string) $dl->headers->get('Content-Disposition')
+        );
+    }
+
+    public function test_generate_output_filename_falls_back_without_identity_columns(): void
+    {
+        $token = $this->scanOk([
+            ['PRV1', 'OLD-MRI', 'MRI BRAIN', 'OLD-K1', 'KELAS 1', 100000, 'a'],
+        ]);
+
+        $gen = $this->actingAs($this->user)->post(route('bridge.generate'), ['token' => $token]);
+        $gen->assertRedirect(route('bridge.download', $token));
+
+        $dl = $this->actingAs($this->user)->get(route('bridge.download', $token));
+        $dl->assertOk();
+        $this->assertStringContainsString(
+            'lama-bridge.xlsx',
+            (string) $dl->headers->get('Content-Disposition')
+        );
+    }
+
     public function test_manual_resolve_applies_to_all_same_key_rows(): void
     {
         $token = $this->scanOk([

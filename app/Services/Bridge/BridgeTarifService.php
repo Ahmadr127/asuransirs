@@ -5,6 +5,8 @@ namespace App\Services\Bridge;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Storage;
+use App\Services\TarifImport\TarifDateParser;
+use App\Services\TarifImport\TarifImportColumnMapper;
 
 /**
  * Orchestration Bridge Tarif: upload -> read -> normalize -> resolve
@@ -238,7 +240,9 @@ class BridgeTarifService
             }
         }
 
-        $outputFilename = pathinfo($session['filename'], PATHINFO_FILENAME).'-bridge.xlsx';
+        $outputFilename = $this->buildOutputFilename(Storage::path($session['path']), $session['filename']);
+        $session['output_filename'] = $outputFilename;
+        Cache::put($this->cacheKey($token), $session, now()->addMinutes(self::CACHE_TTL_MINUTES));
         $outputPath = 'bridge-outputs/'.$token.'.xlsx';
         Storage::makeDirectory('bridge-outputs');
         Storage::delete($outputPath);
@@ -269,6 +273,161 @@ class BridgeTarifService
     {
         $session = Cache::get($this->cacheKey($token));
 
+        if (is_array($session) && ! empty($session['output_filename'])) {
+            return (string) $session['output_filename'];
+        }
+
         return pathinfo((string) ($session['filename'] ?? 'bridge'), PATHINFO_FILENAME).'-bridge.xlsx';
+    }
+
+    /**
+     * Nama file hasil bridge: PROVID_TGLLAHIR_TGLMASUKPERAWATAN_NAMAPASIEN
+     * diambil dari baris data pertama (kolom PROVID, CLIENTS DOB,
+     * SERVICE_DATE_FROM, CLIENT NAME). Tanggal dinormalisasi ke ddmmyyyy
+     * (mendukung serial Excel maupun "dd mm yyyy"). Fallback ke pola
+     * lama "{nama-asli}-bridge.xlsx" bila komponen tidak ditemukan.
+     */
+    protected function buildOutputFilename(string $path, string $originalFilename): string
+    {
+        $fallback = pathinfo($originalFilename, PATHINFO_FILENAME).'-bridge.xlsx';
+
+        try {
+            $read = BridgeTarifExcelReader::read($path);
+        } catch (\Throwable) {
+            return $fallback;
+        }
+
+        if ($read['headers'] === [] || $read['rows'] === []) {
+            return $fallback;
+        }
+
+        $indexes = $this->locateIdentityColumns($read['headers']);
+        \Illuminate\Support\Facades\Log::info('Bridge output filename lookup', [
+            'headers' => array_values($read['headers']),
+            'indexes' => $indexes,
+        ]);
+        if ($indexes === null) {
+            return $fallback;
+        }
+
+        foreach ($read['rows'] as $row) {
+            $values = array_values(is_array($row) ? $row : []);
+            $provid = trim((string) ($values[$indexes['provid']] ?? ''));
+            $dob = trim((string) ($values[$indexes['dob']] ?? ''));
+            $admission = trim((string) ($values[$indexes['admission']] ?? ''));
+            $name = trim((string) ($values[$indexes['name']] ?? ''));
+
+            if ($provid === '' && $dob === '' && $admission === '' && $name === '') {
+                continue;
+            }
+
+            $parts = array_filter([
+                self::sanitizeFilenamePart($provid),
+                $this->filenameDate($dob),
+                $this->filenameDate($admission),
+                self::sanitizeFilenamePart($name),
+            ], fn ($part) => $part !== '');
+
+            if ($parts !== []) {
+                return implode('_', $parts).'.xlsx';
+            }
+        }
+
+        return $fallback;
+    }
+
+    /**
+     * Cari indeks kolom identitas pasien dari baris header mentah.
+     * Pencocokan longgar berbasis kata kunci agar varian penulisan
+     * header ("TGLLAHIR", "CLIENTS NAME", "TGL MASUK", ...) tetap
+     * dikenali. Return null bila salah satu dari 4 kolom tidak ditemukan.
+     *
+     * @param  array<int, mixed>  $headers
+     * @return array{provid: int, dob: int, admission: int, name: int}|null
+     */
+    protected function locateIdentityColumns(array $headers): ?array
+    {
+        $found = ['provid' => null, 'dob' => null, 'admission' => null, 'name' => null];
+        $claimed = [];
+
+        foreach (array_values($headers) as $index => $cell) {
+            $normalized = TarifImportColumnMapper::normalizeHeader((string) $cell);
+            if ($normalized === '' || in_array($index, $claimed, true)) {
+                continue;
+            }
+
+            if ($found['provid'] === null && str_contains($normalized, 'provid')
+                && ! str_contains($normalized, 'name') && ! str_contains($normalized, 'nama')) {
+                $found['provid'] = $index;
+                $claimed[] = $index;
+            } elseif ($found['dob'] === null && (
+                str_contains($normalized, 'dob')
+                || str_contains($normalized, 'tgllahir')
+                || str_contains($normalized, 'tgl lahir')
+                || str_contains($normalized, 'tanggal lahir')
+                || str_contains($normalized, 'birth')
+                || str_contains($normalized, 'lahir')
+            )) {
+                $found['dob'] = $index;
+                $claimed[] = $index;
+            } elseif ($found['admission'] === null && (
+                $normalized === 'service date from'
+                || $normalized === 'service from'
+                || str_contains($normalized, 'admission')
+                || str_contains($normalized, 'tanggal masuk')
+                || str_contains($normalized, 'masuk')
+            )) {
+                $found['admission'] = $index;
+                $claimed[] = $index;
+            } elseif ($found['name'] === null && (
+                (str_contains($normalized, 'client') && str_contains($normalized, 'name'))
+                || (str_contains($normalized, 'pasien') && str_contains($normalized, 'nama'))
+                || $normalized === 'nama pasien'
+                || $normalized === 'nama'
+            )) {
+                $found['name'] = $index;
+                $claimed[] = $index;
+            }
+        }
+
+        if (in_array(null, $found, true)) {
+            return null;
+        }
+
+        return $found;
+    }
+
+    /**
+     * Normalisasi tanggal sel ke format ddmmyyyy untuk nama file.
+     * Return '' bila tak valid (komponen dilewati, bukan gagal).
+     */
+    protected function filenameDate(mixed $value): string
+    {
+        if (is_numeric($value)) {
+            $parsed = TarifDateParser::parseDate($value);
+        } else {
+            $text = trim((string) $value);
+            if ($text === '' || $text === '-') {
+                return '';
+            }
+            $parsed = TarifDateParser::parseDate($text);
+        }
+
+        if ($parsed === null) {
+            return self::sanitizeFilenamePart((string) $value);
+        }
+
+        $parts = explode('-', $parsed);
+
+        return $parts[2].$parts[1].$parts[0];
+    }
+
+    protected static function sanitizeFilenamePart(string $value): string
+    {
+        $value = trim($value);
+        $value = (string) preg_replace('/[^\p{L}\p{N}]+/u', '_', $value);
+        $value = trim($value, '_');
+
+        return mb_substr($value, 0, 60);
     }
 }
