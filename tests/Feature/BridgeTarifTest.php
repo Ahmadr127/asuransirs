@@ -482,7 +482,7 @@ class BridgeTarifTest extends TestCase
         $dl = $this->actingAs($this->user)->get(route('bridge.download', $token));
         $dl->assertOk();
         $this->assertStringContainsString(
-            'PRV1_15081990_08102026_Budi_Santoso.xlsx',
+            'PRV1_15081990_08102026_Budi Santoso.xlsx',
             (string) $dl->headers->get('Content-Disposition')
         );
     }
@@ -500,7 +500,7 @@ class BridgeTarifTest extends TestCase
         $dl = $this->actingAs($this->user)->get(route('bridge.download', $token));
         $dl->assertOk();
         $this->assertStringContainsString(
-            'PRV9_02011985_09102026_Siti_Aminah.xlsx',
+            'PRV9_02011985_09102026_Siti Aminah.xlsx',
             (string) $dl->headers->get('Content-Disposition')
         );
     }
@@ -518,7 +518,7 @@ class BridgeTarifTest extends TestCase
         $dl = $this->actingAs($this->user)->get(route('bridge.download', $token));
         $dl->assertOk();
         $this->assertStringContainsString(
-            'HANSEN1_20051980_08102026_Hansen_Siregar.xlsx',
+            'HANSEN1_20051980_08102026_Hansen Siregar.xlsx',
             (string) $dl->headers->get('Content-Disposition')
         );
     }

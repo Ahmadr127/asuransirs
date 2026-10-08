@@ -425,8 +425,10 @@ class BridgeTarifService
     protected static function sanitizeFilenamePart(string $value): string
     {
         $value = trim($value);
-        $value = (string) preg_replace('/[^\p{L}\p{N}]+/u', '_', $value);
-        $value = trim($value, '_');
+        // Hanya karakter ilegal nama file yang diganti; spasi dipertahankan.
+        $value = (string) preg_replace('/[\/\\\\:*?"<>|[:cntrl:]]+/u', '_', $value);
+        $value = (string) preg_replace('/\s+/', ' ', $value);
+        $value = trim($value, ' ._');
 
         return mb_substr($value, 0, 60);
     }
