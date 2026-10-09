@@ -284,8 +284,10 @@ class BridgeTarifService
      * Nama file hasil bridge: PROVID_TGLLAHIR_TGLMASUKPERAWATAN_NAMAPASIEN
      * diambil dari baris data pertama (kolom PROVID, CLIENTS DOB,
      * SERVICE_DATE_FROM, CLIENT NAME). Tanggal dinormalisasi ke ddmmyyyy
-     * (mendukung serial Excel maupun "dd mm yyyy"). Fallback ke pola
-     * lama "{nama-asli}-bridge.xlsx" bila komponen tidak ditemukan.
+     * (mendukung serial Excel maupun "dd mm yyyy"). PROVID kosong di
+     * Excel memakai default config bridge.provider_code (sama seperti
+     * writer). Fallback ke pola lama "{nama-asli}-bridge.xlsx" bila
+     * komponen tidak ditemukan.
      */
     protected function buildOutputFilename(string $path, string $originalFilename): string
     {
@@ -310,9 +312,17 @@ class BridgeTarifService
             return $fallback;
         }
 
+        $defaultProvid = trim((string) config('bridge.provider_code', ''));
         foreach ($read['rows'] as $row) {
             $values = array_values(is_array($row) ? $row : []);
             $provid = trim((string) ($values[$indexes['provid']] ?? ''));
+            // Kolom PROVID di file upload sering kosong (lihat
+            // bridging_allianz_Tisso.xls) — samakan dengan writer yang
+            // mengisi default saat generate, agar PROVID ID tetap masuk
+            // ke nama file hasil.
+            if ($provid === '') {
+                $provid = $defaultProvid;
+            }
             $dob = trim((string) ($values[$indexes['dob']] ?? ''));
             $admission = trim((string) ($values[$indexes['admission']] ?? ''));
             $name = trim((string) ($values[$indexes['name']] ?? ''));
