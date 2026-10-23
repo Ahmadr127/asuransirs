@@ -10,7 +10,11 @@ class ActivityLogController extends Controller
 {
     public function index(Request $request)
     {
-        $query = ActivityLog::with(['causer', 'subject'])->latest('id');
+        // Subject tidak di-eager load: sebagian log lama menunjuk model yang
+        // sudah tidak ada (mis. modul UnitCost), dan MorphTo akan melempar
+        // "Class not found" saat eager load. Accessor ActivityLog::subject
+        // mengembalikan null untuk tipe tersebut dan lazy load untuk yang valid.
+        $query = ActivityLog::with('causer')->latest('id');
 
         if ($request->filled('search')) {
             $search = $request->search;
@@ -54,7 +58,7 @@ class ActivityLogController extends Controller
 
     public function show(ActivityLog $activityLog)
     {
-        $activityLog->load(['causer', 'subject']);
+        $activityLog->load('causer');
         return view('activity-logs.show', compact('activityLog'));
     }
 
