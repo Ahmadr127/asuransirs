@@ -15,7 +15,8 @@ use PhpOffice\PhpSpreadsheet\IOFactory;
  * value-nya memuat teks "days"/"day" maka teks tersebut dibuang
  * (mis. "3 days" -> "3"). Kolom PROVID / PROVIDER_NAME yang kosong
  * diisi provider default (config bridge); sel yang sudah terisi
- * tidak diubah.
+ * tidak diubah. Kolom TARIFF yang kosong diisi nilai TOTAL BILLED
+ * pada row yang sama (nilai disalin apa adanya, tanpa perhitungan).
  */
 class BridgeTarifExcelWriter
 {
@@ -73,6 +74,14 @@ class BridgeTarifExcelWriter
                 }
             }
 
+            // TARIFF kosong -> isi dengan nilai TOTAL BILLED (copy nilai,
+            // tanpa perhitungan apa pun).
+            self::fillEmptyTariff(
+                $sheet,
+                $map[BridgeTarifExcelReader::FIELD_TARIFF] ?? null,
+                $map[BridgeTarifExcelReader::FIELD_TOTAL_BILLED] ?? null
+            );
+
             self::cleanLosColumns($sheet);
 
             $writer = IOFactory::createWriter($spreadsheet, 'Xlsx');
@@ -83,6 +92,47 @@ class BridgeTarifExcelWriter
     }
 
  
+    /**
+     * TARIFF kosong -> salin nilai TOTAL BILLED pada row yang sama.
+     * Murni copy nilai (plus format angka) — tanpa perhitungan.
+     * Row tanpa TOTAL BILLED dibiarkan apa adanya.
+     */
+    protected static function fillEmptyTariff($sheet, ?int $tariffCol, ?int $totalBilledCol): void
+    {
+        if ($tariffCol === null || $totalBilledCol === null) {
+            return;
+        }
+
+        $highestRow = $sheet->getHighestRow();
+        for ($row = 2; $row <= $highestRow; $row++) {
+            $tariffCell = $sheet->getCell([$tariffCol + 1, $row]);
+            $tariffValue = $tariffCell->getValue();
+            if ($tariffValue !== null && trim((string) $tariffValue) !== '') {
+                continue;
+            }
+
+            $billedCell = $sheet->getCell([$totalBilledCol + 1, $row]);
+            $billedValue = $billedCell->getValue();
+            // Sel TOTAL BILLED berupa formula: pakai nilai hasil hitungnya
+            // (bukan teks formula) agar TARIFF berisi angka.
+            if (is_string($billedValue) && str_starts_with($billedValue, '=')) {
+                try {
+                    $billedValue = $billedCell->getCalculatedValue();
+                } catch (\Throwable $e) {
+                    $billedValue = $billedCell->getOldCalculatedValue();
+                }
+            }
+            if ($billedValue === null || trim((string) $billedValue) === '') {
+                continue;
+            }
+
+            $sheet->setCellValue([$tariffCol + 1, $row], $billedValue);
+            $tariffCell->getStyle()->getNumberFormat()->setFormatCode(
+                $billedCell->getStyle()->getNumberFormat()->getFormatCode()
+            );
+        }
+    }
+
     protected static function cleanLosColumns($sheet): void
     {
         $highest = $sheet->getHighestColumn();

@@ -2710,7 +2710,7 @@ class BridgeTarifTest extends TestCase
         $page->assertSee('TOTAL BILLED', false);
     }
 
-    public function test_generate_does_not_change_original_tariff_column(): void
+    public function test_generate_keeps_tariff_and_fills_empty_tariff_from_total_billed(): void
     {
         $token = $this->scanOk([
             ['PRV1', 'OLD-MRI', 'MRI BRAIN', 'OLD-K1', 'KELAS 1', 31949, 31949, 1, 'a'],
@@ -2729,12 +2729,13 @@ class BridgeTarifTest extends TestCase
 
         $matched = array_values($sheet[1]);
         $notFound = array_values($sheet[2]);
-        // SERVICECODE berubah (MATCHED), TARIFF asli tetap.
+        // SERVICECODE berubah (MATCHED), TARIFF terisi tetap.
         $this->assertSame('MRI001', $matched[1]);
         $this->assertEquals(31949, $matched[5]);
-        // NOT_FOUND: SERVICECODE lama tetap, TARIFF kosong tetap kosong.
+        // NOT_FOUND: SERVICECODE lama tetap, TARIFF kosong diisi nilai
+        // TOTAL BILLED apa adanya (50000, bukan 50000/QUANTITY).
         $this->assertSame('OLD-USG', $notFound[1]);
-        $this->assertTrue($notFound[5] === null || $notFound[5] === '');
+        $this->assertEquals(50000, $notFound[5]);
     }
 
     protected function storeRaw(array $rows, ?array $header = null): string
