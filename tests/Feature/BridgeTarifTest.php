@@ -729,6 +729,50 @@ class BridgeTarifTest extends TestCase
         $this->assertSame('VIP-1', array_values($sheet[2])[3]);
     }
 
+    public function test_generate_writes_category_code_for_ambiguous_rows_without_suggestion(): void
+    {
+        // Dua kandidat master berbagi description + kelas = AMBIGUOUS.
+        // Jenis tarifnya "OBAT" sehingga New Code menjadi kategori "OBAT"
+        // walau tidak ada saran (suggested_applied false). Generate harus
+        // menulis kategori itu ke SERVICECODE, tidak menunggu MATCHED.
+        $obat = JenisTarif::create(['code' => 'OBAT', 'name' => 'Obat', 'status' => 'active']);
+        $provider = Provider::firstOrCreate(['code' => 'PRV1'], ['name' => 'Provider Satu', 'status' => 'active']);
+        $suite = ServiceClass::firstOrCreate(['code' => 'KLX'], ['name' => 'Suite', 'status' => 'active']);
+        foreach ([['OBT001', 1000000], ['OBT002', 2000000]] as [$code, $tariff]) {
+            $service = Service::create([
+                'code' => $code, 'name' => 'Infusan Furofilt',
+                'description' => 'Infusan Furofilt', 'status' => 'active',
+            ]);
+            Tarif::create([
+                'jenis_tarif_id' => $obat->id,
+                'provider_id' => $provider->id,
+                'service_id' => $service->id,
+                'class_id' => $suite->id,
+                'surgery_type' => null, 'helper' => null, 'tariff' => $tariff,
+                'valid_date_from' => '2024-01-01', 'end_date_to' => '2029-12-31',
+            ]);
+        }
+
+        // Tarif Excel jauh dari kedua kandidat -> tidak ada saran.
+        $rows = [['PRV1', '', 'Infusan Furofilt', 'OLD-K', 'Suite', 100000, 'a']];
+        $row = $this->scanRows($rows)['preview'][0];
+
+        $this->assertSame('AMBIGUOUS', $row['status']);
+        $this->assertFalse($row['suggested_applied']);
+        $this->assertSame('OBAT', $row['new_service_code']);
+
+        $token = $this->scanOk($rows);
+        $gen = $this->actingAs($this->user)->post(route('bridge.generate'), ['token' => $token]);
+        $gen->assertRedirect(route('bridge.download', $token));
+
+        $dl = $this->actingAs($this->user)->get(route('bridge.download', $token));
+        $out = tempnam(sys_get_temp_dir(), 'bout').'.xlsx';
+        file_put_contents($out, $dl->streamedContent() ?: $dl->getContent());
+        $sheet = IOFactory::load($out)->getActiveSheet()->toArray(null, true, true, false);
+
+        $this->assertSame('OBAT', array_values($sheet[1])[1]);
+    }
+
     public function test_generate_fills_empty_provider_columns_with_defaults(): void
     {
         $spreadsheet = new Spreadsheet;

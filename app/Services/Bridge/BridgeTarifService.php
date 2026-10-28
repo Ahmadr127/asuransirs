@@ -221,8 +221,9 @@ class BridgeTarifService
      * Generate Excel hasil: hitung ulang mapping + terapkan resolusi,
      * tulis file baru. SERVICECODE + DESCRIPTION berubah untuk row
      * MATCHED + row AMBIGUOUS/NOT_FOUND yang sarannya langsung
-     * dimasukkan (konsensus kode saran); SERVICECODE KELAS berubah
-     * kapan pun kode master-nya ketemu.
+     * dimasukkan (konsensus kode saran) + row AMBIGUOUS yang kode
+     * hasilnya kategori tarif (OBAT/MAKANAN/ALKES/BHP); SERVICECODE
+     * KELAS berubah kapan pun kode master-nya ketemu.
      *
      * @return array{output_filename: string, download_token: string, total: int, changed: int, unresolved: int}
      */

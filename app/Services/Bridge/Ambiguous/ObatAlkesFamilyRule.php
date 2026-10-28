@@ -25,6 +25,12 @@ final class ObatAlkesFamilyRule
     public const FAMILY_BHP = 'BHP';
 
     /**
+     * Label kategori hasil categoryForJenis yang dipakai sebagai New Code
+     * (bukan kode service master).
+     */
+    public const CATEGORY_LABELS = ['OBAT', 'MAKANAN', 'ALKES', 'ALAT KESEHATAN', 'BHP'];
+
+    /**
      * Famili kode lama (OBT/ALK/MKN), null bila tidak berpola famili.
      * "OBAT" → OBT (mengandung kata OBAT); "OBT..." → OBT;
      * "ALK...", "ALKES..." → ALK; "MAKANAN"/"MKN..." → MKN.
@@ -84,5 +90,14 @@ final class ObatAlkesFamilyRule
         }
 
         return null;
+    }
+
+    /**
+     * True bila kode merupakan label kategori hasil categoryForJenis
+     * (OBAT/MAKANAN/ALKES/BHP), bukan kode service master.
+     */
+    public static function isCategoryLabel(?string $code): bool
+    {
+        return in_array(mb_strtoupper(trim((string) $code)), self::CATEGORY_LABELS, true);
     }
 }
