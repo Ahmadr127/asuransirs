@@ -9,11 +9,10 @@ use PhpOffice\PhpSpreadsheet\IOFactory;
  * Menulis Excel hasil Bridge: struktur + data original dipertahankan,
  * hanya SERVICECODE, SERVICECODE DESCRIPTION, SERVICECODE KELAS, dan
  * kolom RUANG BEDAH (SURGERY)/... yang diganti sesuai mapping.
- * SERVICECODE + DESCRIPTION diganti untuk row MATCHED, row
- * AMBIGUOUS/NOT_FOUND yang sarannya langsung dimasukkan
- * (suggested_applied), dan row AMBIGUOUS yang kode hasilnya berupa
- * kategori tarif (OBAT/MAKANAN/ALKES/BHP) — kategori ditulis walau
- * tanpa saran, mengikuti jenis tarif pasangan master.
+ * SERVICECODE + DESCRIPTION diganti untuk row MATCHED, row yang
+ * sarannya langsung dimasukkan (suggested_applied), dan row yang kode
+ * hasilnya kategori tarif (obat -> OBAT, makanan -> MAKANAN, dst) —
+ * kategori ditulis apa pun statusnya, tanpa menunggu saran.
  * Kolom RUANG BEDAH diisi OK / NON OK untuk
  * semua row berdasarkan deskripsi. Kolom LoS dipertahankan; bila
  * value-nya memuat teks "days"/"day" maka teks tersebut dibuang
@@ -43,17 +42,15 @@ class BridgeTarifExcelWriter
             $defaultProviderName = trim((string) config('bridge.provider_name'));
 
             foreach ($decisions as $excelRow => $decision) {
-                // SERVICECODE + DESCRIPTION diganti untuk row MATCHED,
-                // row AMBIGUOUS/NOT_FOUND yang sarannya langsung
-                // dimasukkan, dan row AMBIGUOUS berkategori tarif
-                // (OBAT/MAKANAN/ALKES/BHP); SERVICECODE KELAS diganti
-                // kapan pun kode master-nya ketemu (termasuk row yang
-                // service-nya masih AMBIGUOUS/NOT_FOUND).
-                $replaceService = ($decision['status'] === TarifBridgeResolver::STATUS_MATCHED
+                // Aturan sederhana: tulis kode hasil mapping bila row
+                // MATCHED, saran sudah diterapkan, atau kode hasilnya
+                // kategori tarif (obat -> OBAT, makanan -> MAKANAN,
+                // alkes -> ALKES, bhp -> BHP). Kategori ditulis apa pun
+                // statusnya — tidak menunggu badge "ada saran".
+                $replaceService = $decision['new_service_code'] !== null
+                    && ($decision['status'] === TarifBridgeResolver::STATUS_MATCHED
                         || ! empty($decision['suggested_applied'])
-                        || ($decision['status'] === TarifBridgeResolver::STATUS_AMBIGUOUS
-                            && ObatAlkesFamilyRule::isCategoryLabel($decision['new_service_code'] ?? null)))
-                    && $decision['new_service_code'] !== null;
+                        || ObatAlkesFamilyRule::isCategoryLabel($decision['new_service_code']));
                 if ($replaceService) {
                     $sheet->setCellValue([$codeCol + 1, $excelRow], $decision['new_service_code']);
                     $newDesc = trim((string) ($decision['new_service_description'] ?? ''));
@@ -98,7 +95,6 @@ class BridgeTarifExcelWriter
         }
     }
 
- 
     /**
      * TARIFF kosong -> salin nilai TOTAL BILLED pada row yang sama.
      * Murni copy nilai (plus format angka) — tanpa perhitungan.
