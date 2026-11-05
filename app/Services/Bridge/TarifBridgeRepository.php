@@ -22,6 +22,9 @@ class TarifBridgeRepository
     /** @var array<string, string>|null kode kelas (upper+trim) => kode */
     protected ?array $classCodeMap = null;
 
+    /** @var array<string, string>|null kode kelas (upper+trim) => nama kelas master */
+    protected ?array $classNameByCode = null;
+
     /** @var array<string, string> kode service (upper+trim) => description master */
     protected array $serviceDescMap = [];
 
@@ -294,6 +297,24 @@ class TarifBridgeRepository
         return null;
     }
 
+    /**
+     * Nama kelas master untuk satu kode kelas. null bila kode tidak ada
+     * di master. Dipakai agar kolom KELAS hasil sinkronisasi kamar
+     * memakai nama master (bukan label level yang mungkin beda, mis.
+     * level "SUITE ROOM" -> master "SUITE").
+     */
+    public function classNameForCode(?string $code): ?string
+    {
+        $this->ensureClassMaps();
+
+        $codeKey = mb_strtoupper(trim((string) $code));
+        if ($codeKey === '' || ! isset($this->classNameByCode[$codeKey])) {
+            return null;
+        }
+
+        return $this->classNameByCode[$codeKey];
+    }
+
     protected function ensureClassMaps(): void
     {
         if ($this->classMap !== null) {
@@ -302,10 +323,15 @@ class TarifBridgeRepository
 
         $this->classMap = [];
         $this->classCodeMap = [];
+        $this->classNameByCode = [];
         foreach (DB::table('classes')->select(['code', 'name'])->orderBy('id')->get() as $row) {
             $code = mb_strtoupper(trim((string) $row->code));
             if ($code !== '' && ! isset($this->classCodeMap[$code])) {
                 $this->classCodeMap[$code] = $code;
+            }
+            $name = trim((string) $row->name);
+            if ($code !== '' && $name !== '' && ! isset($this->classNameByCode[$code])) {
+                $this->classNameByCode[$code] = $name;
             }
             $key = BridgeTarifRowNormalizer::normalizeKey((string) $row->name);
             if ($key !== '' && ! isset($this->classMap[$key])) {

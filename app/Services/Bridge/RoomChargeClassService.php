@@ -4,6 +4,14 @@ namespace App\Services\Bridge;
 
 use App\Services\Bridge\NotFound\RoomChargeQueryRule;
 
+/**
+ * Sinkronisasi kolom kelas untuk baris kamar (Room Charge / Kamar
+ * Perawatan). Satu file dianggap satu kelas: level yang terbaca dari
+ * service description dibakukan ke SELURUH baris — kolom KELAS maupun
+ * SERVICECODE KELAS sekaligus. Kolom KELAS memakai nama kelas MASTER
+ * (bukan label level), agar konsisten dengan database (mis. level
+ * "SUITE ROOM" -> master "SUITE").
+ */
 class RoomChargeClassService
 {
     public function __construct(protected TarifBridgeRepository $repository) {}
@@ -53,7 +61,12 @@ class RoomChargeClassService
                 continue;
             }
 
-            return ['code' => $classCode, 'name' => $level];
+            // Nama kelas dari master (bukan label level) agar kolom KELAS
+            // hasil sinkronisasi konsisten dengan master database
+            // (mis. level "SUITE ROOM" -> master "SUITE").
+            $className = $this->repository->classNameForCode($classCode) ?? $level;
+
+            return ['code' => $classCode, 'name' => $className];
         }
 
         return null;
