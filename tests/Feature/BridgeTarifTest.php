@@ -1624,28 +1624,27 @@ class BridgeTarifTest extends TestCase
         $this->assertTrue($row['suggested_applied']);
     }
 
-    public function test_generate_room_charge_syncs_class_columns_from_description(): void
+    public function test_generate_room_charge_syncs_all_rows_class_columns_from_description(): void
     {
-        // Room Charge selalu menyebut level kamar. Kolom kelas hasil
-        // generate harus mengikuti level di service description, bukan
-        // bawaan Excel: nama kelas = label level (VIP / SUITE ROOM),
-        // kode kelas = kelas master yang cocok (KLV / KLX).
+        // Room Charge selalu menyebut level kamar, dan satu file dianggap
+        // satu kelas. Level yang terbaca dibakukan ke SELURUH baris
+        // (kolom KELAS + SERVICECODE KELAS), bukan hanya baris kamar:
+        // nama kelas = label level (VIP), kode kelas = kelas master (KLV).
         $this->createMaster('KMPP', 'Kamar Perawatan VIP', 'Kamar Perawatan VIP', 'KLV', 'VIP');
-        $this->createMaster('KMPS', 'Kamar Perawatan Suite Room', 'Kamar Perawatan Suite Room', 'KLX', 'SUITE');
 
         $rows = [
             ['PRV1', 'OLD-VIP', 'Room Charge VIP', 'OLD-K2', 'KELAS 2', 100000, 'a'],
-            ['PRV1', 'OLD-SUI', 'Room Charge Suite', 'OLD-K2', 'KELAS 2', 100000, 'b'],
-            // Bukan baris kamar: kolom kelas tidak boleh ikut diubah.
-            ['PRV1', 'OLD-MRI', 'MRI Otak Tanpa Kontras', 'OLD-K1', 'KELAS 1', 100000, 'c'],
+            // Bukan baris kamar: ikut kelas kamar (satu kelas per file).
+            ['PRV1', 'OLD-MRI', 'MRI Otak Tanpa Kontras', 'OLD-K1', 'KELAS 1', 100000, 'b'],
+            ['PRV1', 'OLD-ALK', 'Elektroda Pencil', 'OLD-K2', 'KELAS 2', 100000, 'c'],
         ];
 
-        // Preview (halaman hasil) juga membawa nama kelas hasil sync.
+        // Preview (halaman hasil) juga membawa kelas hasil sync di semua baris.
         $preview = $this->scanRows($rows, $this->header());
-        $this->assertSame('VIP', $preview['preview'][0]['new_class_name']);
-        $this->assertSame('KLV', $preview['preview'][0]['new_class_code']);
-        $this->assertSame('SUITE ROOM', $preview['preview'][1]['new_class_name']);
-        $this->assertNull($preview['preview'][2]['new_class_name'] ?? null);
+        foreach ($preview['preview'] as $row) {
+            $this->assertSame('VIP', $row['new_class_name']);
+            $this->assertSame('KLV', $row['new_class_code']);
+        }
 
         $token = $this->scanOk($rows, $this->header());
 
@@ -1667,20 +1666,30 @@ class BridgeTarifTest extends TestCase
         $this->assertNotFalse($classCodeIdx);
         $this->assertNotFalse($classNameIdx);
 
-        $vip = array_values($sheet[1]);
-        $suite = array_values($sheet[2]);
-        $mri = array_values($sheet[3]);
+        // Baris kamar, baris MATCHED (MRI), dan baris NOT_FOUND semuanya
+        // memakai kelas dari Room Charge.
+        foreach ([1, 2, 3] as $rowIndex) {
+            $row = array_values($sheet[$rowIndex]);
+            $this->assertSame('KLV', $row[$classCodeIdx]);
+            $this->assertSame('VIP', $row[$classNameIdx]);
+        }
 
-        $this->assertSame('KMPP', $vip[$codeIdx]);
-        $this->assertSame('KLV', $vip[$classCodeIdx]);
-        $this->assertSame('VIP', $vip[$classNameIdx]);
+        $this->assertSame('KMPP', array_values($sheet[1])[$codeIdx]);
+        // Service baris non-kamar tidak ikut berubah.
+        $this->assertSame('MRI001', array_values($sheet[2])[$codeIdx]);
+    }
 
-        $this->assertSame('KMPS', $suite[$codeIdx]);
-        $this->assertSame('KLX', $suite[$classCodeIdx]);
-        $this->assertSame('SUITE ROOM', $suite[$classNameIdx]);
+    public function test_generate_room_charge_keeps_class_when_no_master_match(): void
+    {
+        // Level tidak punya kelas master -> dua kolom kelas tidak disentuh.
+        $rows = [
+            ['PRV1', 'OLD-KMR', 'Room Charge VVIP', 'OLD-K2', 'KELAS 2', 100000, 'a'],
+            ['PRV1', 'OLD-MRI', 'MRI BRAIN', 'OLD-K1', 'KELAS 1', 100000, 'b'],
+        ];
 
-        $this->assertSame('MRI001', $mri[$codeIdx]);
-        $this->assertSame('KELAS 1', $mri[$classNameIdx]);
+        $preview = $this->scanRows($rows, $this->header());
+        $this->assertNull($preview['preview'][0]['new_class_name'] ?? null);
+        $this->assertNull($preview['preview'][1]['new_class_name'] ?? null);
     }
 
     public function test_notfound_varicocelectomy_single_token_strong_autofill(): void

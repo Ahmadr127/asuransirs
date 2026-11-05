@@ -3,7 +3,6 @@
 namespace App\Services\Bridge;
 
 use App\Services\Bridge\Ambiguous\ObatAlkesFamilyRule;
-use App\Services\Bridge\NotFound\RoomChargeQueryRule;
 
 /**
  * Loop baris Excel: normalisasi -> resolve -> kumpulkan ringkasan,
@@ -13,18 +12,22 @@ class BridgeTarifProcessor
 {
     public const PREVIEW_LIMIT = 200;
 
-    public function __construct(protected TarifBridgeResolver $resolver) {}
+    protected RoomChargeClassService $roomChargeClass;
+
+    public function __construct(
+        protected TarifBridgeResolver $resolver,
+        ?RoomChargeClassService $roomChargeClass = null,
+    ) {
+        $this->roomChargeClass = $roomChargeClass
+            ?? new RoomChargeClassService($resolver->repository());
+    }
 
     public function repository(): TarifBridgeRepository
     {
         return $this->resolver->repository();
     }
 
-    /**
-     * @param  array<int, array<int, mixed>>  $rows  baris mentah (tanpa header)
-     * @param  array<string, int>  $map  field => index kolom
-     * @param  array<string, array{service_code: string, class_code: string}>  $resolutions  mapping_key => pilihan user
-     */
+
     public function process(array $rows, array $map, array $resolutions = []): array
     {
         $summary = ['total' => 0, 'matched' => 0, 'ambiguous' => 0, 'not_found' => 0, 'invalid' => 0, 'suggested' => 0];
@@ -33,31 +36,31 @@ class BridgeTarifProcessor
         $preview = [];
         $decisions = [];
 
-        // Pass 1: normalisasi semua row (murni in-memory, tanpa query).
+        
         $normalizedList = [];
-        $excelRow = 1; // baris 1 = header
+        $excelRow = 1; 
         foreach ($rows as $rawRow) {
             $excelRow++;
             $normalizedList[] = BridgeTarifRowNormalizer::normalize($rawRow, $map, $excelRow);
         }
 
-        // Pass 2: fallback tarif grup — row yang effective_tariff-nya masih
-        // null memakai median tarif valid row lain dengan mapping_key sama
-        // (prioritas 3, sumber 'group'). Nilai asli row tidak diubah.
+        
+        
+        
         $this->applyGroupTariffFallback($normalizedList);
 
-        // Kumpulan tarif efektif per grup untuk referensi Petakan Manual.
+        
         /** @var array<string, array<int, array{t: float, s: ?string}>> $groupTariffs */
         $groupTariffs = [];
 
-        // Pass 3: resolve per row (satu-satunya tempat query via repository
-        // yang sudah preload — tanpa query per row).
+        
+        
         foreach ($normalizedList as $normalized) {
             $excelRow = $normalized['excel_row'];
             $resolved = $this->resolver->resolve($normalized);
 
-            // Pilihan manual user untuk grup ambigu maupun NOT_FOUND
-            // berlaku ke semua row se-key.
+            
+            
             $isManual = $resolved['status'] === TarifBridgeResolver::STATUS_NOT_FOUND;
             if (($resolved['status'] === TarifBridgeResolver::STATUS_AMBIGUOUS
                     || $isManual)
@@ -76,10 +79,7 @@ class BridgeTarifProcessor
                     $choice,
                     $isManual
                 );
-                // Grup manual (NOT_FOUND): kelas tidak dipilih ulang —
-                // otomatis dari master via nama kelas; bila nama kelas
-                // tidak ada di master, pertahankan bawaan Excel.
-                // Override class eksplisit (bila diisi) selalu menang.
+
                 $overrideClass = mb_strtoupper(trim($choice['class_code'] ?? ''));
                 if ($overrideClass !== '') {
                     $resolved['new_class_code'] = $overrideClass;
@@ -118,8 +118,8 @@ class BridgeTarifProcessor
                     'resolved' => null,
                 ];
                 $groups[$key]['rows'][] = $excelRow;
-                // Referensi tarif efektif grup untuk Petakan Manual: tiap
-                // row menyumbang effective_tariff-nya (bila ada).
+                
+                
                 if (isset($normalized['effective_tariff']) && is_numeric($normalized['effective_tariff'])) {
                     $groupTariffs[$key][] = [
                         't' => (float) $normalized['effective_tariff'],
@@ -143,30 +143,25 @@ class BridgeTarifProcessor
                     'new_service_code' => $resolved['new_service_code'],
                     'new_class_code' => $resolved['new_class_code'],
                     'new_service_description' => $resolved['new_service_description'] ?? null,
-                    // Detail analisa per baris untuk modal UI (hanya
-                    // AMBIGUOUS/NOT_FOUND/INVALID yang memakainya).
+                    
+                    
                     'candidates' => $resolved['candidates'] ?? [],
                     'suggested' => $resolved['suggested'] ?? null,
                     'suggested_applied' => $resolved['suggested_applied'] ?? false,
                     'analysis' => $resolved['analysis'] ?? null,
-                    // Keyword pencarian efektif (NOT_FOUND) untuk modal analisa.
+                    
                     'search_query' => $resolved['search_query'] ?? null,
                     'search_rule' => $resolved['search_rule'] ?? null,
                 ]);
             }
         }
 
-        // Ringkas referensi tarif efektif per grup (satu nilai bila semua
-        // row sama, rentang min–max bila bervariasi, null bila tak ada).
+
         foreach ($groups as $key => $group) {
             $groups[$key]['tariff_ref'] = $this->summarizeGroupTariffs($groupTariffs[$key] ?? []);
         }
 
-        // Saran NOT_FOUND per grup (sekali per grup, bukan per row):
-        // kandidat mirip description (BridgeServiceSearch) disusun ulang
-        // memakai kelas + tarif efektif grup. 2 query ringan per grup
-        // (recall similarity + pairs tarif); tanpa grup NOT_FOUND maka
-        // tanpa query tambahan sama sekali.
+
         foreach ($groups as $key => $group) {
             if (! ($group['manual'] ?? false)) {
                 continue;
@@ -185,31 +180,10 @@ class BridgeTarifProcessor
             $groups[$key]['search_rule'] = $meta['search_rule'];
         }
 
-        // Fase JANGKAR se-kasus (kasus 868-1): grup kamar TANPA prosedur
-        // ("Kamar Operasi" saja) tidak bisa dicari dari deskripsinya
-        // sendiri — prosedurnya diambil dari baris se-kasus di file yang
-        // sama (868-2 Varicocelectomy), lalu saran diganti dengan
-        // saudara kamar prosedur tersebut (suggestKamarSibling). Kunci
-        // kasus = prefix Old Code sebelum "-" numerik ("868-1" -> "868";
-        // kode master seperti "OKURO-O-030-002" tidak dipecah karena
-        // prefixnya mengandung huruf). Fallback: baris prosedur terdekat.
-        // Tanpa jangkar yakin (MATCHED atau spec >= 2): perilaku lama
-        // (saran berbasis tarif) dipertahankan.
+
         $this->applyKamarAnchors($groups, $preview);
 
-        // Saran NOT_FOUND teratas langsung masuk New Code — status tetap
-        // NOT_FOUND dan bisa ditimpa manual — HANYA bila buktinya cukup:
-        // (a) >= 2 token isi cocok, ATAU (b) token tunggal yang kuat:
-        // spec_score >= 3 (spesialisasi sama + bentuk penuh) DAN kelas
-        // cocok DAN selisih tarif <= 50% (kasus Row 18: "Varicocelectomy"
-        // -> OKURO-O/KL2). Tanpa threshold, kandidat yang hanya cocok
-        // 1 token generik + tarif dekat langsung mengisi New Code yang
-        // salah. Saran tetap ditampilkan untuk dipilih manual walau di
-        // bawah threshold.
-        // KONSENSUS (seluruh saran berkode sama): status menjadi
-        // MATCHED/valid dengan syarat yang sama, tetapi grup Petakan
-        // Manual + modal analisa tetap dipertahankan agar bisa
-        // diperiksa/diubah. Berlaku untuk preview + decisions (generate).
+   
         foreach ($groups as $key => $group) {
             if (! ($group['manual'] ?? false) || empty($group['suggestions'])) {
                 continue;
@@ -219,9 +193,7 @@ class BridgeTarifProcessor
             if ($code === '') {
                 continue;
             }
-            // Bukti kuat: >= 2 token isi cocok, atau token tunggal dengan
-            // spec kuat + kelas cocok + tarif wajar. Saran tetap ada
-            // untuk dipilih manual; hanya auto-isi yang ditahan.
+        
             $tariffDiff = $top['_tariff_diff'] ?? null;
             $strongSingle = ((float) ($top['spec_score'] ?? 0.0)) >= 3.0
                 && ((int) ($top['_class_match'] ?? 0)) === 1
@@ -267,13 +239,13 @@ class BridgeTarifProcessor
             }
         }
 
-        // Tempelkan saran grup ke preview row NOT_FOUND untuk modal analisa.
+        
         foreach ($preview as $i => $row) {
             if (($row['status'] ?? '') === TarifBridgeResolver::STATUS_NOT_FOUND) {
                 $key = $row['mapping_key'];
                 $preview[$i]['suggestions'] = $groups[$key]['suggestions'] ?? [];
-                // Keyword pencarian efektif milik grup (hasil rewrite +
-                // fallback aktual) menimpa perkiraan saat resolve.
+                
+                
                 if (isset($groups[$key]['search_query'])) {
                     $preview[$i]['search_query'] = $groups[$key]['search_query'];
                     $preview[$i]['search_rule'] = $groups[$key]['search_rule'] ?? null;
@@ -303,36 +275,14 @@ class BridgeTarifProcessor
             }
         }
 
-        // Sinkronisasi kolom kelas baris kamar (Room Charge / Kamar
-        // Perawatan): level yang tertulis di service description menjadi
-        // sumber kebenaran kolom kelas. Hanya bila level dikenali DAN
-        // kelas master untuk level itu ada; selain itu kolom tidak
-        // disentuh.
+ 
         $byRow = [];
         foreach ($normalizedList as $normalized) {
             $byRow[(int) ($normalized['excel_row'] ?? 0)] = $normalized;
         }
-        foreach ($decisions as $excelRow => $decision) {
-            $normalized = $byRow[(int) $excelRow] ?? null;
-            if ($normalized === null) {
-                continue;
-            }
-            $this->syncRoomChargeClass($normalized, $decisions[$excelRow]);
-        }
-        foreach ($preview as $i => $row) {
-            $key = (int) ($row['excel_row'] ?? 0);
-            if (! isset($decisions[$key]['new_class_name'])) {
-                continue;
-            }
-            $preview[$i]['new_class_code'] = $decisions[$key]['new_class_code'];
-            $preview[$i]['new_class_name'] = $decisions[$key]['new_class_name'];
-        }
+        $this->roomChargeClass->apply($decisions, $preview, $normalizedList);
 
-        // Bendera RUANG BEDAH per row untuk file hasil: OK bila
-        // deskripsi yang tertulis (new bila service diganti, selain
-        // itu bawaan Excel) menyebut pemakaian ruang operasi, selain
-        // itu NON OK. Dihitung terakhir agar mencakup saran manual,
-        // saran NOT_FOUND, dan konsensus.
+
         foreach ($decisions as $excelRow => $decision) {
             $oldDesc = (string) ($byRow[(int) $excelRow]['service_description'] ?? '');
             $replaced = (($decision['status'] ?? '') === TarifBridgeResolver::STATUS_MATCHED
@@ -350,7 +300,7 @@ class BridgeTarifProcessor
             }
         }
 
-        // Tandai grup yang sudah dipilih user.
+        
         foreach ($groups as $key => $group) {
             if (isset($resolutions[$key])
                 && $this->isValidChoice($group['candidates'], $resolutions[$key], $group['manual'] ?? false)
@@ -369,15 +319,7 @@ class BridgeTarifProcessor
         ];
     }
 
-    /**
-     * Fallback tarif grup (prioritas 3, in-memory): row yang
-     * effective_tariff-nya masih null memakai median tarif valid row lain
-     * dengan mapping_key sama. Row yang sudah punya effective sendiri
-     * (excel / total_billed_quantity) TIDAK disentuh. Dilewati untuk
-     * key tak lengkap (jalur INVALID) agar row tak terkait tidak tercampur.
-     *
-     * @param  array<int, array<string, mixed>>  $list  (by reference)
-     */
+   
     protected function applyGroupTariffFallback(array &$list): void
     {
         $groupValues = [];
@@ -418,8 +360,8 @@ class BridgeTarifProcessor
         if ($entries === []) {
             return $none;
         }
-        // Nilai distinct (2 desimal) terurut; sumber mengikuti kemunculan
-        // pertama nilai tersebut.
+        
+        
         $byValue = [];
         foreach ($entries as $e) {
             $k = number_format($e['t'], 2, '.', '');
@@ -449,47 +391,6 @@ class BridgeTarifProcessor
         ];
     }
 
-    /**
-     * Samakan kolom kelas baris kamar dengan level yang tertulis di
-     * service description (mis. "Room Charge VIP" -> VIP/KLV,
-     * "Kamar Perawatan Suite Room" -> SUITE ROOM/KLX). Description
-     * master hasil mapping dipakai lebih dulu; description Excel menjadi
-     * fallback. Tidak melakukan apa pun bila bukan baris kamar, level
-     * tidak disebut, atau kelas master untuk level itu tidak ada.
-     *
-     * @param  array<string, mixed>  $normalized
-     * @param  array<string, mixed>  $decision
-     */
-    protected function syncRoomChargeClass(array $normalized, array &$decision): void
-    {
-        $description = trim((string) ($decision['new_service_description'] ?? ''));
-        if ($description === '') {
-            $description = trim((string) ($normalized['service_description'] ?? ''));
-        }
-        if (! RoomChargeQueryRule::isRoomCharge($description)) {
-            return;
-        }
-        $level = RoomChargeQueryRule::levelFrom($description);
-        if ($level === null) {
-            return;
-        }
-        $classCode = $this->resolver->repository()->classCodeForLevel($level);
-        if ($classCode === null) {
-            return;
-        }
-
-        $decision['new_class_code'] = $classCode;
-        $decision['new_class_name'] = $level;
-    }
-
-    /**
-     * Fase jangkar: untuk tiap grup kamar tanpa prosedur, cari prosedur
-     * jangkar dari baris lain di file yang sama lalu ganti saran grup
-     * dengan saudara kamar prosedur tersebut.
-     *
-     * @param  array<string, array>  $groups  (by reference)
-     * @param  array<int, array<string, mixed>>  $preview
-     */
     protected function applyKamarAnchors(array &$groups, array $preview): void
     {
         $targets = [];
@@ -626,15 +527,7 @@ class BridgeTarifProcessor
         return $bestSameCase !== null ? $bestSameCase['candidate'] : ($best['candidate'] ?? null);
     }
 
-    /**
-     * Ekstrak info jangkar dari satu baris preview: baris MATCHED
-     * (prosedur pasti, description menyusul dari master) atau saran
-     * teratas yang spec-nya meyakinkan (>= 2). null bila tak layak.
-     *
-     * @param  array<string, mixed>  $prow
-     * @param  array<string, mixed>|null  $group
-     * @return array{service_code: string, description: string, spec: float, kind: string}|null
-     */
+
     protected function anchorFromRow(array $prow, ?array $group): ?array
     {
         if (($prow['status'] ?? '') === TarifBridgeResolver::STATUS_MATCHED
@@ -718,8 +611,8 @@ class BridgeTarifProcessor
             return false;
         }
         if ($manual) {
-            // Grup NOT_FOUND: service wajib ada di master; kelas opsional
-            // (kosong = ikut bawaan Excel, isi = override bila pair valid).
+            
+            
             if (! $this->resolver->repository()->serviceExists($choice['service_code'])) {
                 return false;
             }
