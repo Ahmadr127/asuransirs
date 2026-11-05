@@ -24,7 +24,7 @@ use PhpOffice\PhpSpreadsheet\IOFactory;
 class BridgeTarifExcelWriter
 {
     /**
-     * @param  array<int, array{status: string, new_service_code: ?string, new_class_code: ?string, new_service_description?: ?string, surgery_flag?: ?string, suggested_applied?: bool}>  $decisions  excel_row => keputusan
+     * @param  array<int, array{status: string, new_service_code: ?string, new_class_code: ?string, new_class_name?: ?string, new_service_description?: ?string, surgery_flag?: ?string, suggested_applied?: bool}>  $decisions  excel_row => keputusan
      * @param  array<string, int>  $map  field => index kolom
      */
     public static function write(string $inputPath, string $outputPath, array $decisions, array $map): void
@@ -34,6 +34,7 @@ class BridgeTarifExcelWriter
             $sheet = $spreadsheet->getActiveSheet();
             $codeCol = $map[BridgeTarifExcelReader::FIELD_SERVICE_CODE];
             $classCol = $map[BridgeTarifExcelReader::FIELD_SERVICE_CLASS_CODE];
+            $classNameCol = $map[BridgeTarifExcelReader::FIELD_CLASS_NAME] ?? null;
             $descCol = $map[BridgeTarifExcelReader::FIELD_SERVICE_DESCRIPTION] ?? null;
             $surgeryCol = $map[BridgeTarifExcelReader::FIELD_SURGERY_FLAG] ?? null;
             $providerCodeCol = $map[BridgeTarifExcelReader::FIELD_PROVIDER_CODE] ?? null;
@@ -60,6 +61,15 @@ class BridgeTarifExcelWriter
                 }
                 if ($decision['new_class_code'] !== null) {
                     $sheet->setCellValue([$classCol + 1, $excelRow], $decision['new_class_code']);
+                }
+                // Nama kelas ikut diselaraskan untuk baris kamar (Room
+                // Charge / Kamar Perawatan) yang level-nya disebut di
+                // service description. Hanya ditulis bila berbeda.
+                $newClassName = trim((string) ($decision['new_class_name'] ?? ''));
+                if ($classNameCol !== null && $newClassName !== ''
+                    && trim((string) $sheet->getCell([$classNameCol + 1, $excelRow])->getValue()) !== $newClassName
+                ) {
+                    $sheet->setCellValue([$classNameCol + 1, $excelRow], $newClassName);
                 }
 
                 if ($surgeryCol !== null && isset($decision['surgery_flag'])) {

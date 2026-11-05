@@ -3,6 +3,7 @@
 namespace App\Services\Bridge;
 
 use App\Services\Bridge\Ambiguous\ObatAlkesFamilyRule;
+use App\Services\Bridge\NotFound\RoomChargeQueryRule;
 
 /**
  * Loop baris Excel: normalisasi -> resolve -> kumpulkan ringkasan,
@@ -131,6 +132,7 @@ class BridgeTarifProcessor
                 'status' => $resolved['status'],
                 'new_service_code' => $resolved['new_service_code'],
                 'new_class_code' => $resolved['new_class_code'],
+                'new_class_name' => null,
                 'new_service_description' => $resolved['new_service_description'] ?? null,
                 'suggested_applied' => $resolved['suggested_applied'] ?? false,
             ];
@@ -301,15 +303,36 @@ class BridgeTarifProcessor
             }
         }
 
+        // Sinkronisasi kolom kelas baris kamar (Room Charge / Kamar
+        // Perawatan): level yang tertulis di service description menjadi
+        // sumber kebenaran kolom kelas. Hanya bila level dikenali DAN
+        // kelas master untuk level itu ada; selain itu kolom tidak
+        // disentuh.
+        $byRow = [];
+        foreach ($normalizedList as $normalized) {
+            $byRow[(int) ($normalized['excel_row'] ?? 0)] = $normalized;
+        }
+        foreach ($decisions as $excelRow => $decision) {
+            $normalized = $byRow[(int) $excelRow] ?? null;
+            if ($normalized === null) {
+                continue;
+            }
+            $this->syncRoomChargeClass($normalized, $decisions[$excelRow]);
+        }
+        foreach ($preview as $i => $row) {
+            $key = (int) ($row['excel_row'] ?? 0);
+            if (! isset($decisions[$key]['new_class_name'])) {
+                continue;
+            }
+            $preview[$i]['new_class_code'] = $decisions[$key]['new_class_code'];
+            $preview[$i]['new_class_name'] = $decisions[$key]['new_class_name'];
+        }
+
         // Bendera RUANG BEDAH per row untuk file hasil: OK bila
         // deskripsi yang tertulis (new bila service diganti, selain
         // itu bawaan Excel) menyebut pemakaian ruang operasi, selain
         // itu NON OK. Dihitung terakhir agar mencakup saran manual,
         // saran NOT_FOUND, dan konsensus.
-        $byRow = [];
-        foreach ($normalizedList as $normalized) {
-            $byRow[(int) ($normalized['excel_row'] ?? 0)] = $normalized;
-        }
         foreach ($decisions as $excelRow => $decision) {
             $oldDesc = (string) ($byRow[(int) $excelRow]['service_description'] ?? '');
             $replaced = (($decision['status'] ?? '') === TarifBridgeResolver::STATUS_MATCHED
@@ -424,6 +447,39 @@ class BridgeTarifProcessor
             'source' => null,
             'varied' => true,
         ];
+    }
+
+    /**
+     * Samakan kolom kelas baris kamar dengan level yang tertulis di
+     * service description (mis. "Room Charge VIP" -> VIP/KLV,
+     * "Kamar Perawatan Suite Room" -> SUITE ROOM/KLX). Description
+     * master hasil mapping dipakai lebih dulu; description Excel menjadi
+     * fallback. Tidak melakukan apa pun bila bukan baris kamar, level
+     * tidak disebut, atau kelas master untuk level itu tidak ada.
+     *
+     * @param  array<string, mixed>  $normalized
+     * @param  array<string, mixed>  $decision
+     */
+    protected function syncRoomChargeClass(array $normalized, array &$decision): void
+    {
+        $description = trim((string) ($decision['new_service_description'] ?? ''));
+        if ($description === '') {
+            $description = trim((string) ($normalized['service_description'] ?? ''));
+        }
+        if (! RoomChargeQueryRule::isRoomCharge($description)) {
+            return;
+        }
+        $level = RoomChargeQueryRule::levelFrom($description);
+        if ($level === null) {
+            return;
+        }
+        $classCode = $this->resolver->repository()->classCodeForLevel($level);
+        if ($classCode === null) {
+            return;
+        }
+
+        $decision['new_class_code'] = $classCode;
+        $decision['new_class_name'] = $level;
     }
 
     /**

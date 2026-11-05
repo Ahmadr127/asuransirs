@@ -59,6 +59,7 @@
             'new_service_code' => $row['new_service_code'] ?? null,
             'new_service_description' => $row['new_service_description'] ?? null,
             'new_class_code' => $row['new_class_code'] ?? null,
+            'new_class_name' => $row['new_class_name'] ?? null,
             'analysis' => $row['analysis'] ?? null,
             // Keyword pencarian efektif untuk saran master (NOT_FOUND).
             'search_query' => $row['search_query'] ?? null,
@@ -101,7 +102,17 @@
         <td class="px-4 py-3 whitespace-nowrap font-mono text-xs bg-gray-50">{{ $row['service_code'] !== '' ? $row['service_code'] : '-' }}</td>
         <td class="px-4 py-3 text-xs max-w-xs truncate" title="{{ $row['service_description'] !== '' ? $row['service_description'] : '-' }}">{{ $row['service_description'] !== '' ? $row['service_description'] : '-' }}</td>
         <td class="px-4 py-3 whitespace-nowrap font-mono text-xs bg-gray-50">{{ $row['service_class_code'] !== '' ? $row['service_class_code'] : '-' }}</td>
-        <td class="px-4 py-3 whitespace-nowrap text-xs">{{ $row['class_name'] !== '' ? $row['class_name'] : '-' }}</td>
+        @php
+            $oldClassName = (string) ($row['class_name'] ?? '');
+            $newClassName = trim((string) ($row['new_class_name'] ?? ''));
+            $displayClassName = $newClassName !== '' ? $newClassName : $oldClassName;
+        @endphp
+        <td class="px-4 py-3 whitespace-nowrap text-xs" title="{{ $oldClassName !== $newClassName && $newClassName !== '' ? 'Kelas Excel: '.$oldClassName.' | Kelas hasil: '.$newClassName : '' }}">
+            {{ $displayClassName !== '' ? $displayClassName : '-' }}
+            @if($newClassName !== '' && $newClassName !== $oldClassName && $oldClassName !== '')
+                <span class="block text-[10px] text-gray-400 line-through">{{ $oldClassName }}</span>
+            @endif
+        </td>
         <td class="px-4 py-3 whitespace-nowrap text-xs font-mono bg-teal-50/50">@if(isset($row['effective_tariff']) && is_numeric($row['effective_tariff'])) Rp {{ number_format((float) $row['effective_tariff'], 0, ',', '.') }}@else<span class="text-gray-300">—</span>@endif</td>
         <td class="px-4 py-3 whitespace-nowrap font-mono text-xs font-semibold bg-blue-50">{{ $row['new_service_code'] ?? '-' }}</td>
         <td class="px-4 py-3 text-xs max-w-xs truncate font-semibold bg-blue-50" title="{{ $row['new_service_description'] ?? '-' }}">{{ $row['new_service_description'] ?? '-' }}</td>
@@ -297,7 +308,7 @@
             + '<div class="border rounded-md p-2"><p class="font-semibold text-gray-500">Old Description</p><p>' + esc(d.service_description || '-') + '</p></div>'
             + '<div class="border rounded-md p-2 border-blue-300 bg-blue-50"><p class="font-semibold text-blue-700">New Description</p><p>' + esc(d.new_service_description || '-') + '</p></div>'
             + '<div class="border rounded-md p-2"><p class="font-semibold text-gray-500">Old Class Code</p><p class="font-mono">' + esc(d.service_class_code || '-') + '</p></div>'
-            + '<div class="border rounded-md p-2"><p class="font-semibold text-gray-500">Kelas</p><p>' + esc(d.class_name || '-') + '</p></div>'
+            + '<div class="border rounded-md p-2"><p class="font-semibold text-gray-500">Kelas</p><p>' + esc((d.new_class_name && d.new_class_name !== d.class_name) ? (d.class_name || '-') + ' → ' + d.new_class_name : (d.class_name || '-')) + '</p></div>'
             + '<div class="border rounded-md p-2"><p class="font-semibold text-gray-500">Tarif Excel</p><p class="font-mono">' + excelTariff + '</p></div>'
             + '<div class="border rounded-md p-2 border-teal-300 bg-teal-50"><p class="font-semibold text-teal-700">Tarif Efektif</p><p class="font-bold text-teal-900 font-mono">' + esc(effectiveLabel(d)) + '</p><p class="text-[11px] text-teal-700">Sumber: ' + esc(d.tariff_source_label || 'tidak tersedia') + '</p></div>'
             + '<div class="border rounded-md p-2"><p class="font-semibold text-gray-500">Total Billed</p><p class="font-mono">' + (d.total_billed === null || d.total_billed === undefined ? '-' : esc(rupiah(d.total_billed))) + '</p></div>'

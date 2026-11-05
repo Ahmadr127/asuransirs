@@ -413,7 +413,7 @@ class BridgeTarifTest extends TestCase
         $this->assertSame('catatan-a', $row[6]);
     }
 
-    public function test_generate_fills_surgery_flag_and_drops_los_column(): void
+    public function test_generate_fills_surgery_flag_and_keeps_los_column(): void
     {
         $this->createMaster('KMR01', 'Kamar Operasi X', 'Kamar Operasi & Sarana Bedah', 'KL2', 'KELAS 2');
         $header = ['PROVID', 'SERVICECODE', 'SERVICECODE DESCRIPTION', 'SERVICECODE KELAS', 'KELAS', 'RUANG BEDAH (SURGERY)/NON RUANG BEDAH (NON SURGERY)', 'TARIFF', 'NOTE', 'LoS'];
@@ -435,9 +435,11 @@ class BridgeTarifTest extends TestCase
         $sheet = IOFactory::load($out)->getActiveSheet()->toArray(null, true, true, false);
         $headers = array_values($sheet[0]);
 
-        // Kolom LoS dibuang dari file hasil.
-        $this->assertNotContains('LoS', $headers);
-        $this->assertCount(8, $headers);
+        // Kolom LoS dipertahankan (hanya teks "days" yang dibersihkan).
+        $this->assertContains('LoS', $headers);
+        $this->assertCount(9, $headers);
+        $losIdx = array_search('LoS', $headers, true);
+        $this->assertNotFalse($losIdx);
 
         $surgeryIdx = array_search('RUANG BEDAH (SURGERY)/NON RUANG BEDAH (NON SURGERY)', $headers, true);
         $this->assertNotFalse($surgeryIdx);
@@ -449,11 +451,14 @@ class BridgeTarifTest extends TestCase
         $rowPis = array_values($sheet[3]);
         $this->assertSame('KMR01', $rowKmr[$codeIdx]);
         $this->assertSame('OK', $rowKmr[$surgeryIdx]);
+        $this->assertSame('3', (string) $rowKmr[$losIdx]);
         $this->assertSame('MRI001', $rowMri[$codeIdx]);
         $this->assertSame('NON OK', $rowMri[$surgeryIdx]);
+        $this->assertSame('1', (string) $rowMri[$losIdx]);
         // Nama alat ("Pisau Bedah") dikecualikan walau memuat "bedah".
         $this->assertSame('OLD-PIS', $rowPis[$codeIdx]);
         $this->assertSame('NON OK', $rowPis[$surgeryIdx]);
+        $this->assertSame('2', (string) $rowPis[$losIdx]);
     }
 
     public function test_scan_and_generate_create_no_masters(): void
@@ -1617,6 +1622,65 @@ class BridgeTarifTest extends TestCase
         $this->assertSame('KMK2', $row['suggestions'][0]['service_code']);
         $this->assertSame('KMK2', $row['new_service_code']);
         $this->assertTrue($row['suggested_applied']);
+    }
+
+    public function test_generate_room_charge_syncs_class_columns_from_description(): void
+    {
+        // Room Charge selalu menyebut level kamar. Kolom kelas hasil
+        // generate harus mengikuti level di service description, bukan
+        // bawaan Excel: nama kelas = label level (VIP / SUITE ROOM),
+        // kode kelas = kelas master yang cocok (KLV / KLX).
+        $this->createMaster('KMPP', 'Kamar Perawatan VIP', 'Kamar Perawatan VIP', 'KLV', 'VIP');
+        $this->createMaster('KMPS', 'Kamar Perawatan Suite Room', 'Kamar Perawatan Suite Room', 'KLX', 'SUITE');
+
+        $rows = [
+            ['PRV1', 'OLD-VIP', 'Room Charge VIP', 'OLD-K2', 'KELAS 2', 100000, 'a'],
+            ['PRV1', 'OLD-SUI', 'Room Charge Suite', 'OLD-K2', 'KELAS 2', 100000, 'b'],
+            // Bukan baris kamar: kolom kelas tidak boleh ikut diubah.
+            ['PRV1', 'OLD-MRI', 'MRI Otak Tanpa Kontras', 'OLD-K1', 'KELAS 1', 100000, 'c'],
+        ];
+
+        // Preview (halaman hasil) juga membawa nama kelas hasil sync.
+        $preview = $this->scanRows($rows, $this->header());
+        $this->assertSame('VIP', $preview['preview'][0]['new_class_name']);
+        $this->assertSame('KLV', $preview['preview'][0]['new_class_code']);
+        $this->assertSame('SUITE ROOM', $preview['preview'][1]['new_class_name']);
+        $this->assertNull($preview['preview'][2]['new_class_name'] ?? null);
+
+        $token = $this->scanOk($rows, $this->header());
+
+        $gen = $this->actingAs($this->user)->post(route('bridge.generate'), ['token' => $token]);
+        $gen->assertRedirect(route('bridge.download', $token));
+
+        $dl = $this->actingAs($this->user)->get(route('bridge.download', $token));
+        $dl->assertOk();
+
+        $out = tempnam(sys_get_temp_dir(), 'bout').'.xlsx';
+        file_put_contents($out, $dl->streamedContent() ?: $dl->getContent());
+        $sheet = IOFactory::load($out)->getActiveSheet()->toArray(null, true, true, false);
+        $headers = array_values($sheet[0]);
+
+        $codeIdx = array_search('SERVICECODE', $headers, true);
+        $classCodeIdx = array_search('SERVICECODE KELAS', $headers, true);
+        $classNameIdx = array_search('KELAS', $headers, true);
+        $this->assertNotFalse($codeIdx);
+        $this->assertNotFalse($classCodeIdx);
+        $this->assertNotFalse($classNameIdx);
+
+        $vip = array_values($sheet[1]);
+        $suite = array_values($sheet[2]);
+        $mri = array_values($sheet[3]);
+
+        $this->assertSame('KMPP', $vip[$codeIdx]);
+        $this->assertSame('KLV', $vip[$classCodeIdx]);
+        $this->assertSame('VIP', $vip[$classNameIdx]);
+
+        $this->assertSame('KMPS', $suite[$codeIdx]);
+        $this->assertSame('KLX', $suite[$classCodeIdx]);
+        $this->assertSame('SUITE ROOM', $suite[$classNameIdx]);
+
+        $this->assertSame('MRI001', $mri[$codeIdx]);
+        $this->assertSame('KELAS 1', $mri[$classNameIdx]);
     }
 
     public function test_notfound_varicocelectomy_single_token_strong_autofill(): void

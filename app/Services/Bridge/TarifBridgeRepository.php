@@ -246,20 +246,7 @@ class TarifBridgeRepository
      */
     public function classCodeFor(?string $className, ?string $classCode = null): ?string
     {
-        if ($this->classMap === null) {
-            $this->classMap = [];
-            $this->classCodeMap = [];
-            foreach (DB::table('classes')->select(['code', 'name'])->orderBy('id')->get() as $row) {
-                $code = mb_strtoupper(trim((string) $row->code));
-                if ($code !== '' && ! isset($this->classCodeMap[$code])) {
-                    $this->classCodeMap[$code] = $code;
-                }
-                $key = BridgeTarifRowNormalizer::normalizeKey((string) $row->name);
-                if ($key !== '' && ! isset($this->classMap[$key])) {
-                    $this->classMap[$key] = $code;
-                }
-            }
-        }
+        $this->ensureClassMaps();
 
         $nameKey = BridgeTarifRowNormalizer::normalizeKey((string) $className);
         if ($nameKey !== '' && isset($this->classMap[$nameKey])) {
@@ -272,5 +259,58 @@ class TarifBridgeRepository
         }
 
         return null;
+    }
+
+    /**
+     * Kode kelas master untuk level kamar hasil RoomChargeQueryRule
+     * ("KELAS 1/2/3", "VVIP", "VIP", "UTAMA", "SUITE ROOM", "UMUM").
+     * Cocok persis nama kelas dulu, lalu akhiran ("KELAS UTAMA" untuk
+     * UTAMA) dan awalan ("SUITE" untuk SUITE ROOM). null bila tidak ada
+     * kelas master yang yakin — caller tidak boleh mengubah kolom kelas.
+     */
+    public function classCodeForLevel(string $level): ?string
+    {
+        $this->ensureClassMaps();
+
+        $levelKey = BridgeTarifRowNormalizer::normalizeKey($level);
+        if ($levelKey === '') {
+            return null;
+        }
+        if (isset($this->classMap[$levelKey])) {
+            return $this->classMap[$levelKey];
+        }
+        foreach ($this->classMap as $nameKey => $code) {
+            if (str_ends_with($nameKey, ' '.$levelKey)) {
+                return $code;
+            }
+        }
+        // Level lebih panjang dari nama kelas: "SUITE ROOM" -> "SUITE".
+        foreach ($this->classMap as $nameKey => $code) {
+            if (str_starts_with($levelKey, $nameKey.' ')) {
+                return $code;
+            }
+        }
+
+        return null;
+    }
+
+    protected function ensureClassMaps(): void
+    {
+        if ($this->classMap !== null) {
+            return;
+        }
+
+        $this->classMap = [];
+        $this->classCodeMap = [];
+        foreach (DB::table('classes')->select(['code', 'name'])->orderBy('id')->get() as $row) {
+            $code = mb_strtoupper(trim((string) $row->code));
+            if ($code !== '' && ! isset($this->classCodeMap[$code])) {
+                $this->classCodeMap[$code] = $code;
+            }
+            $key = BridgeTarifRowNormalizer::normalizeKey((string) $row->name);
+            if ($key !== '' && ! isset($this->classMap[$key])) {
+                $this->classMap[$key] = $code;
+            }
+        }
     }
 }

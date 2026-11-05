@@ -43,10 +43,19 @@ final class RoomChargeQueryRule
     }
 
     /**
+     * True bila description adalah baris kamar (Room Charge / Kamar
+     * Perawatan). Dipakai sinkronisasi kolom kelas hasil generate.
+     */
+    public static function isRoomCharge(string $description): bool
+    {
+        return (bool) preg_match('/\broom\b|kamar\s+perawatan/iu', $description);
+    }
+
+    /**
      * Petakan sebutan level ke suffix kanonis master.
      * Urutan penting: VVIP sebelum VIP, KELAS berangka sebelum umum.
      */
-    protected static function levelFrom(string $text): ?string
+    public static function levelFrom(string $text): ?string
     {
         $normalized = ' '.trim((string) preg_replace('/[^a-z0-9]+/iu', ' ', $text)).' ';
 
